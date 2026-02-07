@@ -3,7 +3,7 @@
   "name": "Word Lookup - 划词查义",
   "version": "1.0.0",
   "description": "划词查义 - 选中单词右键查询释义，支持中英互查，数据来自有道词典。",
-  "permissions": ["contextMenus", "activeTab"],
+  "permissions": ["contextMenus", "activeTab", "storage"],
   "host_permissions": ["https://dict.youdao.com/*"],
   "background": {
     "service_worker": "background.js"

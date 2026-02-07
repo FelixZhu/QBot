@@ -1,11 +1,112 @@
 const input = document.getElementById("word-input");
 const searchBtn = document.getElementById("search-btn");
 const resultDiv = document.getElementById("result");
+const searchView = document.getElementById("search-view");
+const vocabView = document.getElementById("vocab-view");
+const tabBtns = document.querySelectorAll(".tab-btn");
 
 searchBtn.addEventListener("click", () => search());
 input.addEventListener("keydown", (e) => {
   if (e.key === "Enter") search();
 });
+
+// --- Tab switching ---
+
+tabBtns.forEach((btn) => {
+  btn.addEventListener("click", () => {
+    const tab = btn.getAttribute("data-tab");
+    tabBtns.forEach((b) => b.classList.remove("active"));
+    btn.classList.add("active");
+
+    if (tab === "vocab") {
+      searchView.style.display = "none";
+      vocabView.style.display = "block";
+      renderVocabularyList();
+    } else {
+      searchView.style.display = "block";
+      vocabView.style.display = "none";
+    }
+  });
+});
+
+// --- Vocabulary storage helpers ---
+
+async function getVocabulary() {
+  const result = await chrome.storage.local.get({ vocabulary: [] });
+  return result.vocabulary;
+}
+
+async function saveWordToVocabulary(word) {
+  const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+  const url = tabs[0]?.url || "";
+  const timestamp = Date.now();
+  const key = word.toLowerCase();
+
+  const vocabulary = await getVocabulary();
+  const existingIndex = vocabulary.findIndex((v) => v.word.toLowerCase() === key);
+  if (existingIndex >= 0) {
+    vocabulary[existingIndex].url = url;
+    vocabulary[existingIndex].timestamp = timestamp;
+  } else {
+    vocabulary.push({ word, url, timestamp });
+  }
+
+  await chrome.storage.local.set({ vocabulary });
+}
+
+async function removeWordFromVocabulary(word) {
+  const vocabulary = await getVocabulary();
+  const filtered = vocabulary.filter((v) => v.word.toLowerCase() !== word.toLowerCase());
+  await chrome.storage.local.set({ vocabulary: filtered });
+}
+
+async function isWordSaved(word) {
+  const vocabulary = await getVocabulary();
+  return vocabulary.some((v) => v.word.toLowerCase() === word.toLowerCase());
+}
+
+// --- Vocabulary list rendering ---
+
+async function renderVocabularyList() {
+  const vocabulary = await getVocabulary();
+
+  if (vocabulary.length === 0) {
+    vocabView.innerHTML = '<div class="vocab-empty">还没有收藏任何单词</div>';
+    return;
+  }
+
+  // Sort by timestamp descending (newest first)
+  const sorted = [...vocabulary].sort((a, b) => b.timestamp - a.timestamp);
+
+  let html = `<div class="vocab-count">共 ${sorted.length} 个单词</div>`;
+  for (const item of sorted) {
+    const date = new Date(item.timestamp);
+    const timeStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")} ${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+
+    html += `<div class="vocab-item">`;
+    html += `  <div class="vocab-info">`;
+    html += `    <div class="vocab-word">${escapeHtml(item.word)}</div>`;
+    html += `    <div class="vocab-meta">`;
+    html += `      <span>${timeStr}</span>`;
+    if (item.url) {
+      let displayUrl;
+      try {
+        displayUrl = new URL(item.url).hostname;
+      } catch {
+        displayUrl = item.url;
+      }
+      html += `      <a class="vocab-url" href="${escapeHtml(item.url)}" target="_blank" title="${escapeHtml(item.url)}">${escapeHtml(displayUrl)}</a>`;
+    }
+    html += `    </div>`;
+    html += `  </div>`;
+    html += `  <button class="vocab-delete" data-word="${escapeHtml(item.word)}" title="删除">🗑️</button>`;
+    html += `</div>`;
+  }
+
+  vocabView.innerHTML = html;
+}
+
+// --- Search ---
 
 function isChinese(text) {
   return /[\u4e00-\u9fff]/.test(text);
@@ -30,10 +131,25 @@ async function search() {
     } else {
       renderEnglishResult(data, word);
     }
+
+    // Update save button states for already-saved words
+    await updateSaveButtonStates();
   } catch {
     resultDiv.innerHTML = '<div class="error">网络错误，请重试。</div>';
   }
 }
+
+async function updateSaveButtonStates() {
+  const buttons = resultDiv.querySelectorAll(".save-btn");
+  for (const btn of buttons) {
+    const word = btn.getAttribute("data-word");
+    if (word && await isWordSaved(word)) {
+      btn.textContent = "\u2705";
+    }
+  }
+}
+
+// --- Render functions ---
 
 function renderEnglishResult(data, word) {
   const ec = data.ec;
@@ -48,7 +164,7 @@ function renderEnglishResult(data, word) {
   const trs = wordInfo.trs || [];
   const returnWord = wordInfo["return-phrase"] || word;
 
-  let html = `<div class="word-title">${escapeHtml(returnWord)}</div>`;
+  let html = `<div class="word-title-row"><span class="word-title">${escapeHtml(returnWord)}</span><button class="save-btn" data-word="${escapeHtml(returnWord)}">➕</button></div>`;
 
   let phoneticParts = [];
   if (ukphone) phoneticParts.push(`UK /${escapeHtml(ukphone)}/`);
@@ -118,7 +234,11 @@ function renderChineseResult(data, word) {
       const text = tr["#text"] || "";
       const tran = tr["#tran"] || "";
       if (text) {
-        html += `<div class="def"><strong>${escapeHtml(text)}</strong></div>`;
+        // Extract English words for save button
+        const englishWords = text.match(/[a-zA-Z]+(?:\s+[a-zA-Z]+)*/g);
+        const saveWord = englishWords ? englishWords[0] : text;
+
+        html += `<div class="def"><strong>${escapeHtml(text)}</strong><button class="save-btn save-inline" data-word="${escapeHtml(saveWord)}">➕</button></div>`;
         if (tran) html += `<div class="def-detail">${escapeHtml(tran)}</div>`;
       }
     }
@@ -145,3 +265,32 @@ function escapeHtml(str) {
   div.textContent = str;
   return div.innerHTML;
 }
+
+// --- Event delegation for save and delete buttons ---
+
+document.addEventListener("click", async (e) => {
+  // Handle save button click
+  if (e.target && e.target.classList.contains("save-btn")) {
+    const word = e.target.getAttribute("data-word");
+    if (!word) return;
+    try {
+      await saveWordToVocabulary(word);
+      e.target.textContent = "\u2705";
+    } catch {
+      // Silently fail
+    }
+    return;
+  }
+
+  // Handle vocab delete button click
+  if (e.target && e.target.classList.contains("vocab-delete")) {
+    const word = e.target.getAttribute("data-word");
+    if (!word) return;
+    try {
+      await removeWordFromVocabulary(word);
+      renderVocabularyList();
+    } catch {
+      // Silently fail
+    }
+  }
+});
