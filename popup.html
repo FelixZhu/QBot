@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
   <style>
@@ -10,8 +10,8 @@
     }
 
     body {
-      width: 320px;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      width: 360px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
       color: #333;
       padding: 16px;
     }
@@ -61,7 +61,7 @@
     #result {
       font-size: 13px;
       line-height: 1.6;
-      max-height: 350px;
+      max-height: 400px;
       overflow-y: auto;
     }
 
@@ -81,11 +81,33 @@
       padding-left: 8px;
     }
 
-    .example {
+    .def-detail {
       color: #666;
-      font-style: italic;
-      padding-left: 16px;
-      margin: 2px 0 4px;
+      font-size: 12px;
+      padding-left: 8px;
+      margin: 2px 0 6px;
+    }
+
+    .section-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: #999;
+      margin: 10px 0 4px;
+      padding-top: 8px;
+      border-top: 1px solid #f0f0f0;
+    }
+
+    .example {
+      color: #444;
+      padding-left: 8px;
+      margin: 4px 0 0;
+      font-size: 12px;
+    }
+
+    .example-cn {
+      color: #888;
+      padding-left: 8px;
+      margin: 0 0 6px;
       font-size: 12px;
     }
 
@@ -120,13 +142,13 @@
   </style>
 </head>
 <body>
-  <h1>Word Lookup</h1>
+  <h1>划词查义</h1>
   <div class="search-box">
-    <input type="text" id="word-input" placeholder="Enter a word..." autofocus>
-    <button id="search-btn">Search</button>
+    <input type="text" id="word-input" placeholder="输入中文或英文单词..." autofocus>
+    <button id="search-btn">查询</button>
   </div>
   <div id="result">
-    <div class="hint">Select a word on any webpage and right-click to look it up, or search directly here.</div>
+    <div class="hint">在网页上选中单词右键查询，或在此直接搜索。支持中英互查。</div>
   </div>
 
   <script src="popup.js"></script>

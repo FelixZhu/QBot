@@ -3,13 +3,13 @@
 #qbot-word-popup {
   position: absolute;
   z-index: 2147483647;
-  width: 360px;
-  max-height: 420px;
+  width: 380px;
+  max-height: 460px;
   background: #ffffff;
   border: 1px solid #e0e0e0;
   border-radius: 10px;
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.15);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
   font-size: 14px;
   line-height: 1.5;
   color: #333;
@@ -121,6 +121,35 @@
 
 @keyframes qbot-spin {
   to { transform: rotate(360deg); }
+}
+
+#qbot-word-popup .qbot-phonetics {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+#qbot-word-popup .qbot-section-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: #999;
+  margin: 10px 0 4px;
+  padding-top: 8px;
+  border-top: 1px solid #f0f0f0;
+}
+
+#qbot-word-popup .qbot-example-cn {
+  color: #888;
+  padding-left: 12px;
+  margin: 0 0 6px;
+  font-size: 13px;
+}
+
+#qbot-word-popup .qbot-def-detail {
+  color: #666;
+  font-size: 12px;
+  padding-left: 4px;
+  margin: 2px 0 6px;
 }
 
 #qbot-word-popup .qbot-not-found,
