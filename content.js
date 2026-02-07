@@ -1,46 +1,41 @@
-// Content script: receives lookup messages and displays definition popup
+// Content script: displays translation popup and handles word book actions
 
 const POPUP_ID = "qbot-word-popup";
-const API_URL = "https://api.dictionaryapi.dev/api/v2/entries/en/";
+const TOAST_ID = "qbot-toast";
+
+// State for current translation (used by "add to word book" button)
+let currentTranslation = null;
 
 // Listen for messages from background script
 chrome.runtime.onMessage.addListener((message) => {
-  if (message.action === "lookup" && message.word) {
-    lookupWord(message.word);
+  switch (message.action) {
+    case "showLoading":
+      showPopupWithContent(renderLoading(message.word));
+      break;
+    case "showTranslation":
+      currentTranslation = message;
+      showPopupWithContent(renderTranslation(message));
+      break;
+    case "showTranslateError":
+      showPopupWithContent(renderError(message.word));
+      break;
+    case "showAddedToast":
+      showToast(message.word, message.error);
+      break;
   }
 });
 
-// Look up word via Free Dictionary API and show popup
-async function lookupWord(word) {
+// --- Popup management ---
+
+function showPopupWithContent(html) {
   removePopup();
-
-  const popup = createPopup();
-  popup.innerHTML = renderLoading(word);
-  document.body.appendChild(popup);
-  positionPopup(popup);
-
-  try {
-    const response = await fetch(`${API_URL}${encodeURIComponent(word)}`);
-    if (!response.ok) {
-      popup.innerHTML = renderNotFound(word);
-      return;
-    }
-
-    const data = await response.json();
-    popup.innerHTML = renderDefinition(word, data);
-  } catch {
-    popup.innerHTML = renderError(word);
-  }
-}
-
-// Create the popup container element
-function createPopup() {
   const popup = document.createElement("div");
   popup.id = POPUP_ID;
-  return popup;
+  popup.innerHTML = html;
+  document.body.appendChild(popup);
+  positionPopup(popup);
 }
 
-// Position popup near the text selection
 function positionPopup(popup) {
   const selection = window.getSelection();
   if (!selection.rangeCount) return;
@@ -51,8 +46,7 @@ function positionPopup(popup) {
   let top = rect.bottom + window.scrollY + 8;
   let left = rect.left + window.scrollX;
 
-  // Ensure popup doesn't go off-screen right
-  const popupWidth = 360;
+  const popupWidth = 380;
   if (left + popupWidth > window.innerWidth + window.scrollX) {
     left = window.innerWidth + window.scrollX - popupWidth - 16;
   }
@@ -64,28 +58,84 @@ function positionPopup(popup) {
   popup.style.left = `${left}px`;
 }
 
-// Remove existing popup
 function removePopup() {
   const existing = document.getElementById(POPUP_ID);
-  if (existing) {
-    existing.remove();
-  }
+  if (existing) existing.remove();
+  currentTranslation = null;
 }
 
-// Close popup when clicking outside
+// Close popup on outside click
 document.addEventListener("mousedown", (e) => {
   const popup = document.getElementById(POPUP_ID);
   if (popup && !popup.contains(e.target)) {
-    popup.remove();
-  }
-});
-
-// Close popup on Escape key
-document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape") {
     removePopup();
   }
 });
+
+// Close popup on Escape
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") removePopup();
+});
+
+// Delegate button clicks inside popup
+document.addEventListener("click", (e) => {
+  if (e.target && e.target.id === "qbot-close-btn") {
+    removePopup();
+  }
+  if (e.target && e.target.id === "qbot-add-word-btn") {
+    addWordFromPopup();
+  }
+});
+
+// --- Add to word book from translation popup ---
+
+function addWordFromPopup() {
+  if (!currentTranslation) return;
+
+  const { original, translated, targetLang } = currentTranslation;
+  // Always save the English word
+  const englishWord = targetLang === "en" ? translated : original;
+  const url = currentTranslation.url || window.location.href;
+
+  const btn = document.getElementById("qbot-add-word-btn");
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = "Adding...";
+  }
+
+  chrome.runtime.sendMessage(
+    { action: "addToWordBook", word: englishWord, url },
+    () => {
+      if (btn) {
+        btn.textContent = "Added!";
+        btn.classList.add("qbot-btn-done");
+      }
+    }
+  );
+}
+
+// --- Toast notification ---
+
+function showToast(word, isError) {
+  removeToast();
+  const toast = document.createElement("div");
+  toast.id = TOAST_ID;
+  if (isError) {
+    toast.className = "qbot-toast-error";
+    toast.textContent = `Failed to add "${word}"`;
+  } else {
+    toast.textContent = `"${word}" added to word book`;
+  }
+  document.body.appendChild(toast);
+
+  // Auto-remove after 2 seconds
+  setTimeout(() => removeToast(), 2000);
+}
+
+function removeToast() {
+  const existing = document.getElementById(TOAST_ID);
+  if (existing) existing.remove();
+}
 
 // --- Render functions ---
 
@@ -98,20 +148,8 @@ function renderLoading(word) {
     <div class="qbot-body">
       <div class="qbot-loading">
         <div class="qbot-spinner"></div>
-        <span>Looking up...</span>
+        <span>Translating...</span>
       </div>
-    </div>
-  `;
-}
-
-function renderNotFound(word) {
-  return `
-    <div class="qbot-header">
-      <span class="qbot-word">${escapeHtml(word)}</span>
-      <button class="qbot-close" id="qbot-close-btn">&times;</button>
-    </div>
-    <div class="qbot-body">
-      <div class="qbot-not-found">No definition found for "<strong>${escapeHtml(word)}</strong>"</div>
     </div>
   `;
 }
@@ -123,55 +161,53 @@ function renderError(word) {
       <button class="qbot-close" id="qbot-close-btn">&times;</button>
     </div>
     <div class="qbot-body">
-      <div class="qbot-error">Network error. Please check your connection and try again.</div>
+      <div class="qbot-error">Translation failed. Please check your connection and try again.</div>
     </div>
   `;
 }
 
-function renderDefinition(word, data) {
-  const entry = data[0];
-  const phonetic = getPhonetic(entry);
+function renderTranslation(data) {
+  const { original, translated, detectedLang, targetLang } = data;
 
-  let html = `
+  const langLabel =
+    targetLang === "en" ? "Chinese → English" : `${getLangName(detectedLang)} → Chinese`;
+
+  return `
     <div class="qbot-header">
       <div class="qbot-title-row">
-        <span class="qbot-word">${escapeHtml(entry.word || word)}</span>
-        ${phonetic ? `<span class="qbot-phonetic">${escapeHtml(phonetic)}</span>` : ""}
+        <span class="qbot-word">${escapeHtml(original)}</span>
+        <span class="qbot-lang-badge">${escapeHtml(langLabel)}</span>
       </div>
-      <button class="qbot-close" id="qbot-close-btn">&times;</button>
+      <div class="qbot-header-actions">
+        <button class="qbot-add-btn" id="qbot-add-word-btn" title="Add to word book">Q 加入单词本</button>
+        <button class="qbot-close" id="qbot-close-btn">&times;</button>
+      </div>
     </div>
     <div class="qbot-body">
+      <div class="qbot-translation">${escapeHtml(translated)}</div>
+    </div>
   `;
-
-  // Render each meaning (part of speech + definitions)
-  const meanings = entry.meanings || [];
-  for (const meaning of meanings) {
-    html += `<div class="qbot-meaning">`;
-    html += `<div class="qbot-pos">${escapeHtml(meaning.partOfSpeech)}</div>`;
-
-    const definitions = (meaning.definitions || []).slice(0, 3);
-    for (let i = 0; i < definitions.length; i++) {
-      const def = definitions[i];
-      html += `<div class="qbot-def">${i + 1}. ${escapeHtml(def.definition)}</div>`;
-      if (def.example) {
-        html += `<div class="qbot-example">"${escapeHtml(def.example)}"</div>`;
-      }
-    }
-    html += `</div>`;
-  }
-
-  html += `</div>`;
-  return html;
 }
 
-// Extract the best phonetic text
-function getPhonetic(entry) {
-  if (entry.phonetic) return entry.phonetic;
-  const phonetics = entry.phonetics || [];
-  for (const p of phonetics) {
-    if (p.text) return p.text;
-  }
-  return null;
+function getLangName(code) {
+  const names = {
+    en: "English",
+    zh: "Chinese",
+    "zh-CN": "Chinese",
+    "zh-TW": "Chinese",
+    ja: "Japanese",
+    ko: "Korean",
+    fr: "French",
+    de: "German",
+    es: "Spanish",
+    ru: "Russian",
+    pt: "Portuguese",
+    it: "Italian",
+    ar: "Arabic",
+    th: "Thai",
+    vi: "Vietnamese",
+  };
+  return names[code] || code;
 }
 
 // Escape HTML to prevent XSS
@@ -180,10 +216,3 @@ function escapeHtml(str) {
   div.textContent = str;
   return div.innerHTML;
 }
-
-// Delegate close button click (works for dynamically rendered buttons)
-document.addEventListener("click", (e) => {
-  if (e.target && e.target.id === "qbot-close-btn") {
-    removePopup();
-  }
-});

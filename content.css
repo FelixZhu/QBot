@@ -1,10 +1,10 @@
-/* QBot Word Lookup - In-page popup styles */
+/* QBot - In-page translation popup styles */
 
 #qbot-word-popup {
   position: absolute;
   z-index: 2147483647;
-  width: 360px;
-  max-height: 420px;
+  width: 380px;
+  max-height: 300px;
   background: #ffffff;
   border: 1px solid #e0e0e0;
   border-radius: 10px;
@@ -16,34 +16,73 @@
   overflow: hidden;
 }
 
+/* --- Header --- */
+
 #qbot-word-popup .qbot-header {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
-  padding: 12px 14px 8px;
+  align-items: center;
+  padding: 10px 14px;
   border-bottom: 1px solid #f0f0f0;
   background: #fafbfc;
+  gap: 8px;
 }
 
 #qbot-word-popup .qbot-title-row {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 8px;
   flex: 1;
   min-width: 0;
 }
 
 #qbot-word-popup .qbot-word {
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 700;
   color: #202124;
   word-break: break-word;
 }
 
-#qbot-word-popup .qbot-phonetic {
-  font-size: 13px;
+#qbot-word-popup .qbot-lang-badge {
+  font-size: 11px;
   color: #666;
+  background: #f0f0f0;
+  padding: 2px 6px;
+  border-radius: 3px;
+  white-space: nowrap;
   flex-shrink: 0;
+}
+
+#qbot-word-popup .qbot-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+#qbot-word-popup .qbot-add-btn {
+  background: #1a73e8;
+  color: white;
+  border: none;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.2s;
+}
+
+#qbot-word-popup .qbot-add-btn:hover {
+  background: #1557b0;
+}
+
+#qbot-word-popup .qbot-add-btn:disabled {
+  cursor: default;
+  opacity: 0.7;
+}
+
+#qbot-word-popup .qbot-btn-done {
+  background: #34a853 !important;
 }
 
 #qbot-word-popup .qbot-close {
@@ -52,7 +91,7 @@
   font-size: 20px;
   color: #999;
   cursor: pointer;
-  padding: 0 0 0 8px;
+  padding: 0;
   line-height: 1;
   flex-shrink: 0;
 }
@@ -61,45 +100,21 @@
   color: #333;
 }
 
+/* --- Body --- */
+
 #qbot-word-popup .qbot-body {
-  padding: 10px 14px 14px;
+  padding: 12px 14px 14px;
   overflow-y: auto;
-  max-height: 340px;
+  max-height: 220px;
 }
 
-#qbot-word-popup .qbot-meaning {
-  margin-bottom: 10px;
+#qbot-word-popup .qbot-translation {
+  font-size: 16px;
+  color: #202124;
+  line-height: 1.6;
 }
 
-#qbot-word-popup .qbot-meaning:last-child {
-  margin-bottom: 0;
-}
-
-#qbot-word-popup .qbot-pos {
-  display: inline-block;
-  background: #e8f0fe;
-  color: #1a73e8;
-  padding: 1px 8px;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: 600;
-  margin-bottom: 6px;
-}
-
-#qbot-word-popup .qbot-def {
-  margin: 4px 0;
-  padding-left: 4px;
-  color: #333;
-}
-
-#qbot-word-popup .qbot-example {
-  color: #666;
-  font-style: italic;
-  padding-left: 12px;
-  margin: 2px 0 6px;
-  font-size: 13px;
-  border-left: 2px solid #e0e0e0;
-}
+/* --- Loading --- */
 
 #qbot-word-popup .qbot-loading {
   display: flex;
@@ -123,13 +138,43 @@
   to { transform: rotate(360deg); }
 }
 
-#qbot-word-popup .qbot-not-found,
+/* --- Error --- */
+
 #qbot-word-popup .qbot-error {
   text-align: center;
   padding: 16px 0;
-  color: #666;
+  color: #d93025;
 }
 
-#qbot-word-popup .qbot-error {
-  color: #d93025;
+/* --- Toast notification --- */
+
+#qbot-toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2147483647;
+  background: #323232;
+  color: #fff;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  animation: qbot-toast-in 0.3s ease;
+}
+
+#qbot-toast.qbot-toast-error {
+  background: #d93025;
+}
+
+@keyframes qbot-toast-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
 }
