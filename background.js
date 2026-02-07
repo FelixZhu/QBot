@@ -1,14 +1,20 @@
-// Create context menu items when extension is installed
+console.log("QBot: service worker loaded");
+
+// Create context menu items when extension is installed or updated
 chrome.runtime.onInstalled.addListener(() => {
-  chrome.contextMenus.create({
-    id: "qbot-translate",
-    title: 'Q 翻译 "%s"',
-    contexts: ["selection"],
-  });
-  chrome.contextMenus.create({
-    id: "qbot-add-word",
-    title: 'Q 加入单词本 "%s"',
-    contexts: ["selection"],
+  // Remove old menus first to avoid duplicates
+  chrome.contextMenus.removeAll(() => {
+    chrome.contextMenus.create({
+      id: "qbot-translate",
+      title: 'Q 翻译 "%s"',
+      contexts: ["selection"],
+    });
+    chrome.contextMenus.create({
+      id: "qbot-add-word",
+      title: 'Q 加入单词本 "%s"',
+      contexts: ["selection"],
+    });
+    console.log("QBot: context menus created");
   });
 });
 
@@ -35,7 +41,8 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
         targetLang: result.targetLang,
         url: info.pageUrl,
       });
-    } catch {
+    } catch (e) {
+      console.error("QBot translate error:", e);
       chrome.tabs.sendMessage(tab.id, {
         action: "showTranslateError",
         word: text,
@@ -56,7 +63,8 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
           action: "showAddedToast",
           word: result.translated,
         });
-      } catch {
+      } catch (e) {
+        console.error("QBot add word error:", e);
         chrome.tabs.sendMessage(tab.id, {
           action: "showAddedToast",
           word: text,
