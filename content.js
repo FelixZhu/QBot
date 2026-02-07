@@ -95,6 +95,20 @@ document.addEventListener("keydown", (e) => {
   }
 });
 
+// Press T to translate selected text
+document.addEventListener("keydown", (e) => {
+  if (e.key === "t" || e.key === "T") {
+    // Skip if user is typing in an input/textarea/contenteditable
+    const tag = e.target.tagName;
+    if (tag === "INPUT" || tag === "TEXTAREA" || e.target.isContentEditable) return;
+
+    const selection = window.getSelection().toString().trim();
+    if (selection) {
+      lookupWord(selection);
+    }
+  }
+});
+
 // --- Render functions ---
 
 function renderLoading(word) {
