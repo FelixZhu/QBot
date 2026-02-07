@@ -14,6 +14,32 @@ function isChinese(text) {
   return /[\u4e00-\u9fff]/.test(text);
 }
 
+// --- Vocabulary storage helpers ---
+
+async function saveWordToVocabulary(word) {
+  const url = window.location.href;
+  const timestamp = Date.now();
+  const key = word.toLowerCase();
+
+  const result = await chrome.storage.local.get({ vocabulary: [] });
+  const vocabulary = result.vocabulary;
+
+  const existingIndex = vocabulary.findIndex((v) => v.word.toLowerCase() === key);
+  if (existingIndex >= 0) {
+    vocabulary[existingIndex].url = url;
+    vocabulary[existingIndex].timestamp = timestamp;
+  } else {
+    vocabulary.push({ word, url, timestamp });
+  }
+
+  await chrome.storage.local.set({ vocabulary });
+}
+
+async function isWordSaved(word) {
+  const result = await chrome.storage.local.get({ vocabulary: [] });
+  return result.vocabulary.some((v) => v.word.toLowerCase() === word.toLowerCase());
+}
+
 // Look up word via background script (avoids CORS issues)
 async function lookupWord(word) {
   removePopup();
@@ -36,8 +62,22 @@ async function lookupWord(word) {
     } else {
       popup.innerHTML = renderEnglishResult(word, data);
     }
+
+    // Update save button states for already-saved words
+    await updateSaveButtonStates(popup);
   } catch {
     popup.innerHTML = renderError(word);
+  }
+}
+
+// Check saved status and update all save buttons in the popup
+async function updateSaveButtonStates(popup) {
+  const buttons = popup.querySelectorAll(".qbot-save-btn");
+  for (const btn of buttons) {
+    const word = btn.getAttribute("data-word");
+    if (word && await isWordSaved(word)) {
+      btn.textContent = "\u2705";
+    }
   }
 }
 
@@ -156,6 +196,7 @@ function renderEnglishResult(word, data) {
       <div class="qbot-title-row">
         <span class="qbot-word">${escapeHtml(returnWord)}</span>
       </div>
+      <button class="qbot-save-btn" data-word="${escapeHtml(returnWord)}">➕</button>
       <button class="qbot-close" id="qbot-close-btn">&times;</button>
     </div>
     <div class="qbot-body">
@@ -233,15 +274,21 @@ function renderChineseResult(word, data) {
     html += `<div class="qbot-phonetics"><span class="qbot-phonetic">${escapeHtml(phone)}</span></div>`;
   }
 
-  // CE translations
+  // CE translations with inline save buttons for English words
   if (ce && ce.word) {
     const trs = ce.word.trs || [];
     for (const tr of trs) {
       const text = tr["#text"] || "";
       const tran = tr["#tran"] || "";
       if (text) {
+        // Extract English words from the translation text for the save button
+        const englishWords = text.match(/[a-zA-Z]+(?:\s+[a-zA-Z]+)*/g);
+        const saveWord = englishWords ? englishWords[0] : text;
+
         html += `<div class="qbot-meaning">`;
-        html += `<div class="qbot-def"><strong>${escapeHtml(text)}</strong></div>`;
+        html += `<div class="qbot-def"><strong>${escapeHtml(text)}</strong>`;
+        html += `<button class="qbot-save-btn qbot-save-inline" data-word="${escapeHtml(saveWord)}">➕</button>`;
+        html += `</div>`;
         if (tran) {
           html += `<div class="qbot-def-detail">${escapeHtml(tran)}</div>`;
         }
@@ -274,9 +321,23 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
-// Delegate close button click (works for dynamically rendered buttons)
-document.addEventListener("click", (e) => {
+// Delegate close button and save button clicks
+document.addEventListener("click", async (e) => {
   if (e.target && e.target.id === "qbot-close-btn") {
     removePopup();
+    return;
+  }
+
+  // Handle save button click
+  if (e.target && e.target.classList.contains("qbot-save-btn")) {
+    const word = e.target.getAttribute("data-word");
+    if (!word) return;
+
+    try {
+      await saveWordToVocabulary(word);
+      e.target.textContent = "\u2705";
+    } catch {
+      // Silently fail
+    }
   }
 });

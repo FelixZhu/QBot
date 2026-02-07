@@ -162,3 +162,27 @@
 #qbot-word-popup .qbot-error {
   color: #d93025;
 }
+
+/* Save to vocabulary button - header */
+#qbot-word-popup .qbot-save-btn {
+  background: none;
+  border: none;
+  font-size: 18px;
+  cursor: pointer;
+  padding: 0 4px;
+  line-height: 1;
+  flex-shrink: 0;
+  opacity: 0.6;
+  transition: opacity 0.2s;
+}
+
+#qbot-word-popup .qbot-save-btn:hover {
+  opacity: 1;
+}
+
+/* Save button - inline (next to Chinese-English translations) */
+#qbot-word-popup .qbot-save-inline {
+  font-size: 14px;
+  vertical-align: middle;
+  margin-left: 4px;
+}
