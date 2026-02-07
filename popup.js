@@ -141,10 +141,16 @@ async function search() {
     }
 
     const data = response.data;
-    if (isChinese(word)) {
+    if (isChinese(word) && data.ce) {
       renderChineseResult(data, word);
-    } else {
+    } else if (!isChinese(word) && data.ec && data.ec.word) {
       renderEnglishResult(data, word);
+    } else if (data.fanyi) {
+      renderTranslation(data, word);
+    } else if (data.web_trans && data.web_trans["web-translation"]) {
+      renderWebTranslation(data, word);
+    } else {
+      resultDiv.innerHTML = `<div class="error">未找到 "<strong>${escapeHtml(word)}</strong>" 的释义。</div>`;
     }
 
     // Update save button states for already-saved words
@@ -271,6 +277,37 @@ function renderChineseResult(data, word) {
       }
     }
   }
+
+  resultDiv.innerHTML = html;
+}
+
+function renderTranslation(data, word) {
+  const fanyi = data.fanyi;
+  const tran = fanyi.tran || "";
+  const isCN = isChinese(word);
+  const speakerType = isCN ? "1" : "2";
+
+  let html = `<div class="word-title">翻译</div>`;
+  html += `<div class="translation-src">${escapeHtml(word)} <button class="speaker-btn" data-word="${escapeHtml(word)}" data-type="${speakerType}" title="发音">&#128264;</button></div>`;
+  html += `<div class="translation-tran">${escapeHtml(tran)}</div>`;
+
+  resultDiv.innerHTML = html;
+}
+
+function renderWebTranslation(data, word) {
+  const webTrans = data.web_trans["web-translation"];
+  const tran = webTrans[0]?.trans?.[0]?.value || "";
+  if (!tran) {
+    resultDiv.innerHTML = `<div class="error">未找到 "<strong>${escapeHtml(word)}</strong>" 的释义。</div>`;
+    return;
+  }
+
+  const isCN = isChinese(word);
+  const speakerType = isCN ? "1" : "2";
+
+  let html = `<div class="word-title">翻译</div>`;
+  html += `<div class="translation-src">${escapeHtml(word)} <button class="speaker-btn" data-word="${escapeHtml(word)}" data-type="${speakerType}" title="发音">&#128264;</button></div>`;
+  html += `<div class="translation-tran">${escapeHtml(tran)}</div>`;
 
   resultDiv.innerHTML = html;
 }

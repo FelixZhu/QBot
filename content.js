@@ -57,10 +57,16 @@ async function lookupWord(word) {
     }
 
     const data = response.data;
-    if (isChinese(word)) {
+    if (isChinese(word) && data.ce) {
       popup.innerHTML = renderChineseResult(word, data);
-    } else {
+    } else if (!isChinese(word) && data.ec && data.ec.word) {
       popup.innerHTML = renderEnglishResult(word, data);
+    } else if (data.fanyi) {
+      popup.innerHTML = renderTranslation(word, data);
+    } else if (data.web_trans && data.web_trans["web-translation"]) {
+      popup.innerHTML = renderWebTranslation(word, data);
+    } else {
+      popup.innerHTML = renderNotFound(word);
     }
 
     // Update save button states for already-saved words
@@ -343,6 +349,52 @@ function renderChineseResult(word, data) {
   }
 
   html += `</div>`;
+  return html;
+}
+
+// Render sentence translation result (using fanyi field)
+function renderTranslation(word, data) {
+  const fanyi = data.fanyi;
+  const tran = fanyi.tran || "";
+  const isCN = isChinese(word);
+  const speakerType = isCN ? "1" : "2";
+
+  let html = `
+    <div class="qbot-header">
+      <div class="qbot-title-row">
+        <span class="qbot-word">翻译</span>
+      </div>
+      <button class="qbot-close" id="qbot-close-btn">&times;</button>
+    </div>
+    <div class="qbot-body">
+      <div class="qbot-translation-src">${escapeHtml(word)} <button class="qbot-speaker" data-word="${escapeHtml(word)}" data-type="${speakerType}" title="发音">&#128264;</button></div>
+      <div class="qbot-translation-tran">${escapeHtml(tran)}</div>
+    </div>
+  `;
+  return html;
+}
+
+// Render translation from web_trans (fallback for short phrases)
+function renderWebTranslation(word, data) {
+  const webTrans = data.web_trans["web-translation"];
+  const tran = webTrans[0]?.trans?.[0]?.value || "";
+  if (!tran) return renderNotFound(word);
+
+  const isCN = isChinese(word);
+  const speakerType = isCN ? "1" : "2";
+
+  let html = `
+    <div class="qbot-header">
+      <div class="qbot-title-row">
+        <span class="qbot-word">翻译</span>
+      </div>
+      <button class="qbot-close" id="qbot-close-btn">&times;</button>
+    </div>
+    <div class="qbot-body">
+      <div class="qbot-translation-src">${escapeHtml(word)} <button class="qbot-speaker" data-word="${escapeHtml(word)}" data-type="${speakerType}" title="发音">&#128264;</button></div>
+      <div class="qbot-translation-tran">${escapeHtml(tran)}</div>
+    </div>
+  `;
   return html;
 }
 

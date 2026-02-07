@@ -207,6 +207,23 @@
       opacity: 1;
     }
 
+    /* Sentence translation result */
+    .translation-src {
+      color: #555;
+      font-size: 13px;
+      line-height: 1.6;
+      margin: 8px 0;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #f0f0f0;
+    }
+
+    .translation-tran {
+      color: #202124;
+      font-size: 15px;
+      font-weight: 500;
+      line-height: 1.6;
+    }
+
     /* Inline save button for Chinese-English results */
     .save-inline {
       font-size: 13px;
@@ -304,11 +321,11 @@
   </div>
   <div id="search-view">
     <div class="search-box">
-      <input type="text" id="word-input" placeholder="输入中文或英文单词..." autofocus>
+      <input type="text" id="word-input" placeholder="输入单词或句子..." autofocus>
       <button id="search-btn" class="search-btn">查询</button>
     </div>
     <div id="result">
-      <div class="hint">在网页上选中单词右键查询，或在此直接搜索。支持中英互查。</div>
+      <div class="hint">选中单词或句子按 T 查询，或在此直接搜索。支持中英互查和整句翻译。</div>
     </div>
   </div>
   <div id="vocab-view"></div>
