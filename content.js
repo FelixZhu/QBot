@@ -149,6 +149,24 @@ document.addEventListener("keydown", (e) => {
   }
 });
 
+// --- Audio playback ---
+
+function playAudio(word, type) {
+  const url = `https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(word)}&type=${type}`;
+  const audio = new Audio(url);
+  audio.play();
+}
+
+// Delegate speaker button clicks
+document.addEventListener("click", (e) => {
+  const btn = e.target.closest(".qbot-speaker");
+  if (btn) {
+    const word = btn.dataset.word;
+    const type = btn.dataset.type;
+    if (word && type) playAudio(word, type);
+  }
+});
+
 // --- Render functions ---
 
 function renderLoading(word) {
@@ -202,8 +220,8 @@ function renderEnglishResult(word, data) {
   const returnWord = wordInfo["return-phrase"] || word;
 
   let phoneticHtml = "";
-  if (ukphone) phoneticHtml += `<span class="qbot-phonetic">UK /${escapeHtml(ukphone)}/</span>`;
-  if (usphone) phoneticHtml += `<span class="qbot-phonetic">US /${escapeHtml(usphone)}/</span>`;
+  if (ukphone) phoneticHtml += `<span class="qbot-phonetic">UK /${escapeHtml(ukphone)}/ <button class="qbot-speaker" data-word="${escapeHtml(returnWord)}" data-type="1" title="英式发音">&#128264;</button></span>`;
+  if (usphone) phoneticHtml += `<span class="qbot-phonetic">US /${escapeHtml(usphone)}/ <button class="qbot-speaker" data-word="${escapeHtml(returnWord)}" data-type="2" title="美式发音">&#128264;</button></span>`;
 
   let html = `
     <div class="qbot-header">
@@ -285,7 +303,7 @@ function renderChineseResult(word, data) {
   `;
 
   if (phone) {
-    html += `<div class="qbot-phonetics"><span class="qbot-phonetic">${escapeHtml(phone)}</span></div>`;
+    html += `<div class="qbot-phonetics"><span class="qbot-phonetic">${escapeHtml(phone)} <button class="qbot-speaker" data-word="${escapeHtml(returnWord)}" data-type="1" title="发音">&#128264;</button></span></div>`;
   }
 
   // CE translations with inline save buttons for English words
