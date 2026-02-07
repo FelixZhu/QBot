@@ -78,7 +78,7 @@ async function renderVocabularyList() {
   // Sort by timestamp descending (newest first)
   const sorted = [...vocabulary].sort((a, b) => b.timestamp - a.timestamp);
 
-  let html = `<div class="vocab-count">共 ${sorted.length} 个单词</div>`;
+  let html = `<div class="vocab-header"><span class="vocab-count">共 ${sorted.length} 个单词</span><button class="vocab-expand-btn" id="vocab-expand-all">查看全部</button></div>`;
   for (const item of sorted) {
     const date = new Date(item.timestamp);
     const timeStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")} ${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
@@ -331,6 +331,12 @@ document.addEventListener("click", async (e) => {
     } catch {
       // Silently fail
     }
+    return;
+  }
+
+  // Handle "查看全部" button click
+  if (e.target && e.target.id === "vocab-expand-all") {
+    chrome.tabs.create({ url: chrome.runtime.getURL("vocab.html") });
     return;
   }
 
