@@ -3,6 +3,7 @@ const searchBtn = document.getElementById("search-btn");
 const resultDiv = document.getElementById("result");
 const searchView = document.getElementById("search-view");
 const vocabView = document.getElementById("vocab-view");
+const mediaView = document.getElementById("media-view");
 const tabBtns = document.querySelectorAll(".tab-btn");
 
 searchBtn.addEventListener("click", () => search());
@@ -18,13 +19,18 @@ tabBtns.forEach((btn) => {
     tabBtns.forEach((b) => b.classList.remove("active"));
     btn.classList.add("active");
 
+    searchView.style.display = "none";
+    vocabView.style.display = "none";
+    mediaView.style.display = "none";
+
     if (tab === "vocab") {
-      searchView.style.display = "none";
       vocabView.style.display = "block";
       renderVocabularyList();
+    } else if (tab === "media") {
+      mediaView.style.display = "block";
+      scanAndRenderMedia();
     } else {
       searchView.style.display = "block";
-      vocabView.style.display = "none";
     }
   });
 });
@@ -344,5 +350,200 @@ document.addEventListener("click", async (e) => {
     } catch {
       // Silently fail
     }
+    return;
+  }
+
+  // Handle media download button click
+  if (e.target && e.target.classList.contains("media-download-btn")) {
+    e.stopPropagation();
+    const url = e.target.getAttribute("data-download-url");
+    const filename = e.target.getAttribute("data-download-name") || "video.mp4";
+    if (!url) return;
+    try {
+      await chrome.runtime.sendMessage({ action: "downloadVideo", url, filename });
+    } catch {
+      // Silently fail
+    }
+    return;
+  }
+
+  // Handle media open button click
+  if (e.target && e.target.classList.contains("media-open-btn")) {
+    e.stopPropagation();
+    const url = e.target.getAttribute("data-open-url");
+    if (url) chrome.tabs.create({ url });
+    return;
+  }
+
+  // Handle media item click (navigate to video)
+  const mediaItem = e.target.closest(".media-item");
+  if (mediaItem) {
+    const type = mediaItem.getAttribute("data-media-type");
+    const src = mediaItem.getAttribute("data-media-src");
+    const nativeIndex = parseInt(mediaItem.getAttribute("data-native-index"), 10);
+
+    if (type === "video" && nativeIndex >= 0) {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (tab && tab.id) {
+        chrome.tabs.sendMessage(tab.id, { action: "scrollToVideo", videoIndex: nativeIndex });
+        window.close();
+      }
+    } else if (src) {
+      chrome.tabs.create({ url: src });
+    }
+    return;
   }
 });
+
+// --- Media content scanning and rendering ---
+
+async function scanAndRenderMedia() {
+  mediaView.innerHTML = '<div class="media-loading">正在扫描页面视频...</div>';
+
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (!tab || !tab.id) {
+      mediaView.innerHTML = '<div class="media-error">无法访问当前标签页</div>';
+      return;
+    }
+
+    if (tab.url && (tab.url.startsWith("chrome://") || tab.url.startsWith("edge://") || tab.url.startsWith("about:"))) {
+      mediaView.innerHTML = '<div class="media-empty">此页面不支持扫描媒体内容</div>';
+      return;
+    }
+
+    // Fetch from both sources in parallel
+    const [domResult, networkResult] = await Promise.allSettled([
+      chrome.tabs.sendMessage(tab.id, { action: "scanVideos" }),
+      chrome.runtime.sendMessage({ action: "getDetectedMedia", tabId: tab.id }),
+    ]);
+
+    const domVideos = (domResult.status === "fulfilled" && domResult.value?.success)
+      ? domResult.value.videos
+      : [];
+
+    const networkMedia = (networkResult.status === "fulfilled" && networkResult.value?.success)
+      ? networkResult.value.media
+      : [];
+
+    // Merge: DOM videos first, then add network-detected URLs not already in DOM results
+    const seenUrls = new Set(domVideos.map((v) => v.src).filter(Boolean));
+    const mergedVideos = [...domVideos];
+
+    for (const item of networkMedia) {
+      if (item.url && !seenUrls.has(item.url)) {
+        seenUrls.add(item.url);
+        let filename = "";
+        try {
+          filename = new URL(item.url).pathname.split("/").pop() || "";
+        } catch { /* ignore */ }
+        mergedVideos.push({
+          type: "network",
+          src: item.url,
+          thumbnail: "",
+          title: filename ? decodeURIComponent(filename) : "网络视频",
+          duration: "",
+          dimensions: "",
+          nativeIndex: -1,
+        });
+      }
+    }
+
+    if (mergedVideos.length === 0) {
+      mediaView.innerHTML = '<div class="media-empty">当前页面未发现视频内容</div>';
+      return;
+    }
+
+    renderMediaList(mergedVideos);
+  } catch {
+    mediaView.innerHTML = '<div class="media-error">无法连接到页面，请刷新页面后重试</div>';
+  }
+}
+
+function renderMediaList(videos) {
+  let html = `<div class="media-count">发现 ${videos.length} 个视频</div>`;
+
+  for (let i = 0; i < videos.length; i++) {
+    const video = videos[i];
+    const title = video.title || `视频 ${i + 1}`;
+    const type = video.type || "video";
+    const nativeIndex = video.nativeIndex ?? -1;
+    const isDownloadable = video.src && !video.src.startsWith("blob:") && isDirectVideoUrl(video.src);
+    const isEmbedPlatform = type.startsWith("iframe-");
+
+    let thumbHtml;
+    if (video.thumbnail) {
+      thumbHtml = `<img class="media-thumb" src="${escapeHtml(video.thumbnail)}" alt="">`;
+    } else {
+      thumbHtml = `<div class="media-thumb-placeholder">&#9654;</div>`;
+    }
+
+    const typeLabelMap = {
+      "video": "VIDEO",
+      "iframe-youtube": "YOUTUBE",
+      "iframe-bilibili": "BILIBILI",
+      "iframe-vimeo": "VIMEO",
+      "iframe-dailymotion": "DAILYMOTION",
+      "iframe-other": "EMBED",
+      "embed": "EMBED",
+      "network": "NETWORK",
+    };
+    const typeLabel = typeLabelMap[type] || type.toUpperCase();
+
+    html += `<div class="media-item" data-native-index="${nativeIndex}" data-media-src="${escapeHtml(video.src || "")}" data-media-type="${escapeHtml(type)}">`;
+    html += thumbHtml;
+    html += `<div class="media-info">`;
+    html += `<div class="media-title">${escapeHtml(title)}</div>`;
+    html += `<div class="media-meta">`;
+    html += `<span class="media-type-badge">${typeLabel}</span>`;
+    if (video.duration) html += ` <span>${escapeHtml(video.duration)}</span>`;
+    if (video.dimensions) html += ` <span>${escapeHtml(video.dimensions)}</span>`;
+    html += `</div>`;
+
+    // Download or Open button
+    if (isDownloadable) {
+      const filename = extractFilename(video.src, title);
+      html += `<button class="media-download-btn" data-download-url="${escapeHtml(video.src)}" data-download-name="${escapeHtml(filename)}">⬇ 下载</button>`;
+    } else if (isEmbedPlatform && video.src) {
+      html += `<button class="media-open-btn" data-open-url="${escapeHtml(video.src)}">↗ 打开</button>`;
+    }
+
+    html += `</div></div>`;
+  }
+
+  mediaView.innerHTML = html;
+
+  // Handle thumbnail load errors
+  mediaView.querySelectorAll(".media-thumb").forEach((img) => {
+    img.addEventListener("error", () => {
+      const placeholder = document.createElement("div");
+      placeholder.className = "media-thumb-placeholder";
+      placeholder.innerHTML = "&#9654;";
+      img.replaceWith(placeholder);
+    });
+  });
+}
+
+function isDirectVideoUrl(url) {
+  if (!url) return false;
+  try {
+    const pathname = new URL(url, "https://example.com").pathname.toLowerCase();
+    return /\.(mp4|webm|ogg|m3u8|mpd|flv|mov|avi|mkv|ts|m4s)(\?|$)/i.test(url)
+      || pathname.includes("videoplayback");
+  } catch {
+    return false;
+  }
+}
+
+function extractFilename(url, title) {
+  try {
+    const pathname = new URL(url).pathname;
+    const filename = pathname.split("/").pop();
+    if (filename && /\.\w{2,5}$/.test(filename)) {
+      return decodeURIComponent(filename);
+    }
+  } catch { /* ignore */ }
+  // Fallback to title-based filename
+  const safeName = (title || "video").replace(/[^\w\u4e00-\u9fff\s-]/g, "").trim().slice(0, 60);
+  return `${safeName}.mp4`;
+}

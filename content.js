@@ -2,10 +2,19 @@
 
 const POPUP_ID = "qbot-word-popup";
 
-// Listen for messages from background script
-chrome.runtime.onMessage.addListener((message) => {
+// Listen for messages from background script and popup
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === "lookup" && message.word) {
     lookupWord(message.word);
+  }
+
+  if (message.action === "scanVideos") {
+    const videos = scanPageForVideos();
+    sendResponse({ success: true, videos });
+  }
+
+  if (message.action === "scrollToVideo") {
+    scrollToNativeVideo(message.videoIndex);
   }
 });
 
@@ -425,3 +434,242 @@ document.addEventListener("click", async (e) => {
     }
   }
 });
+
+// --- Video scanning ---
+
+function scanPageForVideos() {
+  const videos = [];
+
+  // 1. HTML5 <video> elements
+  const videoElements = document.querySelectorAll("video");
+  videoElements.forEach((video, index) => {
+    if (video.offsetWidth < 100 && video.offsetHeight < 60) return;
+    if (video.offsetWidth === 0 || video.offsetHeight === 0) return;
+
+    const src = video.currentSrc || video.src || "";
+    const sourceEl = video.querySelector("source");
+    const sourceSrc = sourceEl ? sourceEl.src : "";
+    const finalSrc = src || sourceSrc;
+
+    let title = video.getAttribute("title")
+      || video.getAttribute("aria-label")
+      || "";
+
+    if (!title) {
+      const closestTitle = video.closest("[title]");
+      if (closestTitle && closestTitle !== video) title = closestTitle.getAttribute("title");
+    }
+    if (!title) {
+      const figure = video.closest("figure");
+      if (figure) {
+        const caption = figure.querySelector("figcaption");
+        if (caption) title = caption.textContent.trim();
+      }
+    }
+    if (!title) {
+      const parent = video.parentElement;
+      if (parent) {
+        const heading = parent.querySelector("h1, h2, h3, h4, h5, h6");
+        if (heading) title = heading.textContent.trim();
+      }
+    }
+    if (!title && finalSrc) {
+      try {
+        const urlPath = new URL(finalSrc, window.location.href).pathname;
+        const fileName = urlPath.split("/").pop();
+        if (fileName) title = decodeURIComponent(fileName);
+      } catch { /* ignore */ }
+    }
+
+    const poster = video.poster || "";
+    const duration = video.duration ? formatDuration(video.duration) : "";
+    const dimensions = (video.videoWidth && video.videoHeight)
+      ? `${video.videoWidth}x${video.videoHeight}`
+      : (video.offsetWidth && video.offsetHeight)
+        ? `${video.offsetWidth}x${video.offsetHeight}`
+        : "";
+
+    videos.push({
+      type: "video",
+      src: finalSrc,
+      thumbnail: poster,
+      title: title || "",
+      duration,
+      dimensions,
+      nativeIndex: index,
+    });
+  });
+
+  // 2. iframe embeds
+  const iframes = document.querySelectorAll("iframe");
+  iframes.forEach((iframe) => {
+    const src = iframe.src || iframe.getAttribute("data-src") || "";
+    if (!src) return;
+
+    const videoInfo = parseIframeSrc(src);
+    if (!videoInfo) return;
+
+    if (iframe.offsetWidth < 100 && iframe.offsetHeight < 60) return;
+
+    const title = iframe.getAttribute("title") || iframe.getAttribute("aria-label") || "";
+    const dimensions = (iframe.offsetWidth && iframe.offsetHeight)
+      ? `${iframe.offsetWidth}x${iframe.offsetHeight}`
+      : "";
+
+    videos.push({
+      type: videoInfo.type,
+      src: videoInfo.url,
+      thumbnail: videoInfo.thumbnail,
+      title: title || videoInfo.defaultTitle || "",
+      duration: "",
+      dimensions,
+      nativeIndex: -1,
+    });
+  });
+
+  // 3. <object> and <embed> elements
+  const embeds = document.querySelectorAll("object[data], embed[src]");
+  embeds.forEach((el) => {
+    const src = el.getAttribute("data") || el.getAttribute("src") || "";
+    if (!src) return;
+    if (!looksLikeVideoUrl(src)) return;
+    if (el.offsetWidth < 100 && el.offsetHeight < 60) return;
+
+    videos.push({
+      type: "embed",
+      src: src,
+      thumbnail: "",
+      title: el.getAttribute("title") || "",
+      duration: "",
+      dimensions: (el.offsetWidth && el.offsetHeight) ? `${el.offsetWidth}x${el.offsetHeight}` : "",
+      nativeIndex: -1,
+    });
+  });
+
+  return videos;
+}
+
+function parseIframeSrc(src) {
+  let url;
+  try {
+    url = new URL(src, window.location.href);
+  } catch {
+    return null;
+  }
+
+  const hostname = url.hostname;
+
+  // YouTube
+  if (hostname.includes("youtube.com") || hostname.includes("youtube-nocookie.com")) {
+    const match = url.pathname.match(/\/embed\/([a-zA-Z0-9_-]{11})/);
+    if (match) {
+      const videoId = match[1];
+      return {
+        type: "iframe-youtube",
+        url: `https://www.youtube.com/watch?v=${videoId}`,
+        thumbnail: `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`,
+        defaultTitle: "YouTube 视频",
+      };
+    }
+  }
+
+  // Bilibili
+  if (hostname.includes("bilibili.com")) {
+    const bvid = url.searchParams.get("bvid");
+    const aid = url.searchParams.get("aid");
+    if (bvid) {
+      return {
+        type: "iframe-bilibili",
+        url: `https://www.bilibili.com/video/${bvid}`,
+        thumbnail: "",
+        defaultTitle: "Bilibili 视频",
+      };
+    }
+    if (aid) {
+      return {
+        type: "iframe-bilibili",
+        url: `https://www.bilibili.com/video/av${aid}`,
+        thumbnail: "",
+        defaultTitle: "Bilibili 视频",
+      };
+    }
+    return {
+      type: "iframe-bilibili",
+      url: src,
+      thumbnail: "",
+      defaultTitle: "Bilibili 视频",
+    };
+  }
+
+  // Vimeo
+  if (hostname.includes("player.vimeo.com")) {
+    const match = url.pathname.match(/\/video\/(\d+)/);
+    if (match) {
+      return {
+        type: "iframe-vimeo",
+        url: `https://vimeo.com/${match[1]}`,
+        thumbnail: "",
+        defaultTitle: "Vimeo 视频",
+      };
+    }
+  }
+
+  // Dailymotion
+  if (hostname.includes("dailymotion.com")) {
+    const match = url.pathname.match(/\/embed\/video\/([a-zA-Z0-9]+)/);
+    if (match) {
+      return {
+        type: "iframe-dailymotion",
+        url: `https://www.dailymotion.com/video/${match[1]}`,
+        thumbnail: `https://www.dailymotion.com/thumbnail/video/${match[1]}`,
+        defaultTitle: "Dailymotion 视频",
+      };
+    }
+  }
+
+  // Generic: path contains video/player/embed keywords
+  const pathLower = url.pathname.toLowerCase();
+  if (pathLower.includes("video") || pathLower.includes("player") || pathLower.includes("embed")) {
+    return {
+      type: "iframe-other",
+      url: src,
+      thumbnail: "",
+      defaultTitle: "嵌入视频",
+    };
+  }
+
+  return null;
+}
+
+function looksLikeVideoUrl(src) {
+  const lower = src.toLowerCase();
+  return /\.(mp4|webm|ogg|m3u8|flv|mov|avi|mkv)(\?|#|$)/.test(lower)
+    || lower.includes("video") || lower.includes("player");
+}
+
+function formatDuration(seconds) {
+  if (!seconds || !isFinite(seconds)) return "";
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.floor(seconds % 60);
+  return `${mins}:${String(secs).padStart(2, "0")}`;
+}
+
+function scrollToNativeVideo(nativeIndex) {
+  const videoElements = document.querySelectorAll("video");
+  const video = videoElements[nativeIndex];
+  if (!video) return;
+
+  video.scrollIntoView({ behavior: "smooth", block: "center" });
+
+  const prevOutline = video.style.outline;
+  video.style.outline = "3px solid #1a73e8";
+  setTimeout(() => {
+    video.style.outline = prevOutline;
+  }, 2000);
+
+  try {
+    video.play();
+  } catch {
+    // Autoplay may be blocked
+  }
+}
