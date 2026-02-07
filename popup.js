@@ -11,6 +11,21 @@ function isChinese(text) {
   return /[\u4e00-\u9fff]/.test(text);
 }
 
+function playAudio(word, type) {
+  const url = `https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(word)}&type=${type}`;
+  const audio = new Audio(url);
+  audio.play();
+}
+
+resultDiv.addEventListener("click", (e) => {
+  const btn = e.target.closest(".speaker-btn");
+  if (btn) {
+    const word = btn.dataset.word;
+    const type = btn.dataset.type;
+    if (word && type) playAudio(word, type);
+  }
+});
+
 async function search() {
   const word = input.value.trim();
   if (!word) return;
@@ -51,8 +66,8 @@ function renderEnglishResult(data, word) {
   let html = `<div class="word-title">${escapeHtml(returnWord)}</div>`;
 
   let phoneticParts = [];
-  if (ukphone) phoneticParts.push(`UK /${escapeHtml(ukphone)}/`);
-  if (usphone) phoneticParts.push(`US /${escapeHtml(usphone)}/`);
+  if (ukphone) phoneticParts.push(`UK /${escapeHtml(ukphone)}/ <button class="speaker-btn" data-word="${escapeHtml(returnWord)}" data-type="1" title="英式发音">&#128264;</button>`);
+  if (usphone) phoneticParts.push(`US /${escapeHtml(usphone)}/ <button class="speaker-btn" data-word="${escapeHtml(returnWord)}" data-type="2" title="美式发音">&#128264;</button>`);
   if (phoneticParts.length) {
     html += `<div class="phonetic">${phoneticParts.join("  ")}</div>`;
   }
@@ -109,7 +124,7 @@ function renderChineseResult(data, word) {
 
   let html = `<div class="word-title">${escapeHtml(returnWord)}</div>`;
   if (phone) {
-    html += `<div class="phonetic">${escapeHtml(phone)}</div>`;
+    html += `<div class="phonetic">${escapeHtml(phone)} <button class="speaker-btn" data-word="${escapeHtml(returnWord)}" data-type="1" title="发音">&#128264;</button></div>`;
   }
 
   if (ce && ce.word) {
