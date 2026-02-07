@@ -1,0 +1,135 @@
+/* QBot Word Lookup - In-page popup styles */
+
+#qbot-word-popup {
+  position: absolute;
+  z-index: 2147483647;
+  width: 360px;
+  max-height: 420px;
+  background: #ffffff;
+  border: 1px solid #e0e0e0;
+  border-radius: 10px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.15);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #333;
+  overflow: hidden;
+}
+
+#qbot-word-popup .qbot-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 12px 14px 8px;
+  border-bottom: 1px solid #f0f0f0;
+  background: #fafbfc;
+}
+
+#qbot-word-popup .qbot-title-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+
+#qbot-word-popup .qbot-word {
+  font-size: 18px;
+  font-weight: 700;
+  color: #202124;
+  word-break: break-word;
+}
+
+#qbot-word-popup .qbot-phonetic {
+  font-size: 13px;
+  color: #666;
+  flex-shrink: 0;
+}
+
+#qbot-word-popup .qbot-close {
+  background: none;
+  border: none;
+  font-size: 20px;
+  color: #999;
+  cursor: pointer;
+  padding: 0 0 0 8px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+#qbot-word-popup .qbot-close:hover {
+  color: #333;
+}
+
+#qbot-word-popup .qbot-body {
+  padding: 10px 14px 14px;
+  overflow-y: auto;
+  max-height: 340px;
+}
+
+#qbot-word-popup .qbot-meaning {
+  margin-bottom: 10px;
+}
+
+#qbot-word-popup .qbot-meaning:last-child {
+  margin-bottom: 0;
+}
+
+#qbot-word-popup .qbot-pos {
+  display: inline-block;
+  background: #e8f0fe;
+  color: #1a73e8;
+  padding: 1px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+#qbot-word-popup .qbot-def {
+  margin: 4px 0;
+  padding-left: 4px;
+  color: #333;
+}
+
+#qbot-word-popup .qbot-example {
+  color: #666;
+  font-style: italic;
+  padding-left: 12px;
+  margin: 2px 0 6px;
+  font-size: 13px;
+  border-left: 2px solid #e0e0e0;
+}
+
+#qbot-word-popup .qbot-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 20px 0;
+  color: #666;
+}
+
+#qbot-word-popup .qbot-spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid #e0e0e0;
+  border-top-color: #1a73e8;
+  border-radius: 50%;
+  animation: qbot-spin 0.6s linear infinite;
+}
+
+@keyframes qbot-spin {
+  to { transform: rotate(360deg); }
+}
+
+#qbot-word-popup .qbot-not-found,
+#qbot-word-popup .qbot-error {
+  text-align: center;
+  padding: 16px 0;
+  color: #666;
+}
+
+#qbot-word-popup .qbot-error {
+  color: #d93025;
+}
