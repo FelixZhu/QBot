@@ -281,11 +281,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   // Full-page PDF capture: runs entirely in background so popup can close
-  // Fire-and-forget: don't use sendResponse since popup will close immediately
   if (message.action === "savePageAsPdf") {
+    console.log("[QBot] savePageAsPdf message received, tabId:", message.tabId);
+    // Keep service worker alive for the entire capture duration
+    startKeepAlive();
+    // Immediately tell popup "started" so it can show status
+    sendResponse({ started: true });
+    // Run capture asynchronously
     handleSavePageAsPdf(message.tabId)
       .then(() => {
-        // Notify user of success (popup may already be closed)
         chrome.notifications.create("qbot-pdf-done", {
           type: "basic",
           iconUrl: "icons/icon128.png",
@@ -301,7 +305,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           title: "QBot - 网页保存失败",
           message: err.message || "截图过程出错，请刷新页面后重试。",
         });
+      })
+      .finally(() => {
+        stopKeepAlive();
       });
+    // return false — sendResponse was already called synchronously above.
+    // The keepAlive interval prevents SW termination during the async task.
     return false;
   }
 });
@@ -310,6 +319,29 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// Keep service worker alive during long-running tasks.
+// MV3 service workers can be terminated after 30s of inactivity.
+// We use chrome.runtime.sendMessage to self to keep the event loop busy,
+// combined with setInterval pings.
+let keepAliveInterval = null;
+function startKeepAlive() {
+  if (keepAliveInterval) return;
+  keepAliveInterval = setInterval(() => {
+    chrome.runtime.getPlatformInfo(() => {
+      // No-op callback — just keeps the service worker alive
+    });
+  }, 20000); // Ping every 20s (Chrome kills after 30s idle)
+  console.log("[QBot] keepAlive started");
+}
+
+function stopKeepAlive() {
+  if (keepAliveInterval) {
+    clearInterval(keepAliveInterval);
+    keepAliveInterval = null;
+    console.log("[QBot] keepAlive stopped");
+  }
 }
 
 async function handleSavePageAsPdf(tabId) {

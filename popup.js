@@ -651,14 +651,14 @@ savePdfBtn.addEventListener("click", async () => {
 
     // Hand off to background — it will scroll, capture, build PDF, and trigger download
     // Background keeps running even after popup closes
-    // We await sendMessage to ensure the service worker wakes up and receives it
     pdfStatusText.textContent = "⏳ 正在启动...";
-    try {
-      await chrome.runtime.sendMessage({ action: "savePageAsPdf", tabId: tab.id });
-    } catch (sendErr) {
-      console.warn("sendMessage returned error (expected for fire-and-forget):", sendErr);
+    const response = await chrome.runtime.sendMessage({ action: "savePageAsPdf", tabId: tab.id });
+    console.log("[QBot popup] sendMessage response:", response);
+    if (response && response.started) {
+      pdfStatusText.textContent = "⏳ 已启动！页面将自动滚动截图，完成后弹出下载。可关闭此面板。";
+    } else {
+      throw new Error("后台服务未响应，请刷新扩展后重试");
     }
-    pdfStatusText.textContent = "⏳ 已启动！页面将自动滚动截图，完成后弹出下载。可关闭此面板。";
 
   } catch (err) {
     pdfStatusText.textContent = `❌ ${err.message || "启动失败"}`;
