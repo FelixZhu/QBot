@@ -14,25 +14,35 @@ async function ensureFFmpegLoaded() {
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === "mergeVideoAudio") {
-    handleMerge(message.videoUrl, message.audioUrl)
+    handleMerge(message)
       .then((blobUrl) => sendResponse({ success: true, blobUrl }))
       .catch((err) => sendResponse({ success: false, error: err.message }));
     return true;
   }
 });
 
-async function handleMerge(videoUrl, audioUrl) {
+async function handleMerge({ videoUrl, audioUrl, videoData, audioData }) {
   await ensureFFmpegLoaded();
 
-  // Download both files
-  const [videoData, audioData] = await Promise.all([
-    fetchAsUint8Array(videoUrl),
-    fetchAsUint8Array(audioUrl),
-  ]);
+  let videoUint8, audioUint8;
+
+  if (videoData && audioData) {
+    // Mode A: pre-fetched data from content script (Bilibili etc.)
+    videoUint8 = new Uint8Array(videoData);
+    audioUint8 = new Uint8Array(audioData);
+  } else if (videoUrl && audioUrl) {
+    // Mode B: fetch directly (non-protected URLs)
+    [videoUint8, audioUint8] = await Promise.all([
+      fetchAsUint8Array(videoUrl),
+      fetchAsUint8Array(audioUrl),
+    ]);
+  } else {
+    throw new Error("缺少视频或音频数据");
+  }
 
   // Write to ffmpeg virtual filesystem
-  await ffmpeg.writeFile("input_video.mp4", videoData);
-  await ffmpeg.writeFile("input_audio.mp4", audioData);
+  await ffmpeg.writeFile("input_video.mp4", videoUint8);
+  await ffmpeg.writeFile("input_audio.mp4", audioUint8);
 
   // Remux: copy streams without re-encoding
   await ffmpeg.exec([

@@ -369,11 +369,18 @@ document.addEventListener("click", async (e) => {
     const url = e.target.getAttribute("data-download-url");
     const filename = e.target.getAttribute("data-download-name") || "video.mp4";
     if (!url) return;
+    e.target.textContent = "下载中...";
+    e.target.disabled = true;
     try {
-      await chrome.runtime.sendMessage({ action: "downloadVideo", url, filename });
+      const result = await chrome.runtime.sendMessage({ action: "downloadVideo", url, filename });
+      e.target.textContent = result && result.success ? "已开始下载" : "下载失败";
     } catch {
-      // Silently fail
+      e.target.textContent = "下载失败";
     }
+    setTimeout(() => {
+      e.target.textContent = "⬇ 下载";
+      e.target.disabled = false;
+    }, 3000);
     return;
   }
 

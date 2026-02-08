@@ -51,6 +51,24 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     });
     return false;
   }
+
+  // Download a single media file in the page context (carries correct Referer + cookies)
+  if (message.action === "fetchAndDownload") {
+    const { url, filename } = message;
+    fetchAndDownloadInPage(url, filename)
+      .then(() => sendResponse({ success: true }))
+      .catch((err) => sendResponse({ success: false, error: err.message }));
+    return true;
+  }
+
+  // Fetch video + audio data for merging (carries correct Referer + cookies)
+  if (message.action === "fetchMediaData") {
+    const { videoUrl, audioUrl } = message;
+    fetchMediaDataForMerge(videoUrl, audioUrl)
+      .then((result) => sendResponse(result))
+      .catch((err) => sendResponse({ success: false, error: err.message }));
+    return true;
+  }
 });
 
 // Detect if text is primarily Chinese
@@ -707,4 +725,44 @@ function scrollToNativeVideo(nativeIndex) {
   } catch {
     // Autoplay may be blocked
   }
+}
+
+// --- Media download in page context ---
+
+async function fetchAndDownloadInPage(url, filename) {
+  const response = await fetch(url, { credentials: "include" });
+  if (!response.ok) {
+    throw new Error(`下载失败 (HTTP ${response.status})`);
+  }
+  const blob = await response.blob();
+  const blobUrl = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = blobUrl;
+  a.download = filename || "video.mp4";
+  a.style.display = "none";
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(blobUrl), 30000);
+}
+
+async function fetchMediaDataForMerge(videoUrl, audioUrl) {
+  const [videoResp, audioResp] = await Promise.all([
+    fetch(videoUrl, { credentials: "include" }),
+    fetch(audioUrl, { credentials: "include" }),
+  ]);
+
+  if (!videoResp.ok) throw new Error(`视频流获取失败 (HTTP ${videoResp.status})`);
+  if (!audioResp.ok) throw new Error(`音频流获取失败 (HTTP ${audioResp.status})`);
+
+  const [videoBuffer, audioBuffer] = await Promise.all([
+    videoResp.arrayBuffer(),
+    audioResp.arrayBuffer(),
+  ]);
+
+  return {
+    success: true,
+    videoData: videoBuffer,
+    audioData: audioBuffer,
+  };
 }

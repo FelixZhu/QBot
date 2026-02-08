@@ -255,20 +255,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   if (message.action === "downloadVideo") {
     const { url, filename } = message;
-    chrome.downloads.download(
-      {
-        url,
-        filename: filename || "video.mp4",
-        saveAs: true,
-      },
-      (downloadId) => {
-        if (chrome.runtime.lastError) {
-          sendResponse({ success: false, error: chrome.runtime.lastError.message });
-        } else {
-          sendResponse({ success: true, downloadId });
-        }
-      }
-    );
+    handleDownloadVideo(url, filename)
+      .then((result) => sendResponse(result))
+      .catch((err) => sendResponse({ success: false, error: err.message }));
     return true;
   }
 
@@ -595,18 +584,106 @@ function buildPdfBinary(pages, baseWidth) {
   return result;
 }
 
+// --- CDN detection ---
+
+function needsContentScriptFetch(url) {
+  try {
+    const hostname = new URL(url).hostname;
+    return hostname.includes("bilivideo.com")
+      || hostname.includes("bilivideo.cn")
+      || hostname.includes("hdslb.com")
+      || hostname.includes("akamaized.net")
+      || hostname.includes("googlevideo.com");
+  } catch {
+    return false;
+  }
+}
+
+// --- Download handlers ---
+
+async function handleDownloadVideo(url, filename) {
+  if (needsContentScriptFetch(url)) {
+    // Route through content script for correct Referer + cookies
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (!tab || !tab.id) throw new Error("无法获取当前标签页");
+
+    return new Promise((resolve, reject) => {
+      chrome.tabs.sendMessage(
+        tab.id,
+        { action: "fetchAndDownload", url, filename: filename || "video.mp4" },
+        (response) => {
+          if (chrome.runtime.lastError) {
+            reject(new Error(chrome.runtime.lastError.message));
+          } else if (!response || !response.success) {
+            reject(new Error(response?.error || "下载失败"));
+          } else {
+            resolve({ success: true });
+          }
+        }
+      );
+    });
+  }
+
+  // Direct download for non-protected URLs
+  return new Promise((resolve, reject) => {
+    chrome.downloads.download(
+      { url, filename: filename || "video.mp4", saveAs: true },
+      (downloadId) => {
+        if (chrome.runtime.lastError) {
+          reject(new Error(chrome.runtime.lastError.message));
+        } else {
+          resolve({ success: true, downloadId });
+        }
+      }
+    );
+  });
+}
+
 async function handleMergeAndDownload(videoUrl, audioUrl, filename) {
   await ensureOffscreen();
 
-  // Send merge request to offscreen document
-  const result = await chrome.runtime.sendMessage({
-    action: "mergeVideoAudio",
-    videoUrl,
-    audioUrl,
-  });
+  let mergePayload;
+
+  if (needsContentScriptFetch(videoUrl) || needsContentScriptFetch(audioUrl)) {
+    // Fetch data through content script (correct Referer + cookies)
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (!tab || !tab.id) throw new Error("无法获取当前标签页");
+
+    const fetchResult = await new Promise((resolve, reject) => {
+      chrome.tabs.sendMessage(
+        tab.id,
+        { action: "fetchMediaData", videoUrl, audioUrl },
+        (response) => {
+          if (chrome.runtime.lastError) {
+            reject(new Error(chrome.runtime.lastError.message));
+          } else if (!response || !response.success) {
+            reject(new Error(response?.error || "数据获取失败"));
+          } else {
+            resolve(response);
+          }
+        }
+      );
+    });
+
+    // Send raw data to offscreen for merging
+    mergePayload = {
+      action: "mergeVideoAudio",
+      videoData: fetchResult.videoData,
+      audioData: fetchResult.audioData,
+    };
+  } else {
+    // Non-protected URLs: offscreen can fetch directly
+    mergePayload = {
+      action: "mergeVideoAudio",
+      videoUrl,
+      audioUrl,
+    };
+  }
+
+  const result = await chrome.runtime.sendMessage(mergePayload);
 
   if (!result || !result.success) {
-    throw new Error(result?.error || "Merge failed");
+    throw new Error(result?.error || "合并失败");
   }
 
   // Download the merged blob
