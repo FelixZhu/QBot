@@ -16,6 +16,32 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === "scrollToVideo") {
     scrollToNativeVideo(message.videoIndex);
   }
+
+  // PDF capture: get page dimensions
+  if (message.action === "getPageInfo") {
+    const totalHeight = Math.max(
+      document.body.scrollHeight,
+      document.documentElement.scrollHeight,
+      document.body.offsetHeight,
+      document.documentElement.offsetHeight,
+      document.body.clientHeight,
+      document.documentElement.clientHeight
+    );
+    sendResponse({
+      success: true,
+      totalHeight,
+      viewportHeight: window.innerHeight,
+      viewportWidth: window.innerWidth,
+      devicePixelRatio: window.devicePixelRatio || 1,
+      title: document.title || "",
+    });
+  }
+
+  // PDF capture: scroll to a specific position
+  if (message.action === "scrollToPosition") {
+    window.scrollTo(0, message.scrollY);
+    sendResponse({ success: true });
+  }
 });
 
 // Detect if text is primarily Chinese
