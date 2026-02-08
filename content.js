@@ -44,7 +44,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   // PDF capture: scroll to a specific position
   if (message.action === "scrollToPosition") {
     window.scrollTo(0, message.scrollY);
-    sendResponse({ success: true });
+    // Return the actual scroll position (browser clamps to max scrollable)
+    sendResponse({
+      success: true,
+      actualScrollY: window.scrollY || document.documentElement.scrollTop || 0,
+    });
     return false;
   }
 });

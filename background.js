@@ -283,9 +283,25 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   // Full-page PDF capture: runs entirely in background so popup can close
   // Fire-and-forget: don't use sendResponse since popup will close immediately
   if (message.action === "savePageAsPdf") {
-    handleSavePageAsPdf(message.tabId).catch((err) => {
-      console.error("[QBot] PDF capture failed:", err);
-    });
+    handleSavePageAsPdf(message.tabId)
+      .then(() => {
+        // Notify user of success (popup may already be closed)
+        chrome.notifications.create("qbot-pdf-done", {
+          type: "basic",
+          iconUrl: "icons/icon128.png",
+          title: "QBot - 网页保存",
+          message: "PDF 已生成，请在下载中查看。",
+        });
+      })
+      .catch((err) => {
+        console.error("[QBot] PDF capture failed:", err);
+        chrome.notifications.create("qbot-pdf-error", {
+          type: "basic",
+          iconUrl: "icons/icon128.png",
+          title: "QBot - 网页保存失败",
+          message: err.message || "截图过程出错，请刷新页面后重试。",
+        });
+      });
     return false;
   }
 });
@@ -297,6 +313,10 @@ function sleep(ms) {
 }
 
 async function handleSavePageAsPdf(tabId) {
+  // Get the tab's windowId for captureVisibleTab
+  const tab = await chrome.tabs.get(tabId);
+  const windowId = tab.windowId;
+
   // Step 1: Get page dimensions from content script
   const pageInfo = await chrome.tabs.sendMessage(tabId, { action: "getPageInfo" });
   if (!pageInfo || !pageInfo.success) {
@@ -310,14 +330,19 @@ async function handleSavePageAsPdf(tabId) {
   // Step 2: Scroll step-by-step and capture each viewport
   for (let i = 0; i < steps; i++) {
     const scrollY = i * viewportHeight;
-    await chrome.tabs.sendMessage(tabId, { action: "scrollToPosition", scrollY });
+    // On the last step, the browser clamps scroll to max scrollable position.
+    // The actual scroll position may be less than scrollY, causing overlap with
+    // the previous capture. We record the actual scroll position to crop correctly.
+    const scrollResult = await chrome.tabs.sendMessage(tabId, { action: "scrollToPosition", scrollY });
+    const actualScrollY = (scrollResult && scrollResult.actualScrollY !== undefined) ? scrollResult.actualScrollY : scrollY;
     // Wait for rendering (lazy images, animations, etc.)
     await sleep(400);
-    // Capture visible tab
-    const dataUrl = await chrome.tabs.captureVisibleTab(null, { format: "png" });
+    // Capture visible tab using the correct windowId
+    const dataUrl = await chrome.tabs.captureVisibleTab(windowId, { format: "png" });
     screenshots.push({
       dataUrl,
-      scrollY,
+      requestedScrollY: scrollY,
+      actualScrollY,
       isLast: i === steps - 1,
     });
   }
@@ -335,16 +360,32 @@ async function handleSavePageAsPdf(tabId) {
     const capturedWidth = imageBitmap.width;
     const capturedHeight = imageBitmap.height;
 
+    // Calculate the vertical crop region for this screenshot.
+    // For the first screenshot, we use the full image.
+    // For subsequent screenshots, if the actual scroll is less than requested
+    // (browser clamped), we need to skip the overlap at the top.
+    let cropTop = 0;
     let canvasHeight = capturedHeight;
-    if (s.isLast) {
-      const remainPx = totalHeight - s.scrollY;
-      const remainCanvas = remainPx * devicePixelRatio;
-      canvasHeight = Math.min(Math.round(remainCanvas), capturedHeight);
+
+    if (i > 0) {
+      // Expected: actualScrollY = i * viewportHeight, so each capture is a fresh viewport.
+      // If actualScrollY < requestedScrollY, the bottom part of previous capture overlaps.
+      const overlap = s.requestedScrollY - s.actualScrollY;
+      if (overlap > 0) {
+        cropTop = Math.round(overlap * devicePixelRatio);
+        canvasHeight = capturedHeight - cropTop;
+      }
+    }
+
+    if (canvasHeight <= 0) {
+      imageBitmap.close();
+      continue; // Skip completely overlapping captures
     }
 
     const canvas = new OffscreenCanvas(capturedWidth, canvasHeight);
     const ctx = canvas.getContext("2d");
-    ctx.drawImage(imageBitmap, 0, 0, capturedWidth, canvasHeight, 0, 0, capturedWidth, canvasHeight);
+    // drawImage(source, sx, sy, sw, sh, dx, dy, dw, dh) — crop from cropTop
+    ctx.drawImage(imageBitmap, 0, cropTop, capturedWidth, canvasHeight, 0, 0, capturedWidth, canvasHeight);
     imageBitmap.close();
 
     const blob = await canvas.convertToBlob({ type: "image/jpeg", quality: 0.92 });
@@ -354,6 +395,10 @@ async function handleSavePageAsPdf(tabId) {
       width: capturedWidth,
       height: canvasHeight,
     });
+  }
+
+  if (pdfPages.length === 0) {
+    throw new Error("未能捕获任何页面内容");
   }
 
   // Step 5: Build PDF binary
