@@ -281,11 +281,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   // Full-page PDF capture: runs entirely in background so popup can close
+  // Fire-and-forget: don't use sendResponse since popup will close immediately
   if (message.action === "savePageAsPdf") {
-    handleSavePageAsPdf(message.tabId)
-      .then((result) => sendResponse(result))
-      .catch((err) => sendResponse({ success: false, error: err.message }));
-    return true;
+    handleSavePageAsPdf(message.tabId).catch((err) => {
+      console.error("[QBot] PDF capture failed:", err);
+    });
+    return false;
   }
 });
 

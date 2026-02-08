@@ -650,12 +650,9 @@ savePdfBtn.addEventListener("click", async () => {
     }
 
     // Hand off to background — it will scroll, capture, build PDF, and trigger download
-    // Popup will close when user clicks elsewhere, but background keeps running
-    pdfStatusText.textContent = "⏳ 页面正在自动滚动截图中...";
+    // Background keeps running even after popup closes
+    pdfStatusText.textContent = "⏳ 已启动！页面将自动滚动截图，完成后弹出下载。可关闭此面板。";
     chrome.runtime.sendMessage({ action: "savePageAsPdf", tabId: tab.id });
-
-    // Close popup after a short delay so user sees the status
-    setTimeout(() => window.close(), 800);
 
   } catch (err) {
     pdfStatusText.textContent = `❌ ${err.message || "启动失败"}`;
