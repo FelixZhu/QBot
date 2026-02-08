@@ -313,32 +313,68 @@ function sleep(ms) {
 }
 
 async function handleSavePageAsPdf(tabId) {
+  console.log("[QBot] handleSavePageAsPdf called, tabId:", tabId);
+
   // Get the tab's windowId for captureVisibleTab
   const tab = await chrome.tabs.get(tabId);
   const windowId = tab.windowId;
+  console.log("[QBot] tab info:", tab.url, "windowId:", windowId);
+
+  // Ensure content script is injected (may not be if tab was opened before extension install/update)
+  try {
+    await chrome.scripting.executeScript({
+      target: { tabId },
+      files: ["content.js"],
+    });
+    console.log("[QBot] content script injected/ensured");
+  } catch (injectErr) {
+    console.warn("[QBot] content script injection skipped:", injectErr.message);
+    // May fail on chrome:// pages or if already injected — continue anyway
+  }
+
+  // Small delay to let content script initialize
+  await sleep(200);
 
   // Step 1: Get page dimensions from content script
-  const pageInfo = await chrome.tabs.sendMessage(tabId, { action: "getPageInfo" });
+  let pageInfo;
+  try {
+    pageInfo = await chrome.tabs.sendMessage(tabId, { action: "getPageInfo" });
+  } catch (msgErr) {
+    console.error("[QBot] sendMessage getPageInfo failed:", msgErr);
+    throw new Error("无法连接到页面，请刷新页面后重试");
+  }
   if (!pageInfo || !pageInfo.success) {
     throw new Error("无法获取页面信息，请刷新页面重试");
   }
+  console.log("[QBot] pageInfo:", JSON.stringify(pageInfo));
 
   const { totalHeight, viewportHeight, viewportWidth, devicePixelRatio, title } = pageInfo;
   const steps = Math.ceil(totalHeight / viewportHeight);
   const screenshots = [];
 
+  console.log("[QBot] totalHeight:", totalHeight, "viewportHeight:", viewportHeight, "steps:", steps);
+
   // Step 2: Scroll step-by-step and capture each viewport
   for (let i = 0; i < steps; i++) {
     const scrollY = i * viewportHeight;
+    console.log(`[QBot] step ${i + 1}/${steps}, scrollY: ${scrollY}`);
     // On the last step, the browser clamps scroll to max scrollable position.
     // The actual scroll position may be less than scrollY, causing overlap with
     // the previous capture. We record the actual scroll position to crop correctly.
-    const scrollResult = await chrome.tabs.sendMessage(tabId, { action: "scrollToPosition", scrollY });
-    const actualScrollY = (scrollResult && scrollResult.actualScrollY !== undefined) ? scrollResult.actualScrollY : scrollY;
+    let actualScrollY = scrollY;
+    try {
+      const scrollResult = await chrome.tabs.sendMessage(tabId, { action: "scrollToPosition", scrollY });
+      if (scrollResult && scrollResult.actualScrollY !== undefined) {
+        actualScrollY = scrollResult.actualScrollY;
+      }
+    } catch (scrollErr) {
+      console.warn("[QBot] scroll message failed, using fallback:", scrollErr.message);
+    }
     // Wait for rendering (lazy images, animations, etc.)
     await sleep(400);
     // Capture visible tab using the correct windowId
     const dataUrl = await chrome.tabs.captureVisibleTab(windowId, { format: "png" });
+    console.log(`[QBot] captured step ${i + 1}, dataUrl length: ${dataUrl.length}`);
     screenshots.push({
       dataUrl,
       requestedScrollY: scrollY,

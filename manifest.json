@@ -3,7 +3,7 @@
   "name": "QBot - 你的全能助理",
   "version": "1.0.0",
   "description": "QBot - 你的全能助理。划词查词、中英互查、整句翻译、生词本管理，一站搞定。",
-  "permissions": ["contextMenus", "activeTab", "tabs", "storage", "webRequest", "downloads", "offscreen", "notifications"],
+  "permissions": ["contextMenus", "activeTab", "tabs", "storage", "webRequest", "downloads", "offscreen", "notifications", "scripting"],
   "host_permissions": ["https://dict.youdao.com/*", "<all_urls>"],
   "content_security_policy": {
     "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self';"
