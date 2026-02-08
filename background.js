@@ -131,4 +131,36 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     );
     return true;
   }
+
+  // Capture current visible tab as PNG screenshot
+  if (message.action === "captureTab") {
+    chrome.tabs.captureVisibleTab(null, { format: "png" }, (dataUrl) => {
+      if (chrome.runtime.lastError) {
+        sendResponse({ success: false, error: chrome.runtime.lastError.message });
+      } else {
+        sendResponse({ success: true, data: dataUrl });
+      }
+    });
+    return true;
+  }
+
+  // Download generated PDF from blob URL
+  if (message.action === "downloadPdf") {
+    const { url, filename } = message;
+    chrome.downloads.download(
+      {
+        url,
+        filename: filename || "webpage.pdf",
+        saveAs: true,
+      },
+      (downloadId) => {
+        if (chrome.runtime.lastError) {
+          sendResponse({ success: false, error: chrome.runtime.lastError.message });
+        } else {
+          sendResponse({ success: true, downloadId });
+        }
+      }
+    );
+    return true;
+  }
 });

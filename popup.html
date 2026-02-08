@@ -474,16 +474,118 @@
     .media-open-btn:hover {
       background: #2d8e47;
     }
+
+    /* Tools view */
+    #tools-view {
+      max-height: 440px;
+      overflow-y: auto;
+    }
+
+    .tools-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .tool-card {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      padding: 16px 10px;
+      background: #f8f9fa;
+      border: 1px solid #e8e8e8;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .tool-card:hover {
+      background: #e8f0fe;
+      border-color: #1a73e8;
+      transform: translateY(-1px);
+      box-shadow: 0 2px 8px rgba(26, 115, 232, 0.15);
+    }
+
+    .tool-card:active {
+      transform: translateY(0);
+    }
+
+    .tool-card:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+
+    .tool-icon {
+      font-size: 28px;
+      line-height: 1;
+    }
+
+    .tool-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: #202124;
+    }
+
+    .tool-desc {
+      font-size: 11px;
+      color: #999;
+      text-align: center;
+      line-height: 1.4;
+    }
+
+    .pdf-status {
+      margin-top: 12px;
+      padding: 10px;
+      background: #f8f9fa;
+      border-radius: 8px;
+      text-align: center;
+      font-size: 12px;
+      color: #666;
+    }
+
+    .pdf-progress-bar {
+      width: 100%;
+      height: 6px;
+      background: #e8e8e8;
+      border-radius: 3px;
+      overflow: hidden;
+      margin-bottom: 8px;
+    }
+
+    .pdf-progress-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #1a73e8, #34a853);
+      border-radius: 3px;
+      transition: width 0.3s;
+    }
   </style>
 </head>
 <body>
   <h1>QBot</h1>
   <div class="tab-bar">
-    <button class="tab-btn active" data-tab="search">查词</button>
+    <button class="tab-btn active" data-tab="tools">小工具</button>
+    <button class="tab-btn" data-tab="search">查词</button>
     <button class="tab-btn" data-tab="vocab">生词本</button>
     <button class="tab-btn" data-tab="media">媒体内容</button>
   </div>
-  <div id="search-view">
+  <div id="tools-view">
+    <div class="tools-grid">
+      <button class="tool-card" id="save-pdf-btn">
+        <span class="tool-icon">📄</span>
+        <span class="tool-name">网页保存</span>
+        <span class="tool-desc">将当前网页完整截图并保存为 PDF</span>
+      </button>
+    </div>
+    <div id="pdf-status" class="pdf-status" style="display:none;">
+      <div class="pdf-progress-bar"><div class="pdf-progress-fill" id="pdf-progress-fill"></div></div>
+      <span id="pdf-status-text">准备中...</span>
+    </div>
+  </div>
+  <div id="search-view" style="display:none;">
     <div class="search-box">
       <input type="text" id="word-input" placeholder="输入单词或句子..." autofocus>
       <button id="search-btn" class="search-btn">查询</button>
