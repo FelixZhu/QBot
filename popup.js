@@ -373,6 +373,30 @@ document.addEventListener("click", async (e) => {
     return;
   }
 
+  // Handle merge download button click
+  if (e.target && e.target.classList.contains("media-merge-btn")) {
+    e.stopPropagation();
+    const videoUrl = e.target.getAttribute("data-video-url");
+    const audioUrl = e.target.getAttribute("data-audio-url");
+    const filename = e.target.getAttribute("data-download-name") || "merged_video.mp4";
+    if (!videoUrl || !audioUrl) return;
+    e.target.textContent = "下载中...";
+    e.target.disabled = true;
+    try {
+      const result = await chrome.runtime.sendMessage({
+        action: "mergeAndDownload", videoUrl, audioUrl, filename,
+      });
+      e.target.textContent = result && result.success ? "完成" : "失败";
+    } catch {
+      e.target.textContent = "失败";
+    }
+    setTimeout(() => {
+      e.target.textContent = "⬇ 合并下载";
+      e.target.disabled = false;
+    }, 3000);
+    return;
+  }
+
   // Handle media open button click
   if (e.target && e.target.classList.contains("media-open-btn")) {
     e.stopPropagation();
@@ -432,22 +456,37 @@ async function scanAndRenderMedia() {
       ? networkResult.value.media
       : [];
 
-    // Merge: DOM videos first, then add network-detected URLs not already in DOM results
+    const pairedMedia = (networkResult.status === "fulfilled" && networkResult.value?.success)
+      ? (networkResult.value.paired || [])
+      : [];
+
+    // Collect URLs that are part of paired streams (to exclude from individual list)
+    const pairedUrls = new Set();
+    for (const pair of pairedMedia) {
+      pairedUrls.add(pair.videoUrl);
+      pairedUrls.add(pair.audioUrl);
+    }
+
+    // Merge: DOM videos first, then add unpaired network-detected URLs
     const seenUrls = new Set(domVideos.map((v) => v.src).filter(Boolean));
     const mergedVideos = [...domVideos];
 
     for (const item of networkMedia) {
-      if (item.url && !seenUrls.has(item.url)) {
+      if (item.url && !seenUrls.has(item.url) && !pairedUrls.has(item.url)) {
         seenUrls.add(item.url);
         let filename = "";
         try {
           filename = new URL(item.url).pathname.split("/").pop() || "";
         } catch { /* ignore */ }
+
+        const streamLabel = item.streamType === "video" ? " (仅视频)"
+          : item.streamType === "audio" ? " (仅音频)" : "";
+
         mergedVideos.push({
           type: "network",
           src: item.url,
           thumbnail: "",
-          title: filename ? decodeURIComponent(filename) : "网络视频",
+          title: (filename ? decodeURIComponent(filename) : "网络视频") + streamLabel,
           duration: "",
           dimensions: "",
           nativeIndex: -1,
@@ -455,20 +494,50 @@ async function scanAndRenderMedia() {
       }
     }
 
-    if (mergedVideos.length === 0) {
+    if (mergedVideos.length === 0 && pairedMedia.length === 0) {
       mediaView.innerHTML = '<div class="media-empty">当前页面未发现视频内容</div>';
       return;
     }
 
-    renderMediaList(mergedVideos);
+    renderMediaList(mergedVideos, pairedMedia);
   } catch {
     mediaView.innerHTML = '<div class="media-error">无法连接到页面，请刷新页面后重试</div>';
   }
 }
 
-function renderMediaList(videos) {
-  let html = `<div class="media-count">发现 ${videos.length} 个视频</div>`;
+function renderMediaList(videos, pairedMedia = []) {
+  const totalCount = videos.length + pairedMedia.length;
+  let html = `<div class="media-count">发现 ${totalCount} 个视频</div>`;
 
+  // Render paired streams first (these are the DASH video+audio combos)
+  for (const pair of pairedMedia) {
+    let title = "";
+    try {
+      const pathname = new URL(pair.videoUrl).pathname;
+      const filename = pathname.split("/").pop() || "";
+      title = filename ? decodeURIComponent(filename) : pair.groupKey;
+    } catch {
+      title = pair.groupKey || "DASH 视频";
+    }
+    // Remove format ID suffix for cleaner display
+    title = title.replace(/-\d+\.(mp4|m4s)$/i, ".mp4");
+
+    const downloadName = title.endsWith(".mp4") ? title : title + ".mp4";
+
+    html += `<div class="media-item media-item-paired">`;
+    html += `<div class="media-thumb-placeholder">&#9654;</div>`;
+    html += `<div class="media-info">`;
+    html += `<div class="media-title">${escapeHtml(title)}</div>`;
+    html += `<div class="media-meta">`;
+    html += `<span class="media-type-badge media-type-badge-paired">VIDEO+AUDIO</span>`;
+    if (pair.videoFormatId) html += ` <span>V:${pair.videoFormatId}</span>`;
+    if (pair.audioFormatId) html += ` <span>A:${pair.audioFormatId}</span>`;
+    html += `</div>`;
+    html += `<button class="media-merge-btn" data-video-url="${escapeHtml(pair.videoUrl)}" data-audio-url="${escapeHtml(pair.audioUrl)}" data-download-name="${escapeHtml(downloadName)}">⬇ 合并下载</button>`;
+    html += `</div></div>`;
+  }
+
+  // Render individual videos
   for (let i = 0; i < videos.length; i++) {
     const video = videos[i];
     const title = video.title || `视频 ${i + 1}`;
