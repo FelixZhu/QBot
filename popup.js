@@ -628,360 +628,40 @@ function extractFilename(url, title) {
 }
 
 // --- Save page as PDF ---
+// The entire capture flow runs in the background service worker,
+// so the popup can close immediately without interrupting it.
 
 const savePdfBtn = document.getElementById("save-pdf-btn");
 const pdfStatus = document.getElementById("pdf-status");
-const pdfProgressFill = document.getElementById("pdf-progress-fill");
 const pdfStatusText = document.getElementById("pdf-status-text");
 
-let isSavingPdf = false;
-
 savePdfBtn.addEventListener("click", async () => {
-  if (isSavingPdf) return;
-  isSavingPdf = true;
   savePdfBtn.disabled = true;
   pdfStatus.style.display = "block";
-  pdfProgressFill.style.width = "0%";
-  pdfStatusText.textContent = "正在准备页面信息...";
+  pdfStatusText.textContent = "正在启动截图，请稍候...";
 
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (!tab || !tab.id) {
       throw new Error("无法访问当前标签页");
     }
-
     if (tab.url && (tab.url.startsWith("chrome://") || tab.url.startsWith("edge://") || tab.url.startsWith("about:"))) {
       throw new Error("此页面不支持保存为 PDF");
     }
 
-    // Step 1: Get page dimensions from content script
-    pdfStatusText.textContent = "正在获取页面尺寸...";
-    const pageInfo = await chrome.tabs.sendMessage(tab.id, { action: "getPageInfo" });
-    if (!pageInfo || !pageInfo.success) {
-      throw new Error("无法获取页面信息，请刷新页面重试");
-    }
+    // Hand off to background — it will scroll, capture, build PDF, and trigger download
+    // Popup will close when user clicks elsewhere, but background keeps running
+    pdfStatusText.textContent = "⏳ 页面正在自动滚动截图中...";
+    chrome.runtime.sendMessage({ action: "savePageAsPdf", tabId: tab.id });
 
-    const { totalHeight, viewportHeight, viewportWidth, devicePixelRatio, title } = pageInfo;
-    const steps = Math.ceil(totalHeight / viewportHeight);
-    const screenshots = [];
-
-    pdfStatusText.textContent = `正在截图 (0/${steps})...`;
-
-    // Step 2: Scroll step-by-step and capture each viewport
-    for (let i = 0; i < steps; i++) {
-      const scrollY = i * viewportHeight;
-      // Tell content script to scroll to position
-      await chrome.tabs.sendMessage(tab.id, { action: "scrollToPosition", scrollY });
-      // Wait for rendering
-      await sleep(350);
-      // Capture visible tab
-      const dataUrl = await chrome.runtime.sendMessage({ action: "captureTab" });
-      if (!dataUrl || !dataUrl.success) {
-        throw new Error("截图失败");
-      }
-      screenshots.push({
-        dataUrl: dataUrl.data,
-        scrollY,
-        // The last step may be a partial viewport
-        isLast: i === steps - 1,
-      });
-
-      const progress = Math.round(((i + 1) / steps) * 80);
-      pdfProgressFill.style.width = `${progress}%`;
-      pdfStatusText.textContent = `正在截图 (${i + 1}/${steps})...`;
-    }
-
-    // Step 3: Restore scroll position
-    await chrome.tabs.sendMessage(tab.id, { action: "scrollToPosition", scrollY: 0 });
-
-    // Step 4: Stitch into PDF using canvas
-    pdfStatusText.textContent = "正在生成 PDF...";
-    pdfProgressFill.style.width = "85%";
-
-    await generatePdfFromScreenshots(screenshots, {
-      totalHeight,
-      viewportHeight,
-      viewportWidth,
-      devicePixelRatio,
-      title: title || "webpage",
-    });
-
-    pdfProgressFill.style.width = "100%";
-    pdfStatusText.textContent = "✅ PDF 保存成功！";
+    // Close popup after a short delay so user sees the status
+    setTimeout(() => window.close(), 800);
 
   } catch (err) {
-    pdfStatusText.textContent = `❌ ${err.message || "保存失败，请重试"}`;
-  } finally {
-    isSavingPdf = false;
+    pdfStatusText.textContent = `❌ ${err.message || "启动失败"}`;
     savePdfBtn.disabled = false;
     setTimeout(() => {
       pdfStatus.style.display = "none";
     }, 3000);
   }
 });
-
-function sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-async function generatePdfFromScreenshots(screenshots, info) {
-  const { totalHeight, viewportHeight, viewportWidth, devicePixelRatio, title } = info;
-
-  // Load all images
-  const images = [];
-  for (const s of screenshots) {
-    const img = await loadImage(s.dataUrl);
-    images.push({ img, scrollY: s.scrollY, isLast: s.isLast });
-  }
-
-  // Create a full-page canvas to stitch all screenshots
-  const canvasWidth = viewportWidth * devicePixelRatio;
-  const canvasFullHeight = totalHeight * devicePixelRatio;
-
-  // We'll generate the PDF page by page to avoid huge canvas
-  // Each screenshot = one "page" worth of content
-  // Use the first image to determine actual captured dimensions
-  const capturedWidth = images[0].img.width;
-  const capturedHeight = images[0].img.height;
-
-  // PDF dimensions in points (72 dpi); use A4-like ratio based on viewport
-  const pdfPageWidth = 595.28; // A4 width in points
-  const pdfPageHeight = pdfPageWidth * (capturedHeight / capturedWidth);
-
-  // Build a simple PDF manually (no library needed)
-  const pdfPages = [];
-
-  for (let i = 0; i < images.length; i++) {
-    const { img, isLast } = images[i];
-
-    // For the last page, we may need to crop
-    const canvas = document.createElement("canvas");
-    canvas.width = capturedWidth;
-
-    if (isLast) {
-      // Calculate the remaining height
-      const remainPx = totalHeight - (screenshots[i].scrollY);
-      const remainCanvas = remainPx * devicePixelRatio;
-      canvas.height = Math.min(remainCanvas, capturedHeight);
-    } else {
-      canvas.height = capturedHeight;
-    }
-
-    const ctx = canvas.getContext("2d");
-    ctx.drawImage(img, 0, 0, capturedWidth, canvas.height, 0, 0, capturedWidth, canvas.height);
-
-    const jpegDataUrl = canvas.toDataURL("image/jpeg", 0.92);
-    pdfPages.push({
-      dataUrl: jpegDataUrl,
-      width: canvas.width,
-      height: canvas.height,
-    });
-  }
-
-  // Generate PDF binary using minimal PDF builder
-  const pdfBytes = buildPdf(pdfPages, pdfPageWidth, title);
-
-  // Trigger download
-  const blob = new Blob([pdfBytes], { type: "application/pdf" });
-  const url = URL.createObjectURL(blob);
-  const safeName = (title || "webpage").replace(/[^\w\u4e00-\u9fff\s-]/g, "").trim().slice(0, 80);
-  const filename = `${safeName}.pdf`;
-
-  await chrome.runtime.sendMessage({ action: "downloadPdf", url, filename });
-
-  // Clean up the object URL after a delay
-  setTimeout(() => URL.revokeObjectURL(url), 10000);
-}
-
-function loadImage(dataUrl) {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => resolve(img);
-    img.onerror = reject;
-    img.src = dataUrl;
-  });
-}
-
-/**
- * Build a minimal valid PDF from an array of JPEG page images.
- * Each page is sized proportionally to the image aspect ratio.
- */
-function buildPdf(pages, baseWidth, title) {
-  let objCount = 0;
-  const offsets = [];
-  let body = "";
-
-  function addObj(content) {
-    objCount++;
-    offsets.push(body.length);
-    body += `${objCount} 0 obj\n${content}\nendobj\n`;
-    return objCount;
-  }
-
-  // Extract raw JPEG bytes from data URLs
-  const jpegDataList = pages.map((p) => {
-    const base64 = p.dataUrl.split(",")[1];
-    return base64ToBytes(base64);
-  });
-
-  // Object 1: Catalog (will reference Pages object)
-  const catalogId = addObj("<< /Type /Catalog /Pages 2 0 R >>");
-
-  // Object 2: Pages - placeholder, we'll fix content later
-  const pagesObjIndex = offsets.length;
-  addObj("PLACEHOLDER");
-
-  // For each page, create: Image XObject, Page object
-  const pageObjIds = [];
-  const imageObjIds = [];
-
-  for (let i = 0; i < pages.length; i++) {
-    const p = pages[i];
-    const jpegBytes = jpegDataList[i];
-    const pageHeight = baseWidth * (p.height / p.width);
-
-    // Image XObject (stream)
-    const imgObjId = addObj(
-      `<< /Type /XObject /Subtype /Image /Width ${p.width} /Height ${p.height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${jpegBytes.length} >>\nstream\n`
-    );
-    // We need to inject raw bytes into the stream - handle below
-    imageObjIds.push(imgObjId);
-
-    // Page content stream (draw image full-page)
-    const contentStream = `q ${baseWidth} 0 0 ${pageHeight} 0 0 cm /Img${i} Do Q`;
-    const contentObjId = addObj(
-      `<< /Length ${contentStream.length} >>\nstream\n${contentStream}\nendstream`
-    );
-
-    // Page object
-    const pageObjId = addObj(
-      `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${baseWidth} ${pageHeight}] /Contents ${contentObjId} 0 R /Resources << /XObject << /Img${i} ${imgObjId} 0 R >> >> >>`
-    );
-    pageObjIds.push(pageObjId);
-  }
-
-  // Now fix the Pages object
-  const kidsStr = pageObjIds.map((id) => `${id} 0 R`).join(" ");
-  const pagesContent = `<< /Type /Pages /Kids [${kidsStr}] /Count ${pages.length} >>`;
-
-  // Rebuild body with correct Pages object
-  // This is a simplified approach - rebuild from scratch with proper binary streams
-
-  return buildPdfBinary(pages, jpegDataList, baseWidth, title);
-}
-
-function buildPdfBinary(pages, jpegDataList, baseWidth, title) {
-  const encoder = new TextEncoder();
-  const chunks = [];
-  let offset = 0;
-  const offsets = [];
-  let objNum = 0;
-
-  function writeStr(s) {
-    const bytes = encoder.encode(s);
-    chunks.push(bytes);
-    offset += bytes.length;
-  }
-
-  function writeBytes(b) {
-    chunks.push(b);
-    offset += b.length;
-  }
-
-  function startObj() {
-    objNum++;
-    offsets.push(offset);
-    writeStr(`${objNum} 0 obj\n`);
-    return objNum;
-  }
-
-  function endObj() {
-    writeStr("endobj\n");
-  }
-
-  // Header
-  writeStr("%PDF-1.4\n%\xE2\xE3\xCF\xD3\n");
-
-  // Obj 1: Catalog
-  const catalogId = startObj();
-  writeStr("<< /Type /Catalog /Pages 2 0 R >>\n");
-  endObj();
-
-  // Obj 2: Pages (placeholder - need to know page obj IDs first)
-  // We'll calculate IDs: for each page we have 3 objects (image, content, page)
-  // So page objects are at positions: 3 + i*3 + 2 = 5, 8, 11, ...
-  const pageObjIds = pages.map((_, i) => 3 + i * 3 + 2 + 1); // +1 because 1-indexed
-  // Actually let's just compute: obj3=img0, obj4=content0, obj5=page0, obj6=img1, obj7=content1, obj8=page1, ...
-  const firstPageObjId = 5; // 3(img) + 4(content) + 5(page)
-  const computedPageIds = pages.map((_, i) => 3 + i * 3 + 2);
-
-  const pagesId = startObj();
-  const kidsStr = computedPageIds.map((id) => `${id} 0 R`).join(" ");
-  writeStr(`<< /Type /Pages /Kids [${kidsStr}] /Count ${pages.length} >>\n`);
-  endObj();
-
-  // For each page: image stream obj, content stream obj, page obj
-  for (let i = 0; i < pages.length; i++) {
-    const p = pages[i];
-    const jpegBytes = jpegDataList[i];
-    const pageHeight = baseWidth * (p.height / p.width);
-
-    // Image XObject
-    const imgId = startObj();
-    writeStr(`<< /Type /XObject /Subtype /Image /Width ${p.width} /Height ${p.height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${jpegBytes.length} >>\n`);
-    writeStr("stream\n");
-    writeBytes(jpegBytes);
-    writeStr("\nendstream\n");
-    endObj();
-
-    // Content stream
-    const contentStr = `q ${baseWidth.toFixed(2)} 0 0 ${pageHeight.toFixed(2)} 0 0 cm /Img${i} Do Q`;
-    const contentId = startObj();
-    writeStr(`<< /Length ${contentStr.length} >>\n`);
-    writeStr("stream\n");
-    writeStr(contentStr);
-    writeStr("\nendstream\n");
-    endObj();
-
-    // Page
-    const pageId = startObj();
-    writeStr(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${baseWidth.toFixed(2)} ${pageHeight.toFixed(2)}] /Contents ${contentId} 0 R /Resources << /XObject << /Img${i} ${imgId} 0 R >> >> >>\n`);
-    endObj();
-  }
-
-  // Cross-reference table
-  const xrefOffset = offset;
-  writeStr("xref\n");
-  writeStr(`0 ${objNum + 1}\n`);
-  writeStr("0000000000 65535 f \n");
-  for (const off of offsets) {
-    writeStr(`${String(off).padStart(10, "0")} 00000 n \n`);
-  }
-
-  // Trailer
-  writeStr("trailer\n");
-  writeStr(`<< /Size ${objNum + 1} /Root ${catalogId} 0 R >>\n`);
-  writeStr("startxref\n");
-  writeStr(`${xrefOffset}\n`);
-  writeStr("%%EOF\n");
-
-  // Concatenate all chunks
-  const totalLength = chunks.reduce((sum, c) => sum + c.length, 0);
-  const result = new Uint8Array(totalLength);
-  let pos = 0;
-  for (const chunk of chunks) {
-    result.set(chunk, pos);
-    pos += chunk.length;
-  }
-
-  return result;
-}
-
-function base64ToBytes(base64) {
-  const binary = atob(base64);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) {
-    bytes[i] = binary.charCodeAt(i);
-  }
-  return bytes;
-}

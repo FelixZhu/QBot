@@ -280,38 +280,206 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
-  // Capture current visible tab as PNG screenshot
-  if (message.action === "captureTab") {
-    chrome.tabs.captureVisibleTab(null, { format: "png" }, (dataUrl) => {
-      if (chrome.runtime.lastError) {
-        sendResponse({ success: false, error: chrome.runtime.lastError.message });
-      } else {
-        sendResponse({ success: true, data: dataUrl });
-      }
-    });
-    return true;
-  }
-
-  // Download generated PDF from blob URL
-  if (message.action === "downloadPdf") {
-    const { url, filename } = message;
-    chrome.downloads.download(
-      {
-        url,
-        filename: filename || "webpage.pdf",
-        saveAs: true,
-      },
-      (downloadId) => {
-        if (chrome.runtime.lastError) {
-          sendResponse({ success: false, error: chrome.runtime.lastError.message });
-        } else {
-          sendResponse({ success: true, downloadId });
-        }
-      }
-    );
+  // Full-page PDF capture: runs entirely in background so popup can close
+  if (message.action === "savePageAsPdf") {
+    handleSavePageAsPdf(message.tabId)
+      .then((result) => sendResponse(result))
+      .catch((err) => sendResponse({ success: false, error: err.message }));
     return true;
   }
 });
+
+// --- Full-page PDF capture ---
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function handleSavePageAsPdf(tabId) {
+  // Step 1: Get page dimensions from content script
+  const pageInfo = await chrome.tabs.sendMessage(tabId, { action: "getPageInfo" });
+  if (!pageInfo || !pageInfo.success) {
+    throw new Error("无法获取页面信息，请刷新页面重试");
+  }
+
+  const { totalHeight, viewportHeight, viewportWidth, devicePixelRatio, title } = pageInfo;
+  const steps = Math.ceil(totalHeight / viewportHeight);
+  const screenshots = [];
+
+  // Step 2: Scroll step-by-step and capture each viewport
+  for (let i = 0; i < steps; i++) {
+    const scrollY = i * viewportHeight;
+    await chrome.tabs.sendMessage(tabId, { action: "scrollToPosition", scrollY });
+    // Wait for rendering (lazy images, animations, etc.)
+    await sleep(400);
+    // Capture visible tab
+    const dataUrl = await chrome.tabs.captureVisibleTab(null, { format: "png" });
+    screenshots.push({
+      dataUrl,
+      scrollY,
+      isLast: i === steps - 1,
+    });
+  }
+
+  // Step 3: Restore scroll position
+  await chrome.tabs.sendMessage(tabId, { action: "scrollToPosition", scrollY: 0 });
+
+  // Step 4: Convert screenshots to JPEG using OffscreenCanvas (service worker compatible)
+  const pdfPages = [];
+  for (let i = 0; i < screenshots.length; i++) {
+    const s = screenshots[i];
+    const resp = await fetch(s.dataUrl);
+    const imageBitmap = await createImageBitmap(await resp.blob());
+
+    const capturedWidth = imageBitmap.width;
+    const capturedHeight = imageBitmap.height;
+
+    let canvasHeight = capturedHeight;
+    if (s.isLast) {
+      const remainPx = totalHeight - s.scrollY;
+      const remainCanvas = remainPx * devicePixelRatio;
+      canvasHeight = Math.min(Math.round(remainCanvas), capturedHeight);
+    }
+
+    const canvas = new OffscreenCanvas(capturedWidth, canvasHeight);
+    const ctx = canvas.getContext("2d");
+    ctx.drawImage(imageBitmap, 0, 0, capturedWidth, canvasHeight, 0, 0, capturedWidth, canvasHeight);
+    imageBitmap.close();
+
+    const blob = await canvas.convertToBlob({ type: "image/jpeg", quality: 0.92 });
+    const jpegBytes = new Uint8Array(await blob.arrayBuffer());
+    pdfPages.push({
+      jpegBytes,
+      width: capturedWidth,
+      height: canvasHeight,
+    });
+  }
+
+  // Step 5: Build PDF binary
+  const pdfPageWidth = 595.28; // A4 width in points
+  const pdfBytes = buildPdfBinary(pdfPages, pdfPageWidth);
+
+  // Step 6: Create blob URL and trigger download
+  const pdfBlob = new Blob([pdfBytes], { type: "application/pdf" });
+  const pdfUrl = URL.createObjectURL(pdfBlob);
+  const safeName = (title || "webpage").replace(/[^\w\u4e00-\u9fff\s-]/g, "").trim().slice(0, 80);
+  const filename = `${safeName}.pdf`;
+
+  return new Promise((resolve, reject) => {
+    chrome.downloads.download(
+      { url: pdfUrl, filename, saveAs: true },
+      (downloadId) => {
+        // Clean up blob URL after a delay
+        setTimeout(() => URL.revokeObjectURL(pdfUrl), 30000);
+        if (chrome.runtime.lastError) {
+          reject(new Error(chrome.runtime.lastError.message));
+        } else {
+          resolve({ success: true, downloadId });
+        }
+      }
+    );
+  });
+}
+
+function buildPdfBinary(pages, baseWidth) {
+  const encoder = new TextEncoder();
+  const chunks = [];
+  let offset = 0;
+  const offsets = [];
+  let objNum = 0;
+
+  function writeStr(s) {
+    const bytes = encoder.encode(s);
+    chunks.push(bytes);
+    offset += bytes.length;
+  }
+
+  function writeBytes(b) {
+    chunks.push(b);
+    offset += b.length;
+  }
+
+  function startObj() {
+    objNum++;
+    offsets.push(offset);
+    writeStr(`${objNum} 0 obj\n`);
+    return objNum;
+  }
+
+  function endObj() {
+    writeStr("endobj\n");
+  }
+
+  // Header
+  writeStr("%PDF-1.4\n%\xE2\xE3\xCF\xD3\n");
+
+  // Obj 1: Catalog
+  const catalogId = startObj();
+  writeStr("<< /Type /Catalog /Pages 2 0 R >>\n");
+  endObj();
+
+  // Obj 2: Pages
+  // Each page has 3 objects (image, content stream, page), so page obj IDs are: 5, 8, 11, ...
+  const computedPageIds = pages.map((_, i) => 3 + i * 3 + 2);
+  startObj();
+  const kidsStr = computedPageIds.map((id) => `${id} 0 R`).join(" ");
+  writeStr(`<< /Type /Pages /Kids [${kidsStr}] /Count ${pages.length} >>\n`);
+  endObj();
+
+  // For each page: image XObject, content stream, page object
+  for (let i = 0; i < pages.length; i++) {
+    const p = pages[i];
+    const pageHeight = baseWidth * (p.height / p.width);
+
+    // Image XObject (JPEG stream)
+    const imgId = startObj();
+    writeStr(`<< /Type /XObject /Subtype /Image /Width ${p.width} /Height ${p.height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${p.jpegBytes.length} >>\n`);
+    writeStr("stream\n");
+    writeBytes(p.jpegBytes);
+    writeStr("\nendstream\n");
+    endObj();
+
+    // Content stream (draw image full-page)
+    const contentStr = `q ${baseWidth.toFixed(2)} 0 0 ${pageHeight.toFixed(2)} 0 0 cm /Img${i} Do Q`;
+    const contentId = startObj();
+    writeStr(`<< /Length ${contentStr.length} >>\n`);
+    writeStr("stream\n");
+    writeStr(contentStr);
+    writeStr("\nendstream\n");
+    endObj();
+
+    // Page object
+    startObj();
+    writeStr(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${baseWidth.toFixed(2)} ${pageHeight.toFixed(2)}] /Contents ${contentId} 0 R /Resources << /XObject << /Img${i} ${imgId} 0 R >> >> >>\n`);
+    endObj();
+  }
+
+  // Cross-reference table
+  const xrefOffset = offset;
+  writeStr("xref\n");
+  writeStr(`0 ${objNum + 1}\n`);
+  writeStr("0000000000 65535 f \n");
+  for (const off of offsets) {
+    writeStr(`${String(off).padStart(10, "0")} 00000 n \n`);
+  }
+
+  // Trailer
+  writeStr("trailer\n");
+  writeStr(`<< /Size ${objNum + 1} /Root ${catalogId} 0 R >>\n`);
+  writeStr("startxref\n");
+  writeStr(`${xrefOffset}\n`);
+  writeStr("%%EOF\n");
+
+  // Concatenate all chunks
+  const totalLength = chunks.reduce((sum, c) => sum + c.length, 0);
+  const result = new Uint8Array(totalLength);
+  let pos = 0;
+  for (const chunk of chunks) {
+    result.set(chunk, pos);
+    pos += chunk.length;
+  }
+  return result;
+}
 
 async function handleMergeAndDownload(videoUrl, audioUrl, filename) {
   await ensureOffscreen();

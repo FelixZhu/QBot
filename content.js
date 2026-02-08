@@ -6,15 +6,18 @@ const POPUP_ID = "qbot-word-popup";
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === "lookup" && message.word) {
     lookupWord(message.word);
+    return false;
   }
 
   if (message.action === "scanVideos") {
     const videos = scanPageForVideos();
     sendResponse({ success: true, videos });
+    return false;
   }
 
   if (message.action === "scrollToVideo") {
     scrollToNativeVideo(message.videoIndex);
+    return false;
   }
 
   // PDF capture: get page dimensions
@@ -35,12 +38,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       devicePixelRatio: window.devicePixelRatio || 1,
       title: document.title || "",
     });
+    return false;
   }
 
   // PDF capture: scroll to a specific position
   if (message.action === "scrollToPosition") {
     window.scrollTo(0, message.scrollY);
     sendResponse({ success: true });
+    return false;
   }
 });
 
