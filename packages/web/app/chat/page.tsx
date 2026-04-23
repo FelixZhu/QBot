@@ -10,13 +10,13 @@ import {
   MessagePrimitive,
   ComposerPrimitive,
 } from '@assistant-ui/react';
+import type { ChatModelAdapter, ChatModelRunResult } from '@assistant-ui/react';
 import { SettingsModal } from '@qbot/ui';
 import { Settings, Plus, Trash2, Menu, X, Search, ChevronDown, ImageIcon } from 'lucide-react';
 import { useChatStore } from '@/stores/chat-store';
 
-// Adapter to connect assistant-ui to our API
-// Implements ChatModelAdapter interface from @assistant-ui/core
-class QBotAdapter {
+// Adapter to connect assistant-ui LocalRuntime to our /api/chat endpoint
+class QBotAdapter implements ChatModelAdapter {
   private model: string;
   private conversationId: string | null;
 
@@ -33,30 +33,18 @@ class QBotAdapter {
     this.conversationId = id;
   }
 
-  async *run({ messages, abortSignal }: { messages: any[]; abortSignal: AbortSignal }): AsyncGenerator<any, void> {
-    // Convert assistant-ui message format to our API format
+  async *run({ messages, abortSignal }: Parameters<ChatModelAdapter['run']>[0]): AsyncGenerator<ChatModelRunResult, void> {
+    // Convert assistant-ui ThreadMessage format to simple API format
     const apiMessages = messages.map((msg) => {
-      // Handle thread message format (has content array)
+      const role = msg.role[0] as 'user' | 'assistant' | 'system';
+      // Extract text from content array
       if (msg.content && Array.isArray(msg.content)) {
-        const textPart = msg.content.find((p: any) => p.type === 'text');
-        return {
-          role: msg.role,
-          content: textPart?.text || '',
-        };
+        const texts = msg.content
+          .filter((p: any) => p.type === 'text')
+          .map((p: any) => p.text);
+        return { role, content: texts.join('') };
       }
-      // Handle parts format
-      if (msg.parts && Array.isArray(msg.parts)) {
-        const textPart = msg.parts.find((p: any) => p.type === 'text');
-        return {
-          role: msg.role,
-          content: textPart?.text || '',
-        };
-      }
-      // Already simple format
-      return {
-        role: msg.role,
-        content: msg.content || '',
-      };
+      return { role, content: '' };
     });
 
     const response = await fetch('/api/chat', {
@@ -74,19 +62,17 @@ class QBotAdapter {
       throw new Error(`API error: ${response.statusText}`);
     }
 
-    // Handle streaming response
     const reader = response.body?.getReader();
     if (!reader) throw new Error('No response body');
 
     const decoder = new TextDecoder();
-    let textId: string | null = null;
     let fullText = '';
 
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
 
-      const chunk = decoder.decode(value);
+      const chunk = decoder.decode(value, { stream: true });
       const lines = chunk.split('\n');
 
       for (const line of lines) {
@@ -97,14 +83,10 @@ class QBotAdapter {
           try {
             const parsed = JSON.parse(data);
 
-            if (parsed.type === 'text-start') {
-              textId = parsed.id;
-            } else if (parsed.type === 'text-delta' && parsed.delta) {
+            if (parsed.type === 'text-delta' && parsed.delta) {
               fullText += parsed.delta;
-              // Yield ChatModelRunResult with proper content array
               yield {
-                content: [{ type: 'text', text: fullText }],
-                status: { type: 'running' },
+                content: [{ type: 'text' as const, text: fullText }],
               };
             }
           } catch {
@@ -114,10 +96,10 @@ class QBotAdapter {
       }
     }
 
-    // Final result with complete status
-    return {
-      content: [{ type: 'text', text: fullText }],
-      status: { type: 'complete' },
+    // Final yield with complete status
+    yield {
+      content: [{ type: 'text' as const, text: fullText }],
+      status: { type: 'complete' as const, reason: 'stop' as const },
     };
   }
 }
