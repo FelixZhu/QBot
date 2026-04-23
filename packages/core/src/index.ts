@@ -29,3 +29,12 @@ export type { DetectionResult } from './ai/utils/key-detector.js';
 export { ConversationManager } from './conversation/manager.js';
 export { generateId, generateFilename } from './conversation/message.js';
 export type { ConversationData, ConversationMeta } from './conversation/message.js';
+
+// Storage
+export { createOSSClient, getOSSClient } from './storage/oss-client.js';
+export type { OSSConfig } from './storage/oss-client.js';
+export {
+  OSSConversationRepository,
+  MemoryConversationRepository,
+} from './storage/conversation-repository.js';
+export type { ConversationRepository } from './storage/conversation-repository.js';

@@ -16,13 +16,15 @@
     "test": "vitest"
   },
   "dependencies": {
-    "openai": "^4.x",
     "@anthropic-ai/sdk": "^0.x",
-    "gray-matter": "^4.x"
+    "ali-oss": "^6.23.0",
+    "gray-matter": "^4.x",
+    "openai": "^4.x"
   },
   "devDependencies": {
-    "typescript": "^5.x",
+    "@types/ali-oss": "^6.23.3",
     "tsup": "^8.x",
+    "typescript": "^5.x",
     "vitest": "^1.x"
   }
 }

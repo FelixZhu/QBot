@@ -79,6 +79,8 @@ export default function ChatPage() {
     getMessages,
     setMessages,
     setSelectedModel,
+    loadConversations,
+    appendMessages,
   } = useChatStore();
 
   // Use Vercel AI SDK's useChat hook
@@ -97,7 +99,7 @@ export default function ChatPage() {
     }
   }, [messages, activeConversationId, setMessages]);
 
-  // Check auth
+  // Check auth and load conversations
   useEffect(() => {
     const userStr = localStorage.getItem('qbot-user');
     if (!userStr) {
@@ -105,11 +107,13 @@ export default function ChatPage() {
       return;
     }
     try {
-      setUser(JSON.parse(userStr));
+      const parsed = JSON.parse(userStr);
+      setUser(parsed);
+      loadConversations();
     } catch {
       router.push('/login');
     }
-  }, [router]);
+  }, [router, loadConversations]);
 
   // Load messages when selecting conversation
   useEffect(() => {
@@ -122,8 +126,8 @@ export default function ChatPage() {
   }, [activeConversationId, getMessages, setChatMessages]);
 
   // Handle new chat
-  const handleNewChat = useCallback(() => {
-    createConversation();
+  const handleNewChat = useCallback(async () => {
+    await createConversation();
     setChatMessages([]);
     setInput('');
   }, [createConversation, setChatMessages]);
@@ -145,14 +149,18 @@ export default function ChatPage() {
     // Create conversation if needed
     let convId = activeConversationId;
     if (!convId) {
-      convId = createConversation(messageContent.slice(0, 30));
-      selectConversation(convId);
+      convId = await createConversation(messageContent.slice(0, 30));
+      await selectConversation(convId);
     }
 
     // Send message via API
     try {
       const currentMsgs = getMessages(convId);
-      const allMessages = [...currentMsgs, { role: 'user' as const, content: messageContent }];
+      const userMessage: ChatMessage = { role: 'user' as const, content: messageContent };
+      const allMessages = [...currentMsgs, userMessage];
+
+      // Save user message to server
+      await appendMessages(convId, [userMessage]);
 
       const response = await fetch('/api/chat', {
         method: 'POST',
@@ -175,15 +183,13 @@ export default function ChatPage() {
         }
       }
 
-      // Update messages in store
-      setMessages(convId, [
-        ...allMessages,
-        { role: 'assistant', content: assistantContent },
-      ]);
+      // Save assistant message to server
+      const assistantMessage: ChatMessage = { role: 'assistant', content: assistantContent };
+      await appendMessages(convId, [assistantMessage]);
 
       // Update title if first message
       if (currentMsgs.length === 0) {
-        updateConversationTitle(convId, messageContent.slice(0, 30) + (messageContent.length > 30 ? '...' : ''));
+        await updateConversationTitle(convId, messageContent.slice(0, 30) + (messageContent.length > 30 ? '...' : ''));
       }
     } catch (error) {
       console.error('Chat error:', error);
@@ -195,7 +201,7 @@ export default function ChatPage() {
     createConversation,
     selectConversation,
     getMessages,
-    setMessages,
+    appendMessages,
     selectedModel,
     updateConversationTitle,
   ]);

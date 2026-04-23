@@ -1,7 +1,6 @@
 // packages/web/stores/chat-store.ts
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { nanoid } from 'nanoid';
 import type { ChatMessage, ProviderType } from '@qbot/core';
 
 export interface ConversationMeta {
@@ -18,26 +17,43 @@ interface ChatState {
   conversations: ConversationMeta[];
   activeConversationId: string | null;
 
-  // Messages (per conversation)
+  // Messages (per conversation, cached in memory)
   messagesByConversation: Record<string, ChatMessage[]>;
 
   // Model settings
   selectedModel: string;
 
+  // Loading state
+  isLoading: boolean;
+
   // Actions
-  createConversation: (title?: string) => string;
-  selectConversation: (id: string) => void;
-  deleteConversation: (id: string) => void;
-  updateConversationTitle: (id: string, title: string) => void;
+  loadConversations: () => Promise<void>;
+  createConversation: (title?: string) => Promise<string>;
+  selectConversation: (id: string) => Promise<void>;
+  deleteConversation: (id: string) => Promise<void>;
+  updateConversationTitle: (id: string, title: string) => Promise<void>;
 
   // Messages
   getMessages: (conversationId: string) => ChatMessage[];
   addMessage: (conversationId: string, message: ChatMessage) => void;
   setMessages: (conversationId: string, messages: ChatMessage[]) => void;
   clearMessages: (conversationId: string) => void;
+  appendMessages: (conversationId: string, messages: ChatMessage[]) => Promise<void>;
 
   // Model
   setSelectedModel: (model: string) => void;
+}
+
+async function api<T>(path: string, options?: RequestInit): Promise<T> {
+  const res = await fetch(path, {
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    ...options,
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `HTTP ${res.status}`);
+  }
+  return res.json();
 }
 
 export const useChatStore = create<ChatState>()(
@@ -47,37 +63,64 @@ export const useChatStore = create<ChatState>()(
       activeConversationId: null,
       messagesByConversation: {},
       selectedModel: 'anthropic/claude-3.5-sonnet',
+      isLoading: false,
 
-      // Create a new conversation
-      createConversation: (title) => {
-        const id = nanoid();
-        const now = new Date().toISOString();
-        const newConv: ConversationMeta = {
-          id,
-          title: title || 'New Chat',
-          createdAt: now,
-          updatedAt: now,
-          model: get().selectedModel,
-          provider: 'openrouter',
-        };
-        set((state) => ({
-          conversations: [newConv, ...state.conversations],
-          activeConversationId: id,
-          messagesByConversation: {
-            ...state.messagesByConversation,
-            [id]: [],
-          },
-        }));
-        return id;
+      // Load all conversations from server
+      loadConversations: async () => {
+        set({ isLoading: true });
+        try {
+          const data = await api<{ conversations: ConversationMeta[] }>('/api/conversations');
+          set({ conversations: data.conversations });
+        } catch (error) {
+          console.error('Failed to load conversations:', error);
+        } finally {
+          set({ isLoading: false });
+        }
       },
 
-      // Select a conversation
-      selectConversation: (id) => {
+      // Create a new conversation on server
+      createConversation: async (title) => {
+        const data = await api<{ conversation: { meta: ConversationMeta } }>('/api/conversations', {
+          method: 'POST',
+          body: JSON.stringify({
+            title: title || 'New Chat',
+            model: get().selectedModel,
+            provider: 'openrouter',
+          }),
+        });
+        const conv = data.conversation.meta;
+        set((state) => ({
+          conversations: [conv, ...state.conversations],
+          activeConversationId: conv.id,
+          messagesByConversation: {
+            ...state.messagesByConversation,
+            [conv.id]: [],
+          },
+        }));
+        return conv.id;
+      },
+
+      // Select a conversation and load its messages
+      selectConversation: async (id) => {
         set({ activeConversationId: id });
+        try {
+          const data = await api<{ conversation: { meta: ConversationMeta; messages: ChatMessage[] } }>(
+            `/api/conversations/${id}`
+          );
+          set((state) => ({
+            messagesByConversation: {
+              ...state.messagesByConversation,
+              [id]: data.conversation.messages,
+            },
+          }));
+        } catch (error) {
+          console.error('Failed to load conversation:', error);
+        }
       },
 
       // Delete a conversation
-      deleteConversation: (id) => {
+      deleteConversation: async (id) => {
+        await api(`/api/conversations/${id}`, { method: 'DELETE' });
         set((state) => {
           const { [id]: _, ...remainingMessages } = state.messagesByConversation;
           return {
@@ -90,7 +133,11 @@ export const useChatStore = create<ChatState>()(
       },
 
       // Update conversation title
-      updateConversationTitle: (id, title) => {
+      updateConversationTitle: async (id, title) => {
+        await api(`/api/conversations/${id}`, {
+          method: 'PUT',
+          body: JSON.stringify({ title }),
+        });
         set((state) => ({
           conversations: state.conversations.map((c) =>
             c.id === id ? { ...c, title, updatedAt: new Date().toISOString() } : c
@@ -98,12 +145,12 @@ export const useChatStore = create<ChatState>()(
         }));
       },
 
-      // Get messages for a conversation
+      // Get messages from local cache
       getMessages: (conversationId) => {
         return get().messagesByConversation[conversationId] || [];
       },
 
-      // Add a message to a conversation
+      // Add a single message to local cache
       addMessage: (conversationId, message) => {
         set((state) => ({
           messagesByConversation: {
@@ -113,15 +160,10 @@ export const useChatStore = create<ChatState>()(
               message,
             ],
           },
-          conversations: state.conversations.map((c) =>
-            c.id === conversationId
-              ? { ...c, updatedAt: new Date().toISOString() }
-              : c
-          ),
         }));
       },
 
-      // Set all messages for a conversation
+      // Set all messages for a conversation (local cache)
       setMessages: (conversationId, messages) => {
         set((state) => ({
           messagesByConversation: {
@@ -141,6 +183,28 @@ export const useChatStore = create<ChatState>()(
         }));
       },
 
+      // Append messages to server and update local cache
+      appendMessages: async (conversationId, messages) => {
+        await api(`/api/conversations/${conversationId}/messages`, {
+          method: 'POST',
+          body: JSON.stringify({ messages }),
+        });
+        set((state) => ({
+          messagesByConversation: {
+            ...state.messagesByConversation,
+            [conversationId]: [
+              ...(state.messagesByConversation[conversationId] || []),
+              ...messages,
+            ],
+          },
+          conversations: state.conversations.map((c) =>
+            c.id === conversationId
+              ? { ...c, updatedAt: new Date().toISOString() }
+              : c
+          ),
+        }));
+      },
+
       // Set selected model
       setSelectedModel: (model) => {
         set({ selectedModel: model });
@@ -149,8 +213,6 @@ export const useChatStore = create<ChatState>()(
     {
       name: 'qbot-chat-storage',
       partialize: (state) => ({
-        conversations: state.conversations,
-        messagesByConversation: state.messagesByConversation,
         selectedModel: state.selectedModel,
       }),
     }
