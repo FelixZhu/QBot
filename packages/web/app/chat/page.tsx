@@ -6,14 +6,12 @@ import {
   AssistantRuntimeProvider,
   useLocalRuntime,
   useAssistantInstructions,
-  ThreadPrimitive,
-  MessagePrimitive,
-  ComposerPrimitive,
 } from '@assistant-ui/react';
 import type { ChatModelAdapter, ChatModelRunResult } from '@assistant-ui/react';
 import { SettingsModal } from '@qbot/ui';
 import { Settings, Plus, Trash2, Menu, X, Search, ChevronDown, ImageIcon } from 'lucide-react';
 import { useChatStore } from '@/stores/chat-store';
+import { Thread } from '@/components/assistant-ui/thread';
 
 // Adapter to connect assistant-ui LocalRuntime to our /api/chat endpoint
 class QBotAdapter implements ChatModelAdapter {
@@ -280,7 +278,6 @@ function ChatThread({
 }) {
   const adapter = useState(() => new QBotAdapter(selectedModel, conversationId))[0];
 
-  // Update adapter when model or conversation changes
   useEffect(() => {
     adapter.setModel(selectedModel);
     adapter.setConversationId(conversationId);
@@ -290,96 +287,14 @@ function ChatThread({
 
   return (
     <AssistantRuntimeProvider runtime={runtime}>
-      <ThreadLayout systemPrompt={systemPrompt} />
+      <ThreadInner systemPrompt={systemPrompt} />
     </AssistantRuntimeProvider>
   );
 }
 
-// ============ Thread Layout (inside AssistantRuntimeProvider) ============
-
-function ThreadLayout({ systemPrompt }: { systemPrompt: string }) {
-  // Set system prompt - hook must be inside AssistantRuntimeProvider
+function ThreadInner({ systemPrompt }: { systemPrompt: string }) {
   useAssistantInstructions(systemPrompt);
-
-  return (
-    <div className="flex-1 flex flex-col min-h-0">
-      <ThreadPrimitive.Viewport className="flex-1 overflow-y-auto">
-        <ThreadPrimitive.Empty>
-          <div className="flex flex-col items-center justify-center h-full text-center py-20">
-            <div className="w-16 h-16 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center mb-4">
-              <span className="text-2xl">🤖</span>
-            </div>
-            <h2 className="text-xl font-semibold mb-2">How can I help you today?</h2>
-            <p className="text-gray-500 dark:text-gray-400 max-w-md">
-              I&apos;m your AI assistant. Ask me anything and I&apos;ll do my best to help.
-            </p>
-          </div>
-        </ThreadPrimitive.Empty>
-        <ThreadPrimitive.Messages
-          components={{
-            UserMessage,
-            AssistantMessage,
-          }}
-        />
-      </ThreadPrimitive.Viewport>
-
-      {/* Composer */}
-      <div className="border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
-        <div className="max-w-3xl mx-auto">
-          <ComposerPrimitive.Root className="flex gap-2 bg-gray-100 dark:bg-gray-700 rounded-2xl px-4 py-3 items-end">
-            <ComposerPrimitive.AddAttachment className="p-1 text-gray-400 hover:text-gray-600 transition-colors">
-              <ImageIcon className="w-5 h-5" />
-            </ComposerPrimitive.AddAttachment>
-            <ComposerPrimitive.Input
-              className="flex-1 bg-transparent outline-none text-base placeholder:text-gray-400 resize-none max-h-40"
-              placeholder="Message QBot..."
-              rows={1}
-            />
-            <div className="flex items-center gap-1">
-              <ComposerPrimitive.Cancel className="px-3 py-1.5 rounded-xl bg-gray-300 dark:bg-gray-600 text-sm hover:bg-gray-400 transition-colors">
-                Stop
-              </ComposerPrimitive.Cancel>
-              <ComposerPrimitive.Send className="px-4 py-1.5 rounded-xl bg-blue-500 text-white hover:bg-blue-600 disabled:bg-gray-300 disabled:dark:bg-gray-600 transition-colors">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19V5m-7 7l7-7 7 7" />
-                </svg>
-              </ComposerPrimitive.Send>
-            </div>
-          </ComposerPrimitive.Root>
-          <ComposerPrimitive.Attachments
-            components={{
-              Image: ({ src }: any) => (
-                <img src={src} alt="attachment" className="w-16 h-16 object-cover rounded-lg" />
-              ),
-            }}
-          />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function UserMessage() {
-  return (
-    <MessagePrimitive.Root className="flex justify-end gap-3 py-2 px-4 max-w-3xl mx-auto">
-      <div className="max-w-[80%] rounded-2xl px-4 py-3 bg-blue-500 text-white">
-        <MessagePrimitive.Content />
-      </div>
-    </MessagePrimitive.Root>
-  );
-}
-
-function AssistantMessage() {
-  return (
-    <MessagePrimitive.Root className="flex gap-3 py-2 px-4 max-w-3xl mx-auto">
-      <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center flex-shrink-0">
-        <span className="text-white text-sm">🤖</span>
-      </div>
-      <div className="max-w-[80%] rounded-2xl px-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
-        <MessagePrimitive.Content />
-      </div>
-    </MessagePrimitive.Root>
-  );
+  return <Thread />;
 }
 
 // ============ Main Chat Page ============
