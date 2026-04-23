@@ -43,7 +43,6 @@ export function Thread() {
         "--thread-max-width": "48rem",
         "--accent-color": "#c96442",
         "--accent-foreground": "#ffffff",
-        fontFamily: "Georgia, serif",
       }}
     >
       <ThreadPrimitive.Viewport
