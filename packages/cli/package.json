@@ -1,0 +1,22 @@
+{
+  "name": "@qbot/cli",
+  "version": "0.1.0",
+  "type": "module",
+  "bin": {
+    "qbot": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsx src/index.ts"
+  },
+  "dependencies": {
+    "@qbot/core": "workspace:*",
+    "inquirer": "^9.x",
+    "chalk": "^5.x"
+  },
+  "devDependencies": {
+    "typescript": "^5.x",
+    "tsup": "^8.x",
+    "tsx": "^4.x"
+  }
+}

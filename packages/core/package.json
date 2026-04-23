@@ -1,0 +1,28 @@
+{
+  "name": "@qbot/core",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest"
+  },
+  "dependencies": {
+    "openai": "^4.x",
+    "@anthropic-ai/sdk": "^0.x",
+    "gray-matter": "^4.x"
+  },
+  "devDependencies": {
+    "typescript": "^5.x",
+    "tsup": "^8.x",
+    "vitest": "^1.x"
+  }
+}
