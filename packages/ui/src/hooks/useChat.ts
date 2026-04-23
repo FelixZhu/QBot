@@ -1,45 +1,64 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
+import type { ChatMessage, CompletionResult } from '@qbot/core';
 
-export interface Message {
-  id: string;
-  role: 'user' | 'assistant';
-  content: string;
+export interface UseChatOptions {
+  initialMessages?: ChatMessage[];
+  onMessage?: (result: CompletionResult) => void;
+  onError?: (error: Error) => void;
 }
 
 export interface UseChatReturn {
-  messages: Message[];
-  sendMessage: (content: string) => void;
+  messages: ChatMessage[];
   isLoading: boolean;
+  sendMessage: (content: string) => Promise<void>;
+  clearMessages: () => void;
   error: Error | null;
 }
 
-export const useChat = (): UseChatReturn => {
-  const [messages, setMessages] = useState<Message[]>([]);
+export function useChat(
+  chatFn: (messages: ChatMessage[]) => Promise<CompletionResult>,
+  options: UseChatOptions = {}
+): UseChatReturn {
+  const [messages, setMessages] = useState<ChatMessage[]>(options.initialMessages || []);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
-  const sendMessage = (content: string) => {
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      role: 'user',
-      content,
-    };
+  const sendMessage = useCallback(async (content: string) => {
+    const userMessage: ChatMessage = { role: 'user', content };
+    const newMessages = [...messages, userMessage];
 
-    setMessages((prev) => [...prev, userMessage]);
+    setMessages(newMessages);
     setIsLoading(true);
     setError(null);
 
-    // Placeholder - actual implementation will use @qbot/core
-    setTimeout(() => {
-      const assistantMessage: Message = {
-        id: (Date.now() + 1).toString(),
+    try {
+      const result = await chatFn(newMessages);
+      const assistantMessage: ChatMessage = {
         role: 'assistant',
-        content: 'This is a placeholder response.',
+        content: result.content
       };
-      setMessages((prev) => [...prev, assistantMessage]);
-      setIsLoading(false);
-    }, 1000);
-  };
 
-  return { messages, sendMessage, isLoading, error };
-};
+      setMessages([...newMessages, assistantMessage]);
+      options.onMessage?.(result);
+    } catch (err) {
+      const error = err as Error;
+      setError(error);
+      options.onError?.(error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [messages, chatFn, options]);
+
+  const clearMessages = useCallback(() => {
+    setMessages([]);
+    setError(null);
+  }, []);
+
+  return {
+    messages,
+    isLoading,
+    sendMessage,
+    clearMessages,
+    error
+  };
+}

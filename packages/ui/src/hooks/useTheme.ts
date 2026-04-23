@@ -8,25 +8,23 @@ export interface UseThemeReturn {
   setTheme: (theme: Theme) => void;
 }
 
-export const useTheme = (): UseThemeReturn => {
-  const [theme, setThemeState] = useState<Theme>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('theme') as Theme;
-      if (saved) return saved;
-      return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-    }
-    return 'light';
-  });
+export function useTheme(defaultTheme: Theme = 'light'): UseThemeReturn {
+  const [theme, setThemeState] = useState<Theme>(defaultTheme);
 
   useEffect(() => {
-    const root = window.document.documentElement;
-    root.classList.remove('light', 'dark');
-    root.classList.add(theme);
-    localStorage.setItem('theme', theme);
+    const saved = localStorage.getItem('qbot-theme') as Theme;
+    if (saved) {
+      setThemeState(saved);
+    }
+  }, []);
+
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', theme === 'dark');
+    localStorage.setItem('qbot-theme', theme);
   }, [theme]);
 
   const toggleTheme = () => {
-    setThemeState((prev) => (prev === 'light' ? 'dark' : 'light'));
+    setThemeState(prev => prev === 'light' ? 'dark' : 'light');
   };
 
   const setTheme = (newTheme: Theme) => {
@@ -34,4 +32,4 @@ export const useTheme = (): UseThemeReturn => {
   };
 
   return { theme, toggleTheme, setTheme };
-};
+}
