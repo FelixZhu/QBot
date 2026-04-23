@@ -34,7 +34,8 @@ class QBotAdapter implements ChatModelAdapter {
   async *run({ messages, abortSignal }: Parameters<ChatModelAdapter['run']>[0]): AsyncGenerator<ChatModelRunResult, void> {
     // Convert assistant-ui ThreadMessage format to simple API format
     const apiMessages = messages.map((msg) => {
-      const role = msg.role[0] as 'user' | 'assistant' | 'system';
+      // msg.role can be a string like 'user' or an array like ['user']
+      const role = (typeof msg.role === 'string' ? msg.role : msg.role[0]) as 'user' | 'assistant' | 'system';
       // Extract text from content array
       if (msg.content && Array.isArray(msg.content)) {
         const texts = msg.content
@@ -294,7 +295,11 @@ function ChatThread({
 
 function ThreadInner({ systemPrompt }: { systemPrompt: string }) {
   useAssistantInstructions(systemPrompt);
-  return <Thread />;
+  return (
+    <div className="h-full w-full">
+      <Thread />
+    </div>
+  );
 }
 
 // ============ Main Chat Page ============
@@ -420,8 +425,8 @@ export default function ChatPage() {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col min-w-0">
-        <header className="h-14 border-b border-gray-200 dark:border-gray-700 flex items-center px-4 gap-2 bg-white dark:bg-gray-800">
+      <main className="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden">
+        <header className="h-14 flex-shrink-0 border-b border-gray-200 dark:border-gray-700 flex items-center px-4 gap-2 bg-white dark:bg-gray-800">
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
             className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
@@ -435,11 +440,13 @@ export default function ChatPage() {
 
         <SystemPromptInput value={systemPrompt} onChange={setSystemPrompt} />
 
-        <ChatThread
-          selectedModel={selectedModel}
-          systemPrompt={systemPrompt}
-          conversationId={activeConversationId}
-        />
+        <div className="flex-1 min-h-0 overflow-hidden">
+          <ChatThread
+            selectedModel={selectedModel}
+            systemPrompt={systemPrompt}
+            conversationId={activeConversationId}
+          />
+        </div>
       </main>
 
       <SettingsModal
