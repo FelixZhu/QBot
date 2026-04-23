@@ -13,7 +13,7 @@ export interface ConversationMeta {
 }
 
 interface ChatState {
-  // Conversations
+  // Conversations (indexed from local storage)
   conversations: ConversationMeta[];
   activeConversationId: string | null;
 
@@ -42,12 +42,19 @@ interface ChatState {
 
   // Model
   setSelectedModel: (model: string) => void;
+
+  // Sync
+  syncStatus: 'idle' | 'syncing' | 'error';
+  lastSyncAt: number | null;
+  triggerSync: () => Promise<void>;
 }
 
-async function api<T>(path: string, options?: RequestInit): Promise<T> {
-  const res = await fetch(path, {
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
-    ...options,
+// Helper to call the local file API
+async function fileApi<T>(action: string, payload?: unknown): Promise<T> {
+  const res = await fetch('/api/files', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action, payload }),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
@@ -64,12 +71,14 @@ export const useChatStore = create<ChatState>()(
       messagesByConversation: {},
       selectedModel: 'anthropic/claude-3.5-sonnet',
       isLoading: false,
+      syncStatus: 'idle',
+      lastSyncAt: null,
 
-      // Load all conversations from server
+      // Load all conversations from local storage
       loadConversations: async () => {
         set({ isLoading: true });
         try {
-          const data = await api<{ conversations: ConversationMeta[] }>('/api/conversations');
+          const data = await fileApi<{ conversations: ConversationMeta[] }>('listConversations');
           set({ conversations: data.conversations });
         } catch (error) {
           console.error('Failed to load conversations:', error);
@@ -78,17 +87,14 @@ export const useChatStore = create<ChatState>()(
         }
       },
 
-      // Create a new conversation on server
+      // Create a new conversation
       createConversation: async (title) => {
-        const data = await api<{ conversation: { meta: ConversationMeta } }>('/api/conversations', {
-          method: 'POST',
-          body: JSON.stringify({
-            title: title || 'New Chat',
-            model: get().selectedModel,
-            provider: 'openrouter',
-          }),
+        const data = await fileApi<{ conversation: ConversationMeta }>('createConversation', {
+          title: title || 'New Chat',
+          model: get().selectedModel,
+          provider: 'openrouter',
         });
-        const conv = data.conversation.meta;
+        const conv = data.conversation;
         set((state) => ({
           conversations: [conv, ...state.conversations],
           activeConversationId: conv.id,
@@ -104,13 +110,11 @@ export const useChatStore = create<ChatState>()(
       selectConversation: async (id) => {
         set({ activeConversationId: id });
         try {
-          const data = await api<{ conversation: { meta: ConversationMeta; messages: ChatMessage[] } }>(
-            `/api/conversations/${id}`
-          );
+          const data = await fileApi<{ messages: ChatMessage[] }>('getMessages', { conversationId: id });
           set((state) => ({
             messagesByConversation: {
               ...state.messagesByConversation,
-              [id]: data.conversation.messages,
+              [id]: data.messages,
             },
           }));
         } catch (error) {
@@ -120,7 +124,7 @@ export const useChatStore = create<ChatState>()(
 
       // Delete a conversation
       deleteConversation: async (id) => {
-        await api(`/api/conversations/${id}`, { method: 'DELETE' });
+        await fileApi('deleteConversation', { conversationId: id });
         set((state) => {
           const { [id]: _, ...remainingMessages } = state.messagesByConversation;
           return {
@@ -134,10 +138,7 @@ export const useChatStore = create<ChatState>()(
 
       // Update conversation title
       updateConversationTitle: async (id, title) => {
-        await api(`/api/conversations/${id}`, {
-          method: 'PUT',
-          body: JSON.stringify({ title }),
-        });
+        await fileApi('updateMeta', { conversationId: id, updates: { title } });
         set((state) => ({
           conversations: state.conversations.map((c) =>
             c.id === id ? { ...c, title, updatedAt: new Date().toISOString() } : c
@@ -183,12 +184,9 @@ export const useChatStore = create<ChatState>()(
         }));
       },
 
-      // Append messages to server and update local cache
+      // Append messages to local storage and update cache
       appendMessages: async (conversationId, messages) => {
-        await api(`/api/conversations/${conversationId}/messages`, {
-          method: 'POST',
-          body: JSON.stringify({ messages }),
-        });
+        await fileApi('appendMessages', { conversationId, messages });
         set((state) => ({
           messagesByConversation: {
             ...state.messagesByConversation,
@@ -209,11 +207,24 @@ export const useChatStore = create<ChatState>()(
       setSelectedModel: (model) => {
         set({ selectedModel: model });
       },
+
+      // Trigger sync to remote (OSS)
+      triggerSync: async () => {
+        set({ syncStatus: 'syncing' });
+        try {
+          await fetch('/api/sync', { method: 'POST' });
+          set({ syncStatus: 'idle', lastSyncAt: Date.now() });
+        } catch (error) {
+          console.error('Sync failed:', error);
+          set({ syncStatus: 'error' });
+        }
+      },
     }),
     {
       name: 'qbot-chat-storage',
       partialize: (state) => ({
         selectedModel: state.selectedModel,
+        lastSyncAt: state.lastSyncAt,
       }),
     }
   )
