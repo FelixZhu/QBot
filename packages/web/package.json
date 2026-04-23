@@ -9,13 +9,19 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@ai-sdk/openai": "^3.0.53",
+    "@ai-sdk/react": "^3.0.170",
     "@qbot/core": "workspace:*",
     "@qbot/ui": "workspace:*",
+    "ai": "^6.0.168",
+    "lucide-react": "^1.8.0",
+    "nanoid": "^5.1.9",
     "next": "^14.1.0",
     "next-auth": "^4.24.0",
     "openai": "^4.104.0",
     "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "react-dom": "^18.2.0",
+    "zustand": "^5.0.12"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",

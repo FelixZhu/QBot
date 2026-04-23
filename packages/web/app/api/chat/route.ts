@@ -1,42 +1,96 @@
-import { NextRequest, NextResponse } from 'next/server';
-import OpenAI from 'openai';
+import { NextRequest } from 'next/server';
+import { streamText } from 'ai';
+import { createOpenAI } from '@ai-sdk/openai';
+import { APIKeysManager, type ProviderType } from '@qbot/core';
+
+// Provider base URLs
+const PROVIDER_BASE_URLS: Record<ProviderType, string> = {
+  openrouter: 'https://openrouter.ai/api/v1',
+  openai: 'https://api.openai.com/v1',
+  anthropic: 'https://api.anthropic.com/v1',
+  deepseek: 'https://api.deepseek.com/v1',
+};
+
+// Detect provider from model name
+function detectProviderFromModel(model: string): ProviderType {
+  if (model.includes('/') && model.startsWith('anthropic/')) return 'openrouter';
+  if (model.includes('/') && model.startsWith('openai/')) return 'openrouter';
+  if (model.includes('/') && model.startsWith('google/')) return 'openrouter';
+  if (model.includes('/') && model.startsWith('meta-llama/')) return 'openrouter';
+  if (model.startsWith('gpt-') || model.startsWith('o1-') || model.startsWith('o3-')) return 'openai';
+  if (model.startsWith('claude-')) return 'anthropic';
+  if (model.startsWith('deepseek-')) return 'deepseek';
+  return 'openrouter';
+}
+
+// Get API key for provider
+async function getApiKey(provider: ProviderType): Promise<string | null> {
+  // Try vault config first
+  try {
+    const manager = new APIKeysManager();
+    const key = await manager.getProviderKey(provider);
+    if (key) return key;
+  } catch {
+    // Vault not available
+  }
+
+  // Fall back to environment
+  const envKey = process.env[`${provider.toUpperCase()}_API_KEY`];
+  if (envKey) return envKey;
+
+  // Special case for OpenRouter
+  if (provider === 'openrouter') {
+    return process.env.OPENROUTER_API_KEY || process.env.OPENAI_API_KEY || null;
+  }
+
+  return null;
+}
 
 export async function POST(request: NextRequest) {
   try {
     const { messages, model } = await request.json();
 
-    // Get API key from environment or user session
-    const apiKey = process.env.OPENROUTER_API_KEY;
+    if (!model) {
+      return new Response(JSON.stringify({ error: 'Model is required' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    const provider = detectProviderFromModel(model);
+    const apiKey = await getApiKey(provider);
+    const baseUrl = PROVIDER_BASE_URLS[provider];
+
     if (!apiKey) {
-      return NextResponse.json(
-        { error: 'API key not configured' },
-        { status: 500 }
+      return new Response(
+        JSON.stringify({
+          error: `API key not configured for ${provider}. Please add your API key in Settings > BYOK.`,
+        }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
       );
     }
 
-    const openai = new OpenAI({
+    // Create OpenAI-compatible provider for streaming
+    const providerClient = createOpenAI({
       apiKey,
-      baseURL: 'https://openrouter.ai/api/v1'
+      baseURL: baseUrl,
     });
 
-    const completion = await openai.chat.completions.create({
-      model,
-      messages: messages.map((m: any) => ({
-        role: m.role,
-        content: m.content
-      }))
+    // Use streamText for streaming response
+    const result = streamText({
+      model: providerClient(model),
+      messages,
     });
 
-    return NextResponse.json({
-      content: completion.choices[0]?.message?.content || '',
-      model,
-      provider: 'openrouter'
-    });
-  } catch (error) {
+    // Return streaming response
+    return result.toTextStreamResponse();
+  } catch (error: any) {
     console.error('Chat error:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
+    return new Response(
+      JSON.stringify({
+        error: error.message || 'Internal server error',
+      }),
+      { status: 500, headers: { 'Content-Type': 'application/json' } }
     );
   }
 }

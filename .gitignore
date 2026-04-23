@@ -1,6 +1,20 @@
 # Node.js
 node_modules/
 package-lock.json
+pnpm-lock.yaml
+
+# Build outputs
+dist/
+*.tsbuildinfo
+.tsup/
+
+# Next.js
+.next/
+out/
+next-env.d.ts
+
+# TypeScript
+*.tsbuildinfo
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -212,3 +226,60 @@ __marimo__/
 
 # Local API config
 config.json
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Editor directories and files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Tool directories
+.trae/
+.claude/
+commands/
+
+# MCP files
+mcp.json
+mcp_server.py
+
+# Test files
+test_*.py
+test/
+*.test.ts
+*.spec.ts
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Environment files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.envrc
+
+# Debug
+.npm/
+.eslintcache
+.cache
+
+# Browser plugin build
+browser_plugin/dist/
+browser_plugin/.web-extension-id
+
+# Coverage
+coverage/
+.nyc_output/
