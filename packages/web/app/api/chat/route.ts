@@ -48,7 +48,23 @@ async function getApiKey(provider: ProviderType): Promise<string | null> {
 
 export async function POST(req: Request) {
   try {
-    const { messages, model, system, tools } = await req.json();
+    const body = await req.json();
+    const { model, system, tools } = body;
+
+    // Convert assistant-ui message format to AI SDK format
+    let messages = body.messages || [];
+    messages = messages.map((msg: any) => {
+      // Handle assistant-ui format (has parts array)
+      if (msg.parts && Array.isArray(msg.parts)) {
+        const textPart = msg.parts.find((p: any) => p.type === 'text');
+        return {
+          role: msg.role,
+          content: textPart?.text || '',
+        };
+      }
+      // Already in correct format
+      return msg;
+    });
 
     if (!model) {
       return new Response(JSON.stringify({ error: 'Model is required' }), {
