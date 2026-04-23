@@ -8,14 +8,19 @@ import { DeepSeekProvider } from './deepseek.js';
 import type { ProviderType, ProviderConfig } from '../types.js';
 
 /**
+ * Provider constructor type
+ */
+type ProviderConstructor = new (apiKey: string, baseUrl?: string, defaultModel?: string) => BaseProvider;
+
+/**
  * Provider constructor registry
  * Maps provider types to their respective constructors
  */
-const providerConstructors: Record<ProviderType, typeof BaseProvider> = {
-  openrouter: OpenRouterProvider,
-  openai: OpenAIProvider,
-  anthropic: AnthropicProvider,
-  deepseek: DeepSeekProvider
+const providerConstructors: Record<ProviderType, ProviderConstructor> = {
+  openrouter: OpenRouterProvider as ProviderConstructor,
+  openai: OpenAIProvider as ProviderConstructor,
+  anthropic: AnthropicProvider as ProviderConstructor,
+  deepseek: DeepSeekProvider as ProviderConstructor
 };
 
 /**
