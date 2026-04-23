@@ -1,9 +1,9 @@
-import { NextRequest } from 'next/server';
 import { streamText } from 'ai';
-import { createOpenAI } from '@ai-sdk/openai';
+import { createOpenRouter } from '@openrouter/ai-sdk-provider';
+import { frontendTools } from '@assistant-ui/react-ai-sdk';
 import { APIKeysManager, type ProviderType } from '@qbot/core';
 
-// Provider base URLs
+// Provider base URLs for non-OpenRouter providers
 const PROVIDER_BASE_URLS: Record<ProviderType, string> = {
   openrouter: 'https://openrouter.ai/api/v1',
   openai: 'https://api.openai.com/v1',
@@ -46,9 +46,9 @@ async function getApiKey(provider: ProviderType): Promise<string | null> {
   return null;
 }
 
-export async function POST(request: NextRequest) {
+export async function POST(req: Request) {
   try {
-    const { messages, model } = await request.json();
+    const { messages, model, system, tools } = await req.json();
 
     if (!model) {
       return new Response(JSON.stringify({ error: 'Model is required' }), {
@@ -59,7 +59,6 @@ export async function POST(request: NextRequest) {
 
     const provider = detectProviderFromModel(model);
     const apiKey = await getApiKey(provider);
-    const baseUrl = PROVIDER_BASE_URLS[provider];
 
     if (!apiKey) {
       return new Response(
@@ -70,20 +69,31 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create OpenAI-compatible provider for streaming
-    const providerClient = createOpenAI({
-      apiKey,
-      baseURL: baseUrl,
-    });
+    // Use OpenRouter provider for OpenRouter models
+    if (provider === 'openrouter') {
+      const openrouter = createOpenRouter({ apiKey });
+      const result = streamText({
+        model: openrouter.chat(model),
+        system: system || undefined,
+        messages,
+        tools: tools ? frontendTools(tools) : undefined,
+      });
+      return result.toUIMessageStreamResponse();
+    }
 
-    // Use streamText for streaming response
+    // For other providers, use OpenAI-compatible client
+    const { createOpenAI } = await import('@ai-sdk/openai');
+    const baseUrl = PROVIDER_BASE_URLS[provider];
+    const providerClient = createOpenAI({ apiKey, baseURL: baseUrl });
+
     const result = streamText({
       model: providerClient(model),
+      system: system || undefined,
       messages,
+      tools: tools ? frontendTools(tools) : undefined,
     });
 
-    // Return streaming response
-    return result.toTextStreamResponse();
+    return result.toUIMessageStreamResponse();
   } catch (error: any) {
     console.error('Chat error:', error);
     return new Response(
