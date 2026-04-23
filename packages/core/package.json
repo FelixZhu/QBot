@@ -18,6 +18,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.x",
     "ali-oss": "^6.23.0",
+    "glob": "^13.0.6",
     "gray-matter": "^4.x",
     "openai": "^4.x"
   },

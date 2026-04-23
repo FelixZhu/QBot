@@ -30,11 +30,17 @@ export { ConversationManager } from './conversation/manager.js';
 export { generateId, generateFilename } from './conversation/message.js';
 export type { ConversationData, ConversationMeta } from './conversation/message.js';
 
-// Storage
+// Storage - File abstraction layer
+export type { FileStorage, FileMeta } from './storage/types.js';
+export { NodeStorage } from './storage/node-storage.js';
+export { BrowserStorage } from './storage/browser-storage.js';
+export { OSSStorage } from './storage/oss-storage.js';
+export { syncStorage } from './storage/sync.js';
+export type { SyncOptions, SyncResult } from './storage/sync.js';
+
+// Storage - Local-first conversation store
+export { LocalStore, serializeConversation, parseConversation } from './storage/local-store.js';
+
+// Storage - Legacy OSS client (for BYOK sync)
 export { createOSSClient, getOSSClient } from './storage/oss-client.js';
 export type { OSSConfig } from './storage/oss-client.js';
-export {
-  OSSConversationRepository,
-  MemoryConversationRepository,
-} from './storage/conversation-repository.js';
-export type { ConversationRepository } from './storage/conversation-repository.js';
