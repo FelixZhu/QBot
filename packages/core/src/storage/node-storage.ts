@@ -56,8 +56,10 @@ export class NodeStorage implements FileStorage {
 
   async listFiles(pattern: string): Promise<string[]> {
     const fullPattern = this.resolve(pattern);
-    const files = await glob(fullPattern, { absolute: false, cwd: this.baseDir });
-    return files;
+    // glob v13 returns Promise<string[]>
+    const files = await glob(fullPattern, { cwd: this.baseDir });
+    // Ensure we return relative paths
+    return files.map((f: string) => f.replace(this.baseDir + '/', '').replace(this.baseDir, ''));
   }
 
   async getMeta(filePath: string): Promise<FileMeta | null> {

@@ -1,65 +1,73 @@
-import { NextRequest, NextResponse } from 'next/server';
-import {
-  createOSSClient,
-  OSSConversationRepository,
-  MemoryConversationRepository,
-} from '@qbot/core';
-import type { ConversationRepository, ChatMessage } from '@qbot/core';
+import "server-only";
+import { NextRequest, NextResponse } from "next/server";
+import { ConversationRepository, MessageRepository } from "@qbot/core/repository";
+import type { ChatMessage } from "@qbot/core";
+import { getAuthUser } from "@/lib/auth";
 
-function getRepo(): ConversationRepository {
-  const client = createOSSClient();
-  if (client) {
-    return new OSSConversationRepository(client);
-  }
-  return new MemoryConversationRepository();
-}
+const DEV_USER_ID = "dev-user-1";
 
-function getUserId(req: NextRequest): string {
-  return req.headers.get('x-user-id') || 'default-user';
+interface Params {
+  params: Promise<{ id: string }>;
 }
 
 // POST /api/conversations/:id/messages - Append messages to a conversation
-export async function POST(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function POST(request: NextRequest, { params }: Params) {
   try {
-    const { id } = await params;
-    const userId = getUserId(req);
-    const body = await req.json();
+    const { id: conversationId } = await params;
+    const user = await getAuthUser(request);
+    const userId = user?.sub || (process.env.TURSO_DATABASE_URL ? null : DEV_USER_ID);
+
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const body = await request.json();
     const { messages }: { messages: ChatMessage[] } = body;
 
     if (!Array.isArray(messages) || messages.length === 0) {
       return NextResponse.json(
-        { error: 'messages array is required' },
+        { error: "messages array is required" },
         { status: 400 }
       );
     }
 
-    const repo = getRepo();
-    const existing = await repo.getConversation(userId, id);
+    // 开发模式
+    if (!process.env.TURSO_DATABASE_URL) {
+      return NextResponse.json({ success: true });
+    }
 
-    if (!existing) {
+    // 验证会话存在且属于用户
+    const convRepo = new ConversationRepository();
+    const conversation = await convRepo.getById(conversationId, userId);
+
+    if (!conversation) {
       return NextResponse.json(
-        { error: 'Conversation not found' },
+        { error: "Conversation not found" },
         { status: 404 }
       );
     }
 
-    const now = new Date().toISOString();
-    const updated = {
-      meta: {
-        ...existing.meta,
-        updated: now,
-      },
-      messages: [...existing.messages, ...messages],
-    };
+    // 插入消息
+    const msgRepo = new MessageRepository();
+    await msgRepo.insertMany(
+      conversationId,
+      messages.map((m) => ({
+        role: m.role,
+        content: m.content,
+        name: m.name,
+        timestamp: m.timestamp ? new Date(m.timestamp).getTime() : undefined,
+      }))
+    );
 
-    await repo.saveConversation(userId, updated);
-    return NextResponse.json({ conversation: updated });
-  } catch (error: unknown) {
-    console.error('Failed to append messages:', error);
-    const message = error instanceof Error ? error.message : 'Failed to append messages';
-    return NextResponse.json({ error: message }, { status: 500 });
+    // 更新会话的 updated_at
+    await convRepo.touch(conversationId);
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("Failed to append messages:", error);
+    return NextResponse.json(
+      { error: "Failed to append messages" },
+      { status: 500 }
+    );
   }
 }

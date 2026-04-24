@@ -44,3 +44,9 @@ export { LocalStore, serializeConversation, parseConversation } from './storage/
 // Storage - Legacy OSS client (for BYOK sync)
 export { createOSSClient, getOSSClient } from './storage/oss-client.js';
 export type { OSSConfig } from './storage/oss-client.js';
+
+// 注意：数据库、认证和 Repository 模块仅限服务端使用
+// 请从以下路径直接导入：
+// - 数据库: @qbot/core/db
+// - 认证: @qbot/core/auth
+// - Repository: @qbot/core/repository

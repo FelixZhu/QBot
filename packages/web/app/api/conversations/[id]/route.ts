@@ -1,105 +1,128 @@
-import { NextRequest, NextResponse } from 'next/server';
-import {
-  createOSSClient,
-  OSSConversationRepository,
-  MemoryConversationRepository,
-} from '@qbot/core';
-import type { ConversationRepository } from '@qbot/core';
+import "server-only";
+import { NextRequest, NextResponse } from "next/server";
+import { ConversationRepository, MessageRepository } from "@qbot/core/repository";
+import { getAuthUser } from "@/lib/auth";
 
-function getRepo(): ConversationRepository {
-  const client = createOSSClient();
-  if (client) {
-    return new OSSConversationRepository(client);
-  }
-  return new MemoryConversationRepository();
+const DEV_USER_ID = "dev-user-1";
+
+interface Params {
+  params: Promise<{ id: string }>;
 }
 
-function getUserId(req: NextRequest): string {
-  return req.headers.get('x-user-id') || 'default-user';
-}
-
-// GET /api/conversations/:id - Get a single conversation
-export async function GET(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function GET(request: NextRequest, { params }: Params) {
   try {
-    const { id } = await params;
-    const userId = getUserId(req);
-    const repo = getRepo();
-    const conversation = await repo.getConversation(userId, id);
+    const { id: conversationId } = await params;
+    const user = await getAuthUser(request);
+    const userId = user?.sub || (process.env.TURSO_DATABASE_URL ? null : DEV_USER_ID);
 
-    if (!conversation) {
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // 开发模式：返回模拟数据
+    if (!process.env.TURSO_DATABASE_URL) {
+      return NextResponse.json({
+        conversation: {
+          id: conversationId,
+          title: "Dev Conversation",
+          messages: [],
+        },
+      });
+    }
+
+    const convRepo = new ConversationRepository();
+    const data = await convRepo.getWithMessages(conversationId, userId);
+
+    if (!data) {
       return NextResponse.json(
-        { error: 'Conversation not found' },
+        { error: "Conversation not found" },
         { status: 404 }
       );
     }
 
-    return NextResponse.json({ conversation });
-  } catch (error: unknown) {
-    console.error('Failed to get conversation:', error);
-    const message = error instanceof Error ? error.message : 'Failed to get conversation';
-    return NextResponse.json({ error: message }, { status: 500 });
-  }
-}
+    // 转换消息格式
+    const messages = data.messages.map((m) => ({
+      role: m.role,
+      content: m.content,
+      timestamp: new Date(m.timestamp).toISOString(),
+    }));
 
-// PUT /api/conversations/:id - Update conversation (title, messages, etc.)
-export async function PUT(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const { id } = await params;
-    const userId = getUserId(req);
-    const body = await req.json();
-    const { title, messages, model, provider } = body;
-
-    const repo = getRepo();
-    const existing = await repo.getConversation(userId, id);
-
-    if (!existing) {
-      return NextResponse.json(
-        { error: 'Conversation not found' },
-        { status: 404 }
-      );
-    }
-
-    const now = new Date().toISOString();
-    const updated: typeof existing = {
-      meta: {
-        ...existing.meta,
-        ...(title && { title }),
-        ...(model && { model }),
-        ...(provider && { provider }),
-        updated: now,
+    return NextResponse.json({
+      conversation: {
+        id: data.id,
+        title: data.title,
+        messages,
       },
-      messages: messages || existing.messages,
-    };
-
-    await repo.saveConversation(userId, updated);
-    return NextResponse.json({ conversation: updated });
-  } catch (error: unknown) {
-    console.error('Failed to update conversation:', error);
-    const message = error instanceof Error ? error.message : 'Failed to update conversation';
-    return NextResponse.json({ error: message }, { status: 500 });
+    });
+  } catch (error) {
+    console.error("Get conversation error:", error);
+    return NextResponse.json(
+      { error: "Failed to get conversation" },
+      { status: 500 }
+    );
   }
 }
 
-// DELETE /api/conversations/:id - Delete a conversation
-export async function DELETE(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function PUT(request: NextRequest, { params }: Params) {
   try {
-    const { id } = await params;
-    const userId = getUserId(req);
-    const repo = getRepo();
-    await repo.deleteConversation(userId, id);
+    const { id: conversationId } = await params;
+    const user = await getAuthUser(request);
+    const userId = user?.sub || (process.env.TURSO_DATABASE_URL ? null : DEV_USER_ID);
+
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const body = await request.json();
+    const { title, model, provider, system_prompt } = body;
+
+    // 开发模式
+    if (!process.env.TURSO_DATABASE_URL) {
+      return NextResponse.json({ success: true });
+    }
+
+    const repo = new ConversationRepository();
+    await repo.update(conversationId, userId, {
+      title,
+      model,
+      provider,
+      system_prompt,
+    });
+
     return NextResponse.json({ success: true });
-  } catch (error: unknown) {
-    console.error('Failed to delete conversation:', error);
-    const message = error instanceof Error ? error.message : 'Failed to delete conversation';
-    return NextResponse.json({ error: message }, { status: 500 });
+  } catch (error) {
+    console.error("Update conversation error:", error);
+    return NextResponse.json(
+      { error: "Failed to update conversation" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(request: NextRequest, { params }: Params) {
+  try {
+    const { id: conversationId } = await params;
+    const user = await getAuthUser(request);
+    const userId = user?.sub || (process.env.TURSO_DATABASE_URL ? null : DEV_USER_ID);
+
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // 开发模式
+    if (!process.env.TURSO_DATABASE_URL) {
+      return NextResponse.json({ success: true });
+    }
+
+    const repo = new ConversationRepository();
+    await repo.delete(conversationId, userId);
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("Delete conversation error:", error);
+    return NextResponse.json(
+      { error: "Failed to delete conversation" },
+      { status: 500 }
+    );
   }
 }

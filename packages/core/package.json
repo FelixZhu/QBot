@@ -7,7 +7,23 @@
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./db": {
+      "types": "./dist/db.d.ts",
+      "import": "./dist/db.js",
+      "default": "./dist/db.js"
+    },
+    "./auth": {
+      "types": "./dist/auth.d.ts",
+      "import": "./dist/auth.js",
+      "default": "./dist/auth.js"
+    },
+    "./repository": {
+      "types": "./dist/repository.d.ts",
+      "import": "./dist/repository.js",
+      "default": "./dist/repository.js"
     }
   },
   "scripts": {
@@ -17,13 +33,21 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
+    "@libsql/client": "^0.17.3",
     "ali-oss": "^6.23.0",
+    "bcryptjs": "^3.0.3",
+    "glob": "^13.0.6",
     "gray-matter": "^4.0.3",
-    "openai": "^4.104.0"
+    "jose": "^6.2.2",
+    "openai": "^4.104.0",
+    "server-only": "^0.0.1",
+    "uuid": "^14.0.0"
   },
   "devDependencies": {
     "@types/ali-oss": "^6.23.3",
+    "@types/bcryptjs": "^3.0.0",
     "@types/node": "^20.19.39",
+    "@types/uuid": "^11.0.0",
     "tsup": "^8.5.1",
     "typescript": "^5.8.0",
     "vitest": "^1.6.0"

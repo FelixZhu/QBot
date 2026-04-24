@@ -17,7 +17,6 @@ import {
   useThreadRuntime,
 } from "@assistant-ui/react";
 import type { ChatModelAdapter, ChatModelRunResult } from "@assistant-ui/react";
-import { QBotAdapter } from "@/lib/adapters";
 import { Thread } from "@/components/assistant-ui/thread";
 import { useChatStore } from "@/stores/chat-store";
 import type { ChatMessage } from "@qbot/core";

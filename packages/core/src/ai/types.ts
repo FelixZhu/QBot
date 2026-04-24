@@ -11,6 +11,10 @@ export interface ChatMessage {
   role: MessageRole;
   content: string;
   name?: string;
+  /** Unique message ID (for stored messages) */
+  id?: string;
+  /** Message timestamp (for stored messages) */
+  timestamp?: string;
 }
 
 /** Model info */
