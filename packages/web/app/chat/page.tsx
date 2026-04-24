@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { memo, useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Settings, Plus, Trash2, Menu, X } from "lucide-react";
-import { useChatStore } from "@/stores/chat-store";
+import { useChatStore, type ConversationMeta } from "@/stores/chat-store";
 import { authApi } from "@/lib/api";
 import {
   ModelSelector,
@@ -11,6 +11,36 @@ import {
   ChatThread,
 } from "@/components/chat";
 import { SettingsModal } from "@/components/settings";
+
+// 会话列表项 - 使用 memo 优化
+const ConversationItem = memo(function ConversationItem({
+  conversation,
+  isActive,
+  onSelect,
+  onDelete,
+}: {
+  conversation: ConversationMeta;
+  isActive: boolean;
+  onSelect: () => void;
+  onDelete: (e: React.MouseEvent) => void;
+}) {
+  return (
+    <div
+      onClick={onSelect}
+      className={`group flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer transition-colors ${
+        isActive ? "bg-muted" : "hover:bg-muted/50"
+      }`}
+    >
+      <span className="flex-1 text-sm truncate">{conversation.title}</span>
+      <button
+        onClick={onDelete}
+        className="p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-muted transition-opacity"
+      >
+        <Trash2 className="w-3.5 h-3.5 text-muted-foreground" />
+      </button>
+    </div>
+  );
+});
 
 export default function ChatPage() {
   const [user, setUser] = useState<{ name: string; email?: string } | null>(null);
@@ -61,26 +91,24 @@ export default function ChatPage() {
     createConversation();
   }, [createConversation]);
 
-  // 选择会话
-  const handleSelectConversation = useCallback(
-    (id: string) => {
-      selectConversation(id);
-    },
-    [selectConversation]
-  );
-
-  // 删除会话
-  const handleDeleteConversation = useCallback(
-    (e: React.MouseEvent, id: string) => {
-      e.stopPropagation();
-      deleteConversation(id);
-    },
-    [deleteConversation]
-  );
-
   // 切换侧边栏
   const toggleSidebar = useCallback(() => {
     setSidebarOpen((prev) => !prev);
+  }, []);
+
+  // 打开设置
+  const openSettings = useCallback(() => {
+    setSettingsOpen(true);
+  }, []);
+
+  // 关闭设置
+  const closeSettings = useCallback(() => {
+    setSettingsOpen(false);
+  }, []);
+
+  // 设置 systemPrompt
+  const handleSystemPromptChange = useCallback((value: string) => {
+    setSystemPrompt(value);
   }, []);
 
   if (!user) {
@@ -120,23 +148,16 @@ export default function ChatPage() {
             ) : (
               <div className="space-y-1">
                 {conversations.map((conv) => (
-                  <div
+                  <ConversationItem
                     key={conv.id}
-                    onClick={() => handleSelectConversation(conv.id)}
-                    className={`group flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer transition-colors ${
-                      conv.id === activeConversationId
-                        ? "bg-muted"
-                        : "hover:bg-muted/50"
-                    }`}
-                  >
-                    <span className="flex-1 text-sm truncate">{conv.title}</span>
-                    <button
-                      onClick={(e) => handleDeleteConversation(e, conv.id)}
-                      className="p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-muted transition-opacity"
-                    >
-                      <Trash2 className="w-3.5 h-3.5 text-muted-foreground" />
-                    </button>
-                  </div>
+                    conversation={conv}
+                    isActive={conv.id === activeConversationId}
+                    onSelect={() => selectConversation(conv.id)}
+                    onDelete={(e) => {
+                      e.stopPropagation();
+                      deleteConversation(conv.id);
+                    }}
+                  />
                 ))}
               </div>
             )}
@@ -145,7 +166,7 @@ export default function ChatPage() {
           {/* 用户设置入口 */}
           <div className="p-3 border-t">
             <div
-              onClick={() => setSettingsOpen(true)}
+              onClick={openSettings}
               className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-muted cursor-pointer"
             >
               <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
@@ -186,7 +207,7 @@ export default function ChatPage() {
         </header>
 
         {/* System Prompt Input */}
-        <SystemPromptInput value={systemPrompt} onChange={setSystemPrompt} />
+        <SystemPromptInput value={systemPrompt} onChange={handleSystemPromptChange} />
 
         {/* Chat Thread */}
         <ChatThread
@@ -199,7 +220,7 @@ export default function ChatPage() {
       {/* Settings Modal */}
       <SettingsModal
         open={settingsOpen}
-        onClose={() => setSettingsOpen(false)}
+        onClose={closeSettings}
         user={{ name: user.name, email: user.email || "" }}
         onLogout={handleLogout}
       />

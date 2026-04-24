@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import { memo, useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { Search, ChevronDown, ImageIcon } from "lucide-react";
 import { modelApi } from "@/lib/api";
 
@@ -16,6 +16,60 @@ interface ModelSelectorProps {
   selectedModel: string;
   onSelect: (modelId: string) => void;
 }
+
+// 模型项组件 - 使用 memo 优化
+const ModelItem = memo(function ModelItem({
+  model,
+  isSelected,
+  onSelect,
+}: {
+  model: ModelInfo;
+  isSelected: boolean;
+  onSelect: () => void;
+}) {
+  return (
+    <button
+      onClick={onSelect}
+      className={`w-full text-left px-3 py-2 text-sm hover:bg-muted transition-colors flex items-center justify-between ${
+        isSelected ? "bg-primary/10 text-primary" : ""
+      }`}
+    >
+      <span className="truncate flex-1">{model.name}</span>
+      {model.modality?.includes("image") && (
+        <ImageIcon className="w-3.5 h-3.5 text-muted-foreground ml-2 flex-shrink-0" />
+      )}
+    </button>
+  );
+});
+
+// 提供商分组组件
+const ProviderGroup = memo(function ProviderGroup({
+  provider,
+  models,
+  selectedModel,
+  onSelect,
+}: {
+  provider: string;
+  models: ModelInfo[];
+  selectedModel: string;
+  onSelect: (id: string) => void;
+}) {
+  return (
+    <div>
+      <div className="px-3 py-1.5 text-xs font-semibold text-muted-foreground bg-muted/50 sticky top-0">
+        {provider.toUpperCase()}
+      </div>
+      {models.map((model) => (
+        <ModelItem
+          key={model.id}
+          model={model}
+          isSelected={model.id === selectedModel}
+          onSelect={() => onSelect(model.id)}
+        />
+      ))}
+    </div>
+  );
+});
 
 export function ModelSelector({ selectedModel, onSelect }: ModelSelectorProps) {
   const [models, setModels] = useState<ModelInfo[]>([]);
@@ -45,7 +99,7 @@ export function ModelSelector({ selectedModel, onSelect }: ModelSelectorProps) {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // 过滤模型
+  // 过滤模型 - 使用 useMemo 缓存
   const filteredModels = useMemo(() => {
     if (!search.trim()) return models;
     const q = search.toLowerCase();
@@ -54,7 +108,7 @@ export function ModelSelector({ selectedModel, onSelect }: ModelSelectorProps) {
     );
   }, [models, search]);
 
-  // 按提供商分组
+  // 按提供商分组 - 使用 useMemo 缓存
   const groupedModels = useMemo(() => {
     const groups: Record<string, ModelInfo[]> = {};
     for (const model of filteredModels) {
@@ -67,6 +121,7 @@ export function ModelSelector({ selectedModel, onSelect }: ModelSelectorProps) {
 
   const selectedName = models.find((m) => m.id === selectedModel)?.name || selectedModel;
 
+  // 使用 useCallback 稳定回调引用
   const handleSelect = useCallback(
     (modelId: string) => {
       onSelect(modelId);
@@ -76,10 +131,18 @@ export function ModelSelector({ selectedModel, onSelect }: ModelSelectorProps) {
     [onSelect]
   );
 
+  const handleToggle = useCallback(() => {
+    setIsOpen((prev) => !prev);
+  }, []);
+
+  const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearch(e.target.value);
+  }, []);
+
   return (
     <div ref={dropdownRef} className="relative">
       <button
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={handleToggle}
         className="flex items-center gap-2 px-3 py-1.5 text-sm border rounded-lg hover:bg-muted transition-colors"
       >
         <span className="max-w-[200px] truncate">{selectedName}</span>
@@ -96,7 +159,7 @@ export function ModelSelector({ selectedModel, onSelect }: ModelSelectorProps) {
               <Search className="w-3.5 h-3.5 text-muted-foreground" />
               <input
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onChange={handleSearchChange}
                 placeholder="Search models..."
                 className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
                 autoFocus
@@ -116,27 +179,13 @@ export function ModelSelector({ selectedModel, onSelect }: ModelSelectorProps) {
               </div>
             ) : (
               Object.entries(groupedModels).map(([provider, providerModels]) => (
-                <div key={provider}>
-                  <div className="px-3 py-1.5 text-xs font-semibold text-muted-foreground bg-muted/50 sticky top-0">
-                    {provider.toUpperCase()}
-                  </div>
-                  {providerModels.map((model) => (
-                    <button
-                      key={model.id}
-                      onClick={() => handleSelect(model.id)}
-                      className={`w-full text-left px-3 py-2 text-sm hover:bg-muted transition-colors flex items-center justify-between ${
-                        model.id === selectedModel
-                          ? "bg-primary/10 text-primary"
-                          : ""
-                      }`}
-                    >
-                      <span className="truncate flex-1">{model.name}</span>
-                      {model.modality?.includes("image") && (
-                        <ImageIcon className="w-3.5 h-3.5 text-muted-foreground ml-2 flex-shrink-0" />
-                      )}
-                    </button>
-                  ))}
-                </div>
+                <ProviderGroup
+                  key={provider}
+                  provider={provider}
+                  models={providerModels}
+                  selectedModel={selectedModel}
+                  onSelect={handleSelect}
+                />
               ))
             )}
           </div>
