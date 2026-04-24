@@ -1,7 +1,16 @@
-// packages/web/stores/chat-store.ts
-import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
-import type { ChatMessage, ProviderType } from '@qbot/core';
+/**
+ * Chat Store - 统一的聊天状态管理
+ * 
+ * 职责：
+ * - 会话列表管理
+ * - 消息缓存
+ * - 模型选择持久化
+ */
+
+import { create } from "zustand";
+import { persist } from "zustand/middleware";
+import type { ChatMessage, ProviderType } from "@qbot/core";
+import { conversationApi } from "@/lib/api";
 
 export interface ConversationMeta {
   id: string;
@@ -13,54 +22,35 @@ export interface ConversationMeta {
 }
 
 interface ChatState {
-  // Conversations (indexed from local storage)
+  // 会话列表
   conversations: ConversationMeta[];
   activeConversationId: string | null;
 
-  // Messages (per conversation, cached in memory)
+  // 消息缓存（按会话 ID 索引）
   messagesByConversation: Record<string, ChatMessage[]>;
 
-  // Model settings
+  // 模型设置
   selectedModel: string;
 
-  // Loading state
+  // 加载状态
   isLoading: boolean;
 
-  // Actions
+  // ============ Actions ============
+
+  // 会话操作
   loadConversations: () => Promise<void>;
   createConversation: (title?: string) => Promise<string>;
   selectConversation: (id: string) => Promise<void>;
   deleteConversation: (id: string) => Promise<void>;
   updateConversationTitle: (id: string, title: string) => Promise<void>;
 
-  // Messages
+  // 消息操作
   getMessages: (conversationId: string) => ChatMessage[];
-  addMessage: (conversationId: string, message: ChatMessage) => void;
   setMessages: (conversationId: string, messages: ChatMessage[]) => void;
-  clearMessages: (conversationId: string) => void;
   appendMessages: (conversationId: string, messages: ChatMessage[]) => Promise<void>;
 
-  // Model
+  // 模型选择
   setSelectedModel: (model: string) => void;
-
-  // Sync
-  syncStatus: 'idle' | 'syncing' | 'error';
-  lastSyncAt: number | null;
-  triggerSync: () => Promise<void>;
-}
-
-// Helper to call the local file API
-async function fileApi<T>(action: string, payload?: unknown): Promise<T> {
-  const res = await fetch('/api/files', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action, payload }),
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || `HTTP ${res.status}`);
-  }
-  return res.json();
 }
 
 export const useChatStore = create<ChatState>()(
@@ -69,32 +59,42 @@ export const useChatStore = create<ChatState>()(
       conversations: [],
       activeConversationId: null,
       messagesByConversation: {},
-      selectedModel: 'anthropic/claude-3.5-sonnet',
+      selectedModel: "anthropic/claude-3.5-sonnet",
       isLoading: false,
-      syncStatus: 'idle',
-      lastSyncAt: null,
 
-      // Load all conversations from local storage
+      // ============ 会话操作 ============
+
       loadConversations: async () => {
         set({ isLoading: true });
         try {
-          const data = await fileApi<{ conversations: ConversationMeta[] }>('listConversations');
-          set({ conversations: data.conversations });
+          const data = await conversationApi.list();
+          const conversations = data.conversations.map((c) => ({
+            id: c.id,
+            title: c.title,
+            createdAt: c.createdAt,
+            updatedAt: c.createdAt, // API 返回的是 createdAt，用同样的值
+            model: "anthropic/claude-3.5-sonnet",
+            provider: "openrouter" as ProviderType,
+          }));
+          set({ conversations });
         } catch (error) {
-          console.error('Failed to load conversations:', error);
+          console.error("Failed to load conversations:", error);
         } finally {
           set({ isLoading: false });
         }
       },
 
-      // Create a new conversation
       createConversation: async (title) => {
-        const data = await fileApi<{ conversation: ConversationMeta }>('createConversation', {
-          title: title || 'New Chat',
+        const data = await conversationApi.create(title || "New Chat");
+        const conv: ConversationMeta = {
+          id: data.id,
+          title: data.title,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
           model: get().selectedModel,
-          provider: 'openrouter',
-        });
-        const conv = data.conversation;
+          provider: "openrouter",
+        };
+
         set((state) => ({
           conversations: [conv, ...state.conversations],
           activeConversationId: conv.id,
@@ -103,28 +103,29 @@ export const useChatStore = create<ChatState>()(
             [conv.id]: [],
           },
         }));
+
         return conv.id;
       },
 
-      // Select a conversation and load its messages
       selectConversation: async (id) => {
         set({ activeConversationId: id });
+
         try {
-          const data = await fileApi<{ messages: ChatMessage[] }>('getMessages', { conversationId: id });
+          const data = await conversationApi.get(id);
           set((state) => ({
             messagesByConversation: {
               ...state.messagesByConversation,
-              [id]: data.messages,
+              [id]: data.conversation.messages,
             },
           }));
         } catch (error) {
-          console.error('Failed to load conversation:', error);
+          console.error("Failed to load conversation:", error);
         }
       },
 
-      // Delete a conversation
       deleteConversation: async (id) => {
-        await fileApi('deleteConversation', { conversationId: id });
+        await conversationApi.delete(id);
+
         set((state) => {
           const { [id]: _, ...remainingMessages } = state.messagesByConversation;
           return {
@@ -136,9 +137,9 @@ export const useChatStore = create<ChatState>()(
         });
       },
 
-      // Update conversation title
       updateConversationTitle: async (id, title) => {
-        await fileApi('updateMeta', { conversationId: id, updates: { title } });
+        await conversationApi.update(id, { title });
+
         set((state) => ({
           conversations: state.conversations.map((c) =>
             c.id === id ? { ...c, title, updatedAt: new Date().toISOString() } : c
@@ -146,25 +147,12 @@ export const useChatStore = create<ChatState>()(
         }));
       },
 
-      // Get messages from local cache
+      // ============ 消息操作 ============
+
       getMessages: (conversationId) => {
         return get().messagesByConversation[conversationId] || [];
       },
 
-      // Add a single message to local cache
-      addMessage: (conversationId, message) => {
-        set((state) => ({
-          messagesByConversation: {
-            ...state.messagesByConversation,
-            [conversationId]: [
-              ...(state.messagesByConversation[conversationId] || []),
-              message,
-            ],
-          },
-        }));
-      },
-
-      // Set all messages for a conversation (local cache)
       setMessages: (conversationId, messages) => {
         set((state) => ({
           messagesByConversation: {
@@ -174,19 +162,9 @@ export const useChatStore = create<ChatState>()(
         }));
       },
 
-      // Clear messages for a conversation
-      clearMessages: (conversationId) => {
-        set((state) => ({
-          messagesByConversation: {
-            ...state.messagesByConversation,
-            [conversationId]: [],
-          },
-        }));
-      },
-
-      // Append messages to local storage and update cache
       appendMessages: async (conversationId, messages) => {
-        await fileApi('appendMessages', { conversationId, messages });
+        await conversationApi.appendMessages(conversationId, messages);
+
         set((state) => ({
           messagesByConversation: {
             ...state.messagesByConversation,
@@ -203,28 +181,16 @@ export const useChatStore = create<ChatState>()(
         }));
       },
 
-      // Set selected model
+      // ============ 模型选择 ============
+
       setSelectedModel: (model) => {
         set({ selectedModel: model });
       },
-
-      // Trigger sync to remote (OSS)
-      triggerSync: async () => {
-        set({ syncStatus: 'syncing' });
-        try {
-          await fetch('/api/sync', { method: 'POST' });
-          set({ syncStatus: 'idle', lastSyncAt: Date.now() });
-        } catch (error) {
-          console.error('Sync failed:', error);
-          set({ syncStatus: 'error' });
-        }
-      },
     }),
     {
-      name: 'qbot-chat-storage',
+      name: "qbot-chat-storage",
       partialize: (state) => ({
         selectedModel: state.selectedModel,
-        lastSyncAt: state.lastSyncAt,
       }),
     }
   )
