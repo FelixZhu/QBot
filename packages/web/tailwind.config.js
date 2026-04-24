@@ -5,7 +5,8 @@ module.exports = {
     './src/**/*.{js,ts,jsx,tsx,mdx}',
     './app/**/*.{js,ts,jsx,tsx,mdx}',
     './components/**/*.{js,ts,jsx,tsx,mdx}',
-    '../../packages/ui/src/**/*.{js,ts,jsx,tsx}',
+    './lib/**/*.{js,ts,jsx,tsx,mdx}',
+    './stores/**/*.{js,ts,jsx,tsx,mdx}',
     './node_modules/@assistant-ui/react/dist/**/*.{js,ts,jsx,tsx}',
   ],
   theme: {

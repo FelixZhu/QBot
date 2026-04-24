@@ -21,12 +21,13 @@ function getUserId(req: NextRequest): string {
 // GET /api/conversations/:id - Get a single conversation
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const userId = getUserId(req);
     const repo = getRepo();
-    const conversation = await repo.getConversation(userId, params.id);
+    const conversation = await repo.getConversation(userId, id);
 
     if (!conversation) {
       return NextResponse.json(
@@ -36,27 +37,26 @@ export async function GET(
     }
 
     return NextResponse.json({ conversation });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Failed to get conversation:', error);
-    return NextResponse.json(
-      { error: error.message || 'Failed to get conversation' },
-      { status: 500 }
-    );
+    const message = error instanceof Error ? error.message : 'Failed to get conversation';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 
 // PUT /api/conversations/:id - Update conversation (title, messages, etc.)
 export async function PUT(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const userId = getUserId(req);
     const body = await req.json();
     const { title, messages, model, provider } = body;
 
     const repo = getRepo();
-    const existing = await repo.getConversation(userId, params.id);
+    const existing = await repo.getConversation(userId, id);
 
     if (!existing) {
       return NextResponse.json(
@@ -79,30 +79,27 @@ export async function PUT(
 
     await repo.saveConversation(userId, updated);
     return NextResponse.json({ conversation: updated });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Failed to update conversation:', error);
-    return NextResponse.json(
-      { error: error.message || 'Failed to update conversation' },
-      { status: 500 }
-    );
+    const message = error instanceof Error ? error.message : 'Failed to update conversation';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 
 // DELETE /api/conversations/:id - Delete a conversation
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const userId = getUserId(req);
     const repo = getRepo();
-    await repo.deleteConversation(userId, params.id);
+    await repo.deleteConversation(userId, id);
     return NextResponse.json({ success: true });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Failed to delete conversation:', error);
-    return NextResponse.json(
-      { error: error.message || 'Failed to delete conversation' },
-      { status: 500 }
-    );
+    const message = error instanceof Error ? error.message : 'Failed to delete conversation';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

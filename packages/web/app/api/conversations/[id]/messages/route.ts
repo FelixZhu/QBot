@@ -21,9 +21,10 @@ function getUserId(req: NextRequest): string {
 // POST /api/conversations/:id/messages - Append messages to a conversation
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const userId = getUserId(req);
     const body = await req.json();
     const { messages }: { messages: ChatMessage[] } = body;
@@ -36,7 +37,7 @@ export async function POST(
     }
 
     const repo = getRepo();
-    const existing = await repo.getConversation(userId, params.id);
+    const existing = await repo.getConversation(userId, id);
 
     if (!existing) {
       return NextResponse.json(
@@ -56,11 +57,9 @@ export async function POST(
 
     await repo.saveConversation(userId, updated);
     return NextResponse.json({ conversation: updated });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Failed to append messages:', error);
-    return NextResponse.json(
-      { error: error.message || 'Failed to append messages' },
-      { status: 500 }
-    );
+    const message = error instanceof Error ? error.message : 'Failed to append messages';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

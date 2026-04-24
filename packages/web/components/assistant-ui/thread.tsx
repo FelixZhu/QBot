@@ -43,7 +43,7 @@ export function Thread() {
         "--thread-max-width": "48rem",
         "--accent-color": "#c96442",
         "--accent-foreground": "#ffffff",
-      }}
+      } as React.CSSProperties}
     >
       <ThreadPrimitive.Viewport
         turnAnchor="top"
