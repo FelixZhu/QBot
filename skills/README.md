@@ -13,5 +13,5 @@
 | [`remotion-render`](./remotion-render/README.md) | 导出 Remotion 视频、静帧，以及带透明通道的成片 |
 | [`remotion-studio`](./remotion-studio/README.md) | 启动并保持 Remotion Studio 预览，方便边改边看 |
 | [`remotion-video`](./remotion-video/README.md) | 用 Remotion + MiniMax/Edge TTS 做音频驱动的教程或 3D 视频 |
-| [`x-ai`](./x-ai/README.md) | 按需检索 X 上热门的 AI / 科技文章，整理成中文简报 |
+| [`x-ai-trending-brief`](./x-ai-trending-brief/README.md) | 按需检索 X 上热门的 AI / 科技文章，整理成中文简报 |
 | [`xiaohongshu-download`](./xiaohongshu-download/README.md) | 从小红书分享链接下载笔记视频或图片，仅供个人离线使用 |

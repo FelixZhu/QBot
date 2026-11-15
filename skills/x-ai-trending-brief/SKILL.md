@@ -1,5 +1,5 @@
 ---
-name: X 热门 AI 科技文章简报
+name: x-ai-trending-brief
 description: >-
   Use this when the user asks for the trending / most popular AI and tech
   articles on X (Twitter), e.g. "X 上最近有什么火的 AI 文章". Produces a Chinese Markdown
