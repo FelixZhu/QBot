@@ -1,3 +1,5 @@
+完整的设计与技术实现说明见 [README.md](./README.md)。
+
 # remotion-video
 
 [English](README.md)
