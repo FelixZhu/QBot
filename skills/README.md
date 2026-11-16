@@ -4,7 +4,7 @@
 
 | Skill | 说明 |
 |---|---|
-| [`aliyun-oss-upload`](./aliyun-oss-upload/README.md) | 按统一目录规则把文件归档到阿里云 OSS（qian-grokbot），返回限时下载链接 |
+| [`aliyun-oss-drive`](./aliyun-oss-drive/README.md) | 按统一目录规则把文件归档到阿里云 OSS（qian-grokbot），返回限时下载链接 |
 | [`cute-animated-avatar`](./cute-animated-avatar/README.md) | 为 Bot 制作毛绒风格、适合圆形裁切的循环 GIF 头像（眨眼 + 标志动作） |
 | [`remotion-best-practices`](./remotion-best-practices/README.md) | 所有 Remotion 技能的路由器：按任务加载子技能，默认先开 Studio 预览 |
 | [`remotion-captions`](./remotion-captions/README.md) | 用 Whisper 转写或导入 SRT，并在时间轴上与镜头同步显示字幕 |
