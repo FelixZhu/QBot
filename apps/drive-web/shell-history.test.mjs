@@ -27,6 +27,15 @@ test("closing an article does not push the overlay state back onto the stack", (
   assert.match(template, /skipFeedHome/);
 });
 
+test("leaving the feed parks its scroll before the panel is hidden", () => {
+  const fn = template.slice(template.indexOf("function setTab"), template.indexOf("function showViewer"));
+  const note = fn.indexOf("noteFeedPark()");
+  const hide = fn.indexOf("syncPanel(");
+  assert.ok(note >= 0, "setTab does not park the feed scroll");
+  assert.ok(hide >= 0 && note < hide, "feed scroll must be parked before the panel is hidden");
+  assert.match(template, /restoreFeedPark\(\)/);
+});
+
 test("the back after an article returns to chat instead of calling feed.back", () => {
   const feedBranch = template.slice(template.indexOf('else if(cur==="feed")'), template.indexOf("}else{", template.indexOf('else if(cur==="feed")')));
   assert.match(feedBranch, /skipFeedHome/);

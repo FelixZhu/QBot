@@ -796,6 +796,32 @@ armAway();
     if(on)p.removeAttribute("inert");else p.setAttribute("inert","");
   }
   var skipFeedHome=false;
+  /* While the feed panel is visibility:hidden it stays laid out, and the browser
+     moves its mandatory snap scroller by one card (856 -> 1712 at 840). That
+     scroll is not Feed's scrollTo. Park the offset before the hide and put it
+     back, including on the scroll event, so Feed's listener never adopts the
+     wrong card. */
+  var feedPark=null,feedParkUntil=0,feedPinning=false;
+  function feedScroller(){return document.querySelector("#panel-feed .q-feed")}
+  function noteFeedPark(){
+    var t=feedScroller();
+    if(!t)return;
+    feedPark=t.scrollTop;
+    feedParkUntil=Date.now()+900;
+  }
+  function restoreFeedPark(){
+    var t=feedScroller();
+    if(!t||feedPark==null||feedPinning||Date.now()>feedParkUntil)return;
+    if(Math.abs(t.scrollTop-feedPark)<=1)return;
+    feedPinning=true;
+    t.scrollTop=feedPark;
+    feedPinning=false;
+  }
+  document.addEventListener("scroll",function(e){
+    var t=e.target;
+    if(!t||!t.classList||!t.classList.contains("q-feed")||!t.closest||!t.closest("#panel-feed"))return;
+    restoreFeedPark();
+  },true);
   function histUrl(){return location.pathname+location.search+location.hash}
   function pushHist(state){try{history.pushState(state,"",histUrl())}catch(e){}}
   function setTab(t,opts){
@@ -808,6 +834,8 @@ armAway();
         try{history.replaceState({qbot:"tab",tab:t},"",histUrl())}catch(e){}
       }
     }
+    var leavingFeed=cur==="feed"&&t!=="feed";
+    if(leavingFeed)noteFeedPark();
     cur=t;
     TABS.forEach(function(n){syncPanel(n,n===t)});
     document.querySelectorAll(".qbs-item").forEach(function(b){if(b.dataset.qbsTab===t)b.setAttribute("aria-current","page");else b.removeAttribute("aria-current")});
@@ -823,6 +851,16 @@ armAway();
     /* Every tab: feed (and kb) mount while hidden, so they need a resize once the panel has a definite height. */
     window.dispatchEvent(new Event("resize"));
     window.dispatchEvent(new CustomEvent("qbot:tab",{detail:{tab:t}}));
+    if(leavingFeed||(t==="feed"&&feedPark!=null)){
+      if(t==="feed")feedParkUntil=Date.now()+900;
+      restoreFeedPark();
+      if(t==="feed"){
+        requestAnimationFrame(function(){
+          restoreFeedPark();
+          requestAnimationFrame(restoreFeedPark);
+        });
+      }
+    }
   }
   /* 知识库: kb.js (knowledge-base engineer) shows the list; files open in the existing drive viewer. */
   function showViewer(on){
