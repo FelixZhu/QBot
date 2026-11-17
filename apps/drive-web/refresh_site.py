@@ -19,6 +19,9 @@ BUCKET = os.environ.get("OSS_BUCKET", "qian-grokbot")
 BASE = "https://%s.%s" % (BUCKET, ENDPOINT.split("://", 1)[1])
 EXCLUDE = ("_site/", "trash/", "_test/")
 HERE = os.path.dirname(os.path.abspath(__file__))
+_QBOT_WEB = "/workspace/qbot-push/apps/drive-web"
+if os.path.isfile(os.path.join(_QBOT_WEB, "template.html")):
+    HERE = _QBOT_WEB
 GIT_ID = ["-c", "user.name=FelixZhu", "-c", "user.email=FelixZhu@users.noreply.github.com"]
 
 

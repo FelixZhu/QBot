@@ -10,6 +10,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  ToastAndroid,
   useColorScheme,
   View,
 } from 'react-native';
@@ -29,6 +30,7 @@ const HOME_URL = 'https://felixzhu.github.io/qian-drive/';
 const HOME_ORIGIN = 'https://felixzhu.github.io';
 const HOME_PATH = '/qian-drive';
 const RESUME_RELOAD_MS = 5 * 60 * 1000;
+const EXIT_CONFIRM_MS = 2000;
 
 function hashOf(href: string) {
   const i = href.indexOf('#');
@@ -84,6 +86,15 @@ const PAGE_BRIDGE = `
 true;
 `;
 
+const ASK_BACK = `
+(function () {
+  var handled = false;
+  try { handled = !!(window.qbotBack && window.qbotBack()); } catch (e) {}
+  try { window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'back', handled: handled })); } catch (e) {}
+})();
+true;
+`;
+
 function isInternal(url: string) {
   return url.startsWith(HOME_ORIGIN + HOME_PATH) || url.startsWith('about:') || url.startsWith('blob:') || url.startsWith('data:');
 }
@@ -92,8 +103,8 @@ function DriveScreen() {
   const ref = useRef<WebViewHandle>(null);
   const lastHash = useRef('');
   const bgAt = useRef<number | null>(null);
+  const lastExit = useRef(0);
   const [uri, setUri] = useState(() => homeUri());
-  const [canGoBack, setCanGoBack] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [atTop, setAtTop] = useState(true);
@@ -113,14 +124,14 @@ function DriveScreen() {
   useEffect(() => {
     if (Platform.OS !== 'android') return;
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
-      if (canGoBack && ref.current) {
-        ref.current.goBack();
+      if (ref.current) {
+        ref.current.injectJavaScript(ASK_BACK);
         return true;
       }
-      return false; // let Android leave the app
+      return false;
     });
     return () => sub.remove();
-  }, [canGoBack]);
+  }, []);
 
   useEffect(() => {
     const onChange = (s: AppStateStatus) => {
@@ -152,6 +163,21 @@ function DriveScreen() {
     loadFresh({ remount: true });
   }, [loadFresh]);
 
+  const onBackResult = useCallback((handled: boolean) => {
+    if (handled) {
+      lastExit.current = 0;
+      return;
+    }
+    const now = Date.now();
+    if (now - lastExit.current < EXIT_CONFIRM_MS) {
+      lastExit.current = 0;
+      BackHandler.exitApp();
+      return;
+    }
+    lastExit.current = now;
+    ToastAndroid.show('再滑一次退出', ToastAndroid.SHORT);
+  }, []);
+
   const onMessage = useCallback((e: Ev) => {
     try {
       const msg = JSON.parse(e.nativeEvent.data || '{}');
@@ -159,9 +185,11 @@ function DriveScreen() {
         lastHash.current = hashOf(msg.href);
       } else if (msg.type === 'scroll') {
         setAtTop(!!msg.atTop);
+      } else if (msg.type === 'back') {
+        onBackResult(!!msg.handled);
       }
     } catch (_) {}
-  }, []);
+  }, [onBackResult]);
 
   const webView = (
     <WebView
@@ -183,7 +211,6 @@ function DriveScreen() {
       overScrollMode="never"
       originWhitelist={['*']}
       injectedJavaScript={PAGE_BRIDGE}
-      onNavigationStateChange={(nav: { canGoBack: boolean }) => setCanGoBack(nav.canGoBack)}
       onMessage={onMessage}
       onLoadStart={() => setLoading(true)}
       onLoadEnd={() => {

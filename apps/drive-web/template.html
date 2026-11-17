@@ -189,6 +189,8 @@ pre.code .hljs{background:none;padding:0}
   .info{position:fixed;left:0;right:0;bottom:0;width:auto;max-height:70vh;border-left:0;border-top:1px solid var(--line);border-radius:16px 16px 0 0;z-index:45;box-shadow:var(--shadow);padding-bottom:calc(18px + env(safe-area-inset-bottom))}
   .app.info-open .scrim{display:block;position:fixed;inset:0;background:rgba(0,0,0,.25);z-index:44}
   .home{padding:20px 14px 60px}
+  .home-narrow h1{font-size:22px;margin:4px 0 2px}
+  .home-narrow .sub{margin-bottom:16px}
   .cards{grid-template-columns:1fr}
   .center{padding:8px}
   .md{padding:20px 18px 60px}
@@ -261,6 +263,7 @@ function syncLayout(){
     if(LS.get("sideCol",false))app.classList.add("side-collapsed");
     else app.classList.remove("side-collapsed");
   }
+  if(typeof renderView==="function"&&S&&(S.active==="~home"||!S.active))renderView();
 };
 
 /* ---------- helpers ---------- */
@@ -339,15 +342,52 @@ function renderTabs(){
   $("tabs").innerHTML=S.tabs.map(function(t){var l=tabLabel(t);return '<div class="tab'+(t===S.active?" active":"")+'" data-tab="'+esc(t)+'" title="'+esc(l.n)+'">'+l.i+'<span class="tl">'+esc(l.n)+'</span><span class="x" data-close="'+esc(t)+'">'+IC.x+'</span></div>'}).join("");
   var a=$("tabs").querySelector(".tab.active");if(a)a.scrollIntoView({block:"nearest",inline:"nearest"});
 }
+function rememberOpen(id){
+  if(!byKey[id])return;
+  var rec=LS.get("recent",[]);
+  if(!Array.isArray(rec))rec=[];
+  rec=rec.filter(function(k){return k!==id&&byKey[k]});
+  rec.unshift(id);
+  if(rec.length>16)rec=rec.slice(0,16);
+  LS.set("recent",rec);
+}
+function recentFiles(){
+  var rec=LS.get("recent",[]),out=[];
+  if(Array.isArray(rec))rec.forEach(function(k){if(byKey[k])out.push(byKey[k])});
+  if(out.length)return{title:"最近打开",files:out.slice(0,12)};
+  return{title:"最近更新",files:files.slice().sort(function(a,b){return b.mtime-a.mtime}).slice(0,8)};
+}
+function isHome(){return !S.active||S.active==="~home"}
 function openItem(id,opts){opts=opts||{};
   if(!id)id="~home";
   if(S.tabs.indexOf(id)<0){var i=S.tabs.indexOf(S.active);if(opts.replace&&i>=0&&S.active!==id&&S.active.indexOf("dir:")===0)S.tabs[i]=id;else S.tabs.splice(i<0?S.tabs.length:i+1,0,id);if(S.tabs.length>12)S.tabs.splice(S.tabs[0]===S.active?1:0,1)}
-  S.active=id;revealInTree(id);save();renderTree();renderTabs();renderView();
+  S.active=id;if(byKey[id])rememberOpen(id);revealInTree(id);save();renderTree();renderTabs();renderView();
   if(!opts.noHash)setHash(id);
-  if(isMobile()&&byKey[id])closeDrawer();
+  if(isMobile()&&(byKey[id]||id==="~home"))closeDrawer();
 }
 function closeTab(id){var i=S.tabs.indexOf(id);if(i<0)return;S.tabs.splice(i,1);if(S.active===id){S.active=S.tabs[i]||S.tabs[i-1]||null;}save();renderTabs();renderTree();renderView();setHash(S.active)}
-function setHash(id){var h=!id||id==="~home"?"":id.indexOf("dir:")===0?"#/"+enc(id.slice(4))+"/":"#/"+enc(id);if(location.hash!==h)history.replaceState(null,"",h||location.pathname+location.search)}
+var leftHome=false,ignorePop=0;
+function setHash(id){
+  var h=!id||id==="~home"?"":id.indexOf("dir:")===0?"#/"+enc(id.slice(4))+"/":"#/"+enc(id);
+  var url=h||(location.pathname+location.search);
+  var onHome=!id||id==="~home";
+  if(onHome){
+    if(leftHome||location.hash!==h)history.replaceState({qbot:"home"},"",url);
+    leftHome=false;
+  }else if(!leftHome){
+    history.pushState({qbot:"away"},"",url);
+    leftHome=true;
+  }else if(location.hash!==h){
+    history.replaceState({qbot:"away"},"",url);
+  }
+}
+function armAway(){
+  if(isHome()||leftHome)return;
+  var h=S.active.indexOf("dir:")===0?"#/"+enc(S.active.slice(4))+"/":"#/"+enc(S.active);
+  history.replaceState({qbot:"home"},"",location.pathname+location.search);
+  history.pushState({qbot:"away"},"",location.pathname+location.search+h);
+  leftHome=true;
+}
 function fromHash(){var h=location.hash;if(!h||h.length<3||h.slice(0,2)!=="#/")return null;var p;try{p=decodeURIComponent(h.slice(2))}catch(e){return null}
   if(byKey[p])return p;var d=p.replace(/\/$/,"");if(nodeAt(d))return"dir:"+d;return null}
 
@@ -379,6 +419,12 @@ function renderView(){
 function card(f){return '<div class="card" data-open="'+esc(f.key)+'">'+fic(f.kind)+'<div class="t"><div class="n" title="'+esc(f.name)+'">'+esc(f.name)+'</div><div class="m">'+human(f.size)+' · '+fmt(f.mtime).slice(0,10)+'</div></div></div>'}
 function dcard(n){return '<div class="card" data-opendir="'+esc(n.path)+'"><span style="color:var(--accent)">'+fic("folder")+'</span><div class="t"><div class="n">'+esc(dname(n.name))+'</div><div class="m">'+n.count+' 个文件 · '+human(n.size)+'</div></div></div>'}
 function viewHome(p){document.title="Qian's Drive";
+  if(isMobile()){
+    var r=recentFiles();
+    var body=r.files.length?r.files.map(card).join(""):'<div class="sub">还没有打开过文件</div>';
+    p.innerHTML='<div class="scroller"><div class="home home-narrow"><h1>Qian\'s Drive</h1><div class="sub">'+files.length+' 个文件 · '+human(root.size)+'</div><h3>'+r.title+'</h3><div class="cards">'+body+'</div></div></div>';
+    return;
+  }
   var recent=files.slice().sort(function(a,b){return b.mtime-a.mtime}).slice(0,8);
   p.innerHTML='<div class="scroller"><div class="home"><h1>Qian\'s Drive</h1><div class="sub">'+files.length+' 个文件 · '+human(root.size)+' · 清单更新于 '+fmt(M.generated)+'</div><h3>最近更新</h3><div class="cards">'+recent.map(card).join("")+'</div><h3>文件夹</h3><div class="cards">'+sortedDirs(root).map(dcard).join("")+'</div></div></div>'}
 function viewFolder(p,n){document.title=(n.name||"全部文件")+" · Qian's Drive";
@@ -507,11 +553,36 @@ document.addEventListener("click",function(e){var t=e.target,el;
 document.addEventListener("auxclick",function(e){var el=e.target.closest("[data-tab]");if(e.button===1&&el){e.preventDefault();closeTab(el.dataset.tab)}});
 document.addEventListener("keydown",function(e){var mod=e.ctrlKey||e.metaKey;
   if(mod&&(e.key==="k"||e.key==="K"||e.key==="o"||e.key==="O"||e.key==="p"||e.key==="P")){e.preventDefault();$("qsOv").classList.contains("open")?qsClose():qsOpen();return}
-  if(e.key==="Escape"){if($("qsOv").classList.contains("open"))qsClose();else closeDrawer();return}
+  if(e.key==="Escape"){qbotBack();return}
   if(mod&&(e.key==="w"||e.key==="W")&&S.active&&S.tabs.length){e.preventDefault();closeTab(S.active);return}
   if(e.altKey&&(e.key==="ArrowRight"||e.key==="ArrowLeft")&&S.tabs.length>1){var i=S.tabs.indexOf(S.active);openItem(S.tabs[(i+(e.key==="ArrowRight"?1:-1)+S.tabs.length)%S.tabs.length]);e.preventDefault()}
 });
+function closeInfo(){
+  if(!S.info&&!$("app").classList.contains("info-open"))return false;
+  S.info=false;$("app").classList.remove("info-open");save();renderCrumbs();return true;
+}
+function restoreHistory(){
+  ignorePop++;
+  history.pushState({qbot:leftHome?"away":"home"},"",location.pathname+location.search+location.hash);
+}
+function qbotBack(opts){
+  opts=opts||{};
+  if($("qsOv").classList.contains("open")){qsClose();if(opts.fromPop)restoreHistory();return true}
+  if(S.info||$("app").classList.contains("info-open")){closeInfo();if(opts.fromPop)restoreHistory();return true}
+  if(isMobile()&&$("app").classList.contains("drawer")){closeDrawer();if(opts.fromPop)restoreHistory();return true}
+  if(!isHome()){
+    if(opts.fromPop){leftHome=false;openItem("~home",{noHash:true})}
+    else openItem("~home");
+    return true;
+  }
+  return false;
+}
+window.qbotBack=qbotBack;
 window.addEventListener("hashchange",function(){var id=fromHash();if(id&&id!==S.active)openItem(id,{noHash:true})});
+window.addEventListener("popstate",function(){
+  if(ignorePop){ignorePop--;return}
+  qbotBack({fromPop:true});
+});
 function toast(t){var e=$("toast");e.textContent=t;e.classList.add("show");clearTimeout(toast.t);toast.t=setTimeout(function(){e.classList.remove("show")},1600)}
 function copy(t,msg){(navigator.clipboard&&window.isSecureContext?navigator.clipboard.writeText(t):Promise.reject()).then(function(){toast(msg||"已复制")}).catch(function(){var a=document.createElement("textarea");a.value=t;a.style.position="fixed";a.style.opacity="0";document.body.appendChild(a);a.select();try{document.execCommand("copy");toast(msg||"已复制")}catch(e){prompt("复制链接",t)}a.remove()})}
 
@@ -534,6 +605,7 @@ var initial=fromHash();
 if(initial)openItem(initial,{noHash:true});
 else if(S.active&&(S.active==="~home"||S.active.indexOf("dir:")===0||byKey[S.active]))openItem(S.active);
 else openItem("~home");
+armAway();
 })();
 </script>
 </body>
