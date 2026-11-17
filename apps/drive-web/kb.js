@@ -14,9 +14,25 @@
   var LOCK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>';
   var SEARCH = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>';
   var CHEV = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>';
-  var DIR_LABEL = {reports:"报告",videos:"视频",xhs:"小红书",docs:"文档"};
+  var DIR_LABEL = {reports:"报告",videos:"视频",bilibili:"B站视频",xiaoyuzhou:"小宇宙播客",xhs:"小红书",docs:"文档"};
+  /* Directory segments that look like object hashes (8+ hex chars) stay out of the UI. */
+  function isHashSeg(s) {
+    return /^[0-9a-f]{8,}$/i.test(s || "");
+  }
+  function visibleDirParts(dir) {
+    return String(dir || "").split("/").filter(Boolean).filter(function (p) { return !isHashSeg(p); });
+  }
+  function visiblePath(dir) {
+    return visibleDirParts(dir).join("/");
+  }
   function dirTitle(name) {
+    if (!name || isHashSeg(name)) return "";
     return DIR_LABEL[name] ? (name + " · " + DIR_LABEL[name]) : name;
+  }
+  function formatDir(dir) {
+    var parts = visibleDirParts(dir);
+    if (!parts.length) return dir ? "其他" : "根目录";
+    return parts.map(dirTitle).filter(Boolean).join(" / ");
   }
 
   function esc(s) {
@@ -47,7 +63,7 @@
     return d.getFullYear() + "-" + mm + "-" + dd;
   }
   function basename(key) { return (key || "").split("/").pop(); }
-  function topDir(f) { return (f.dir || "").split("/")[0] || "其他"; }
+  function topDir(f) { return visibleDirParts(f.dir)[0] || "其他"; }
   function mark(text, q) {
     var s = esc(text || "");
     if (!q) return s;
@@ -63,7 +79,7 @@
     var root = {};
     files.forEach(function (f) {
       if (f.private) return;
-      var parts = (f.dir || "").split("/").filter(Boolean);
+      var parts = visibleDirParts(f.dir);
       var node = root;
       var path = "";
       parts.forEach(function (p) {
@@ -127,7 +143,10 @@
   KB.prototype.filtered = function () {
     var self = this;
     return this.files.filter(function (f) {
-      if (self.folder && !(f.dir === self.folder || (f.dir || "").indexOf(self.folder + "/") === 0)) return false;
+      if (self.folder) {
+        var vis = visiblePath(f.dir);
+        if (!(vis === self.folder || vis.indexOf(self.folder + "/") === 0)) return false;
+      }
       return matchFile(f, self.q, self.chips);
     });
   };
@@ -137,6 +156,7 @@
     el.classList.add("kb");
     el.innerHTML =
       '<div class="kb-pane">' +
+        '<div class="kb-topbar"><span class="kb-title">知识库</span></div>' +
         '<div class="kb-search' + (this.q ? " has-q" : "") + '">' + SEARCH +
           '<input type="search" id="kb-q" placeholder="搜文件名和摘要" value="' + esc(this.q) + '" autocomplete="off" enterkeyhint="search">' +
           '<button type="button" class="kb-clear" id="kb-clear" aria-label="清除">×</button>' +
@@ -299,7 +319,7 @@
           icon("folder") + '<span class="kb-lbl">' + esc(dirTitle(n.name)) + '</span><span class="kb-cnt">' + n.count + "</span></button>";
         var kids = "";
         if (expanded) {
-          self.files.filter(function (f) { return !f.private && f.dir === n.path; }).forEach(function (f) {
+          self.files.filter(function (f) { return !f.private && visiblePath(f.dir) === n.path; }).forEach(function (f) {
             var sel = self.selected === f.key;
             kids += '<button type="button" class="kb-ti' + (sel ? " on" : "") + '" data-key="' + esc(f.key) + '" style="padding-left:' + (pad + 20) + 'px">' +
               icon(f.kind) + '<span class="kb-lbl">' + esc(f.name) + "</span></button>";
@@ -317,11 +337,11 @@
   };
 
   KB.prototype.fileRow = function (f, asSearch) {
-    var meta = [f.dir || "根目录", human(f.size), fmtDate(f.mtime)].filter(Boolean).join(" · ");
+    var meta = [formatDir(f.dir), human(f.size), fmtDate(f.mtime)].filter(Boolean).join(" · ");
     if (asSearch) {
       return '<button type="button" class="kb-sr" data-key="' + esc(f.key) + '">' + icon(f.kind) +
         '<span class="kb-t"><span class="kb-n">' + mark(f.name, this.q) + '</span>' +
-        '<span class="kb-p">' + esc(f.dir || "") + "</span>" +
+        '<span class="kb-p">' + esc(formatDir(f.dir)) + "</span>" +
         (f.summary ? '<span class="kb-s">' + mark(f.summary, this.q) + "</span>" : "") +
         ((f.tags || []).length ? '<span class="kb-tags">' + f.tags.map(function (t) { return '<span class="kb-tag">' + esc(t) + "</span>"; }).join("") + "</span>" : "") +
         "</span></button>";
@@ -348,7 +368,7 @@
       return;
     }
     var recent = files.slice().sort(function (a, b) { return b.mtime - a.mtime; });
-    var title = this.folder ? dirTitle(basename(this.folder)) : "最近更新";
+    var title = this.folder ? (formatDir(this.folder) || dirTitle(basename(this.folder))) : "最近更新";
     var back = "";
     if (this.folder && window.matchMedia && window.matchMedia("(max-width:599px)").matches) {
       back = '<button type="button" class="kb-row" data-folder="">' + icon("folder") +
@@ -378,7 +398,7 @@
   };
 
   KB.prototype.detailHtml = function (f) {
-    var meta = [f.dir || "根目录", human(f.size), fmtDate(f.mtime), f.doc_type].filter(Boolean).join(" · ");
+    var meta = [formatDir(f.dir), human(f.size), fmtDate(f.mtime), f.doc_type].filter(Boolean).join(" · ");
     var url = (this.data.base ? this.data.base.replace(/\/$/, "") + "/" + encodeURI(f.key) : "");
     return '<div class="kb-detail">' + icon(f.kind) +
       "<h2>" + esc(f.name) + "</h2>" +
