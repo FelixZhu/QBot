@@ -60,9 +60,11 @@ test("template overlay matches the 390 / 840 shell widths", () => {
   assert.equal(api.CAPABILITIES.apk.versionCode, 6);
 });
 
-test("feed.js still opens articles with window.open; shell does not edit it", () => {
-  assert.match(feedJs, /window\.open\(url, "_blank", "noopener"\)/);
-  assert.match(feedJs, /class: "q-vframe"/);
+test("integrated feed.js keeps the PR4 browser fallback and exports closeDetail", () => {
+  assert.match(feedJs, /window\.open\(safe, "_blank", "noopener,noreferrer"\)/);
+  assert.match(feedJs, /closeDetail: closeDetail/);
+  const body = feedJs.slice(feedJs.indexOf("function closeDetail()"), feedJs.indexOf("function back()"));
+  assert.equal(body.includes("shell.close"), false);
 });
 
 test("external articles are browser-first and a blank frame is not success", () => {

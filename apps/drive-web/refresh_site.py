@@ -14,12 +14,16 @@ design CSS (tokens/layout/components.css), the feed module (feed.js, feed.css,
 out/feed.json, out/media/), shell-media.js and shell-theme.js next to index.html when present.
 
 Usage: python3 refresh_site.py [--push] [--repo DIR] [--no-chat-build]
+                 [--manifest FILE --index FILE]
   --push           git commit + push the repo (only if something changed)
   --repo DIR       write the site somewhere else (e.g. a local preview dir)
   --no-chat-build  reuse the existing ../chat-web/dist instead of running npm run build
+  --manifest FILE  use this manifest JSON instead of listing the OSS bucket
+  --index FILE     use this index JSON instead of ~/.oss_index.json
+                   Both are required together. They are copied byte for byte.
+                   OSS credentials are not read on this path.
 """
 import hashlib, json, os, shutil, subprocess, sys, time, mimetypes
-import oss2
 
 ENDPOINT = os.environ.get("OSS_ENDPOINT", "https://oss-cn-beijing.aliyuncs.com")
 BUCKET = os.environ.get("OSS_BUCKET", "qian-grokbot")
@@ -36,6 +40,7 @@ KIND_LABEL = {
 
 
 def bucket():
+    import oss2
     kid, sec = os.environ.get("OSS_ACCESS_KEY_ID"), os.environ.get("OSS_ACCESS_KEY_SECRET")
     if not kid or not sec:
         sys.exit("missing OSS credentials in environment")
@@ -204,14 +209,34 @@ def write_tree(dest, html, mjson, vjson, idxjson, chat=None):
     copy_frontend(dest, chat)
 
 
+def arg_value(flag):
+    if flag not in sys.argv:
+        return None
+    i = sys.argv.index(flag)
+    if i + 1 >= len(sys.argv):
+        sys.exit("missing value for %s" % flag)
+    return sys.argv[i + 1]
+
+
 def main():
-    repo = sys.argv[sys.argv.index("--repo") + 1] if "--repo" in sys.argv else "/workspace/qian-drive-repo"
+    repo = arg_value("--repo") or "/workspace/qian-drive-repo"
+    manifest_path = arg_value("--manifest")
+    index_path = arg_value("--index")
+    if bool(manifest_path) != bool(index_path):
+        sys.exit("pass both --manifest and --index, or neither")
     chat = build_chat()
-    m, skipped = build_manifest(bucket())
-    m["cors"] = check_cors(m["files"])
-    index = build_index(m)
-    mjson = json.dumps(m, ensure_ascii=False, separators=(",", ":"))
-    idxjson = json.dumps(index, ensure_ascii=False, separators=(",", ":"))
+    skipped = []
+    if manifest_path:
+        mjson = open(manifest_path, encoding="utf-8").read()
+        idxjson = open(index_path, encoding="utf-8").read()
+        m = json.loads(mjson)
+        index = json.loads(idxjson)
+    else:
+        m, skipped = build_manifest(bucket())
+        m["cors"] = check_cors(m["files"])
+        index = build_index(m)
+        mjson = json.dumps(m, ensure_ascii=False, separators=(",", ":"))
+        idxjson = json.dumps(index, ensure_ascii=False, separators=(",", ":"))
     tpl = open(os.path.join(HERE, "template.html"), encoding="utf-8").read()
     html = tpl.replace("__MANIFEST__", mjson.replace("</", r"<\/")).replace("__BASE__", BASE)
     h = hashlib.sha1(html.encode("utf-8"))

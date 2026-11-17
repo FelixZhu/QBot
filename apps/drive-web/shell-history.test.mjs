@@ -42,16 +42,15 @@ test("the back after an article returns to chat instead of calling feed.back", (
   assert.match(feedBranch, /setTab\("chat"/);
 });
 
-test("PR4 closeDetail stays private and calls the shell until the export delta", () => {
+test("source feed.js is the accepted closeDetail delta, not a preview-time patch", () => {
   const raw = execFileSync("git", ["show", PR4 + ":apps/drive-web/feed.js"], { encoding: "utf8" });
-  assert.match(raw, /function closeDetail\(\)/);
-  assert.match(raw, /shell\.close\(\)/);
   assert.equal(raw.includes("closeDetail: closeDetail"), false);
   const patched = applyFeedCloseDetail(raw);
-  assert.equal(patched.includes("closeDetail: closeDetail"), true);
-  const body = patched.slice(patched.indexOf("function closeDetail()"), patched.indexOf("function back()"));
+  const source = readFileSync(new URL("./feed.js", import.meta.url), "utf8");
+  assert.equal(source, patched);
+  const body = source.slice(source.indexOf("function closeDetail()"), source.indexOf("function back()"));
   assert.equal(body.includes("shell.close"), false);
   assert.match(body, /if \(!saved\) return false/);
   assert.match(body, /return true/);
-  assert.equal(applyFeedCloseDetail(patched), patched);
+  assert.match(source, /closeDetail: closeDetail/);
 });
