@@ -65,15 +65,24 @@ test("feed.js still opens articles with window.open; shell does not edit it", ()
   assert.match(feedJs, /class: "q-vframe"/);
 });
 
-test("article frame cannot inherit the app bridge or other protocols", () => {
+test("external articles are browser-first and a blank frame is not success", () => {
   assert.equal(api.ARTICLE_SANDBOX, "");
-  assert.equal(/\ballow-scripts\b/.test(api.ARTICLE_SANDBOX), false);
-  assert.equal(/\ballow-same-origin\b/.test(api.ARTICLE_SANDBOX), false);
-  assert.equal(/\ballow-top-navigation\b/.test(api.ARTICLE_SANDBOX), false);
-  assert.equal(/\ballow-popups\b/.test(api.ARTICLE_SANDBOX), false);
   const src = readFileSync(new URL("./shell-media.js", import.meta.url), "utf8");
-  assert.match(src, /sandbox: ARTICLE_SANDBOX/);
+  assert.match(src, /NOT proof that Android removed the Java bridge/);
   assert.equal(src.includes("allow-scripts allow-same-origin"), false);
+  const page = api.articlePolicy("https://example.com/story", BASE);
+  assert.equal(page.embed, false);
+  assert.equal(page.mode, "browser-handoff");
+  assert.equal(page.reason, "external-webview");
+  assert.equal(api.windowOpenIntent("noopener,noreferrer"), "browser");
+  assert.equal(api.windowOpenIntent("noopener"), "handoff");
+  assert.equal(api.settleArticle({ threw: true }), "browser-handoff");
+  assert.equal(api.settleArticle({ timedOut: true }), "browser-handoff");
+  assert.equal(api.settleArticle({ errorEvent: true }), "browser-handoff");
+  assert.equal(api.settleArticle({ href: "about:blank" }), "browser-handoff");
+  assert.equal(api.settleArticle({ href: "https://example.com/" }), "browser-handoff");
+  assert.equal(api.settleArticle({ href: "https://example.com/", text: "可读正文" }), "readable");
+  assert.match(api.HANDOFF_COPY[1], /空白/);
 });
 
 test("safe URL protocols", () => {

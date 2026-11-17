@@ -26,17 +26,19 @@
   var LOAD_MS = 12000;
   var VIDEO_EXT = /\.(mp4|webm|m4v|ogv|mov)(?=$|[?#])/i;
   var UNSUPPORTED_EXT = /\.(m3u8|mpd|mkv)(?=$|[?#])/i;
-  /* Empty sandbox: unique opaque origin, no scripts, no same-origin access,
-     no top navigation, no popups. An external document must not run script
-     inside this WebView. Android injects ReactNativeWebView into every frame;
-     without allow-scripts the framed page cannot call it. allow-same-origin
-     is omitted so a same-site document cannot read the parent window,
-     localStorage, or remove the sandbox. */
+  /* Empty sandbox is NOT proof that Android removed the Java bridge.
+     This WebView still injects ReactNativeWebView into every frame, and an
+     empty sandbox has not been checked on a device. Arbitrary external
+     articles are therefore not loaded here at all. */
   var ARTICLE_SANDBOX = "";
+  var HANDOFF_COPY = [
+    "在浏览器中打开",
+    "这个地址不会嵌进当前的 App。1.0.4 的网页和系统浏览器是分开的；嵌在这里既不能确认页面真的打开了，也不能凭空沙箱证明安卓上的 Java 接口已经消失。需要脚本或禁止内嵌的网站留在这里只会是空白。"
+  ];
 
   var CAPABILITIES = {
     version: 1,
-    article: "in-app-iframe",
+    article: "browser-handoff",
     browserFallback: true,
     videoInline: true,
     videoFullscreen: "element",
@@ -157,21 +159,36 @@
     return (Number(box.width) || 0) < RESCUE_MIN.width || (Number(box.height) || 0) < RESCUE_MIN.height;
   }
 
+  function articlePolicy(raw, base) {
+    var c = classifyUrl(raw, base);
+    if (!c.ok) return { embed: false, mode: "reject", reason: c.reason };
+    if (isShellPage(c.url)) return { embed: false, mode: "reject", reason: "shell", url: c.url };
+    if (c.kind === "video") return { embed: false, mode: "video", url: c.url };
+    if (c.kind === "unsupported-media") return { embed: false, mode: "browser-handoff", reason: "unsupported-media", url: c.url };
+    return { embed: false, mode: "browser-handoff", reason: "external-webview", url: c.url };
+  }
+
+  /* PR 4's 用浏览器打开 calls window.open(url, "_blank", "noopener,noreferrer").
+     The current feed primary button calls window.open(url, "_blank", "noopener").
+     noreferrer means "leave for the browser now". noopener alone shows the handoff. */
+  function windowOpenIntent(features) {
+    var f = String(features || "");
+    if (f.indexOf("noopener") !== -1 && f.indexOf("noreferrer") !== -1) return "browser";
+    return "handoff";
+  }
+
+  function settleArticle(probe) {
+    probe = probe || {};
+    var verdict = frameVerdict(probe);
+    if (verdict === "shown" && probe.text) return "readable";
+    return "browser-handoff";
+  }
+
   function mediaErrorCopy(code) {
     if (code === 2) return "网络错误，视频没有下完。";
     if (code === 3) return "解码失败。安卓 WebView 通常能播 H.264/AAC 的 MP4 和 VP8/VP9 的 WebM；HEVC、HLS 和 DRM 经常不行。";
     if (code === 4) return "这个地址不是 WebView 能播的视频。";
     return "播放被中断。";
-  }
-
-  function readProbe(frame) {
-    var probe = { href: null, threw: false };
-    try {
-      probe.href = frame.contentWindow.location.href;
-    } catch (e) {
-      probe.threw = true;
-    }
-    return probe;
   }
 
   function mount(opts) {
@@ -332,64 +349,21 @@
         : "";
     }
 
-    function presentArticle(c) {
+    function showHandoff(c) {
+      /* Do not assign iframe.src. A blank or scriptless frame is not a loaded page,
+         and an empty sandbox is not evidence the Android Java bridge is gone. */
       ensure();
       clearTimers();
+      gen += 1;
       applyPause({ type: "overlay" });
       stopVideo();
-      currentUrl = c.url;
-      titleEl.textContent = c.host || "文章";
-      fullBtn.hidden = true;
-      browserBtn.hidden = false;
-      failEl.hidden = true;
-      video.hidden = true;
-      frame.hidden = false;
+      frame.onload = null;
+      frame.onerror = null;
+      frame.removeAttribute("src");
+      frame.hidden = true;
       showOpaqueNote(false);
-      setOpen(true);
-      var token = ++gen;
-      frame.onload = function () {
-        if (token !== gen) return;
-        clearTimers();
-        probeTimer = setTimeout(function () {
-          if (token !== gen) return;
-          var verdict = frameVerdict(readProbe(frame));
-          if (verdict === "denied") {
-            probeTimer = setTimeout(function () {
-              if (token !== gen) return;
-              applyArticleVerdict(frameVerdict(readProbe(frame)), c);
-            }, 700);
-            return;
-          }
-          applyArticleVerdict(verdict, c);
-        }, 300);
-      };
-      frame.onerror = function () {
-        if (token !== gen) return;
-        applyArticleVerdict("failed", c);
-      };
-      failTimer = setTimeout(function () {
-        if (token !== gen) return;
-        applyArticleVerdict("failed", c);
-      }, LOAD_MS);
-      frame.src = c.url;
-    }
-
-    function applyArticleVerdict(verdict, c) {
-      clearTimers();
-      if (verdict === "shown") {
-        failEl.hidden = true;
-        frame.hidden = false;
-        showOpaqueNote(false);
-        return;
-      }
-      if (verdict === "opaque") {
-        failEl.hidden = true;
-        frame.hidden = false;
-        showOpaqueNote(true);
-        return;
-      }
-      var copy = FAIL_COPY[verdict] || FAIL_COPY.failed;
-      showFailure(copy[0], copy[1], c.url);
+      showFailure(HANDOFF_COPY[0], HANDOFF_COPY[1], c.url);
+      return { ok: true, mode: "browser-handoff", url: c.url, embed: false };
     }
 
     function stopVideo() {
@@ -449,8 +423,7 @@
         showFailure(FAIL_COPY["unsupported-media"][0], FAIL_COPY["unsupported-media"][1], c.url);
         return { ok: false, reason: "unsupported-media", url: c.url };
       }
-      presentArticle(c);
-      return { ok: true, mode: "article", url: c.url };
+      return showHandoff(c);
     }
 
     function openExternal(raw) {
@@ -493,16 +466,25 @@
       return true;
     }
 
-    function onWindowOpen(url) {
-      /* Feed calls window.open(url, "_blank", "noopener"). On the installed
-         WebView that creates an off-screen window and never reaches onOpenWindow,
-         so route every non-shell http(s) URL here instead of calling through. */
+    function onWindowOpen(url, _target, features) {
+      /* 1.0.4 does not deliver window.open to onOpenWindow. PR 4's
+         用浏览器打开 uses noopener,noreferrer and must reach the system browser.
+         The current feed primary button uses noopener only; that shows the
+         handoff instead of embedding the page. */
       var c = classifyUrl(url, win.location && win.location.href);
       if (!c.ok) {
         openArticle(url);
         return null;
       }
       if (isShellPage(c.url)) return null;
+      if (c.kind === "video") {
+        playVideo(c.url);
+        return null;
+      }
+      if (windowOpenIntent(features) === "browser") {
+        openExternal(c.url);
+        return null;
+      }
       openArticle(c.url);
       return null;
     }
@@ -587,6 +569,10 @@
     CAPABILITIES: CAPABILITIES,
     FAIL_COPY: FAIL_COPY,
     ARTICLE_SANDBOX: ARTICLE_SANDBOX,
+    HANDOFF_COPY: HANDOFF_COPY,
+    articlePolicy: articlePolicy,
+    windowOpenIntent: windowOpenIntent,
+    settleArticle: settleArticle,
     classifyUrl: classifyUrl,
     isShellPage: isShellPage,
     frameVerdict: frameVerdict,

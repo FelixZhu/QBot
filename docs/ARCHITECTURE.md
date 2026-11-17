@@ -417,9 +417,9 @@ python3 apps/drive-web/refresh_site.py --push
 | 方法 | 作用 |
 |---|---|
 | `capabilities()` | 能力说明。`requiresNewApk` 为 `false`。 |
-| `openArticle(url)` | http(s) 文章放在空沙箱 iframe 里（不给脚本、不同源、不许顶层跳转、不许弹窗），因此打不开父页面的桥。直接媒体文件改走播放器。需要脚本的页面用浏览器按钮离开这个 WebView。 |
+| `openArticle(url)` | 任意外部 http(s) 网页不嵌进这个 WebView。面板说明原因，并给出浏览器按钮。直接视频文件改走播放器。空沙箱不是安卓 Java 接口已消失的证据，这里没有在真机上证明过。 |
+| `openExternal(url)` | 只对 http(s) 交给系统浏览器。PR 4 的「用浏览器打开」调用 `window.open(url, "_blank", "noopener,noreferrer")`，外壳把它当成这一条，而不是再嵌一次。当前 Feed 主按钮只有 `noopener`，外壳先给出说明面板。 |
 | `playVideo(url)` | 带控制条的内嵌播放器，`object-fit: contain`，按视频自身宽高比。全屏走元素的 `requestFullscreen` / `webkitEnterFullscreen`（当前 APK 已开 `allowsFullscreenVideo`）。 |
-| `openExternal(url)` | 系统浏览器。见下面的「浏览器」。 |
 | `close()` / `isOpen()` | 关掉浮层。返回键先走这里。 |
 
 只接受 `http:` 和 `https:`。`javascript:`、`data:`、`file:`、`content:`、`intent:`、`blob:`、`about:` 直接拒绝，不会交给 WebView。地址里的用户名和密码会去掉。
