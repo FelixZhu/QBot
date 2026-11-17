@@ -14,7 +14,7 @@
   var LOCK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>';
   var SEARCH = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>';
   var CHEV = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>';
-  var DIR_LABEL = {feishu:"飞书",intake:"资料整理",reports:"报告",videos:"视频",xhs:"小红书",docs:"文档"};
+  var DIR_LABEL = {reports:"报告",videos:"视频",xhs:"小红书",docs:"文档"};
   function dirTitle(name) {
     return DIR_LABEL[name] ? (name + " · " + DIR_LABEL[name]) : name;
   }
