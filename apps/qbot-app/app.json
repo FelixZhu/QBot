@@ -1,0 +1,50 @@
+{
+  "expo": {
+    "name": "QBot",
+    "slug": "qian-drive",
+    "version": "1.0.2",
+    "orientation": "default",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "backgroundColor": "#F3EFE7",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "io.github.felixzhu.qiandrive"
+    },
+    "android": {
+      "package": "io.github.felixzhu.qiandrive",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#F3EFE7"
+      },
+      "predictiveBackGestureEnabled": false,
+      "label": "QBot",
+      "versionCode": 3
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-status-bar",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#F3EFE7",
+          "dark": {
+            "image": "./assets/splash-icon.png",
+            "backgroundColor": "#F3EFE7"
+          }
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "ef23ae82-73c0-4db5-b2d7-b2424f969697"
+      }
+    },
+    "owner": "felixzhu"
+  }
+}
