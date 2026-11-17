@@ -204,6 +204,15 @@
 }
 
 
+
+.feed-root .q-fcard .q-tag{
+  display:inline-flex;align-items:center;align-self:flex-start;
+  margin-top:var(--sp-4);
+  padding:2px var(--sp-2);
+  border-radius:var(--r-pill);
+  background:var(--fill);color:var(--text-2);
+  font-size:var(--fs-caption);line-height:var(--lh-caption);
+}
 /* 卡片舞台：窄屏垂直居中；≥600px 从顶部排，避免展开时标题上方大块空白 */
 .feed-root .q-fcard{
   scroll-snap-align:start;height:100%;display:flex;flex-direction:column;position:relative;

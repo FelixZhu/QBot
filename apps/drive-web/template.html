@@ -753,9 +753,9 @@ armAway();
   function css(u){var l=document.createElement("link");l.rel="stylesheet";l.href=u+"?v="+V;document.head.appendChild(l)}
   function js(u,cb){var s=document.createElement("script");s.src=u+"?v="+V;if(cb)s.onload=cb;document.body.appendChild(s)}
   exists("feed.css").then(function(ok){if(ok)css("feed.css")});
-  /* 主动服务: feed.js exposes QbotFeed.mount(el,{feedUrl}); media URLs resolve next to feed.json. */
+  /* 主动服务: feed.js exposes QbotFeed.mount(el,{feedUrl}); reads OSS feed/feed.json, falls back to out/feed.json; media resolve next to it. */
   exists("feed.js").then(function(ok){if(ok)js("feed.js",function(){
-    if(window.QbotFeed&&QbotFeed.mount)QbotFeed.mount(document.getElementById("tab-feed"),{feedUrl:"feed.json"});
+    if(window.QbotFeed&&QbotFeed.mount)QbotFeed.mount(document.getElementById("tab-feed"),{});
   })});
   Promise.all([exists("kb.js"),exists("kb.css")]).then(function(r){
     if(!r[0]){kbPanel.classList.remove("kb-pending");return}  /* fallback: the existing drive UI stays as the 知识库 tab */

@@ -11,7 +11,7 @@ written anywhere.
 
 Also builds the QBot chat tab (../chat-web, Vite) into chat/, and copies the shared
 design CSS (tokens/layout/components.css) and the feed module (feed.js, feed.css,
-feed.json, media/) next to index.html when present.
+out/feed.json, out/media/) next to index.html when present.
 
 Usage: python3 refresh_site.py [--push] [--repo DIR] [--no-chat-build]
   --push           git commit + push the repo (only if something changed)
@@ -154,12 +154,15 @@ def build_chat():
     return dist
 
 
-SHARED_FILES = ("tokens.css", "layout.css", "components.css", "feed.js", "feed.css", "feed.json")
+SHARED_FILES = ("tokens.css", "layout.css", "components.css", "feed.js", "feed.css")
 
 
 def frontend_files(chat):
     """Every extra file that ends up in the site; also feeds the page version hash."""
     out = [os.path.join(HERE, n) for n in SHARED_FILES if os.path.isfile(os.path.join(HERE, n))]
+    feed_out = os.path.join(HERE, "out")
+    if os.path.isdir(feed_out):
+        out += sorted(os.path.join(r, f) for r, _, fs in os.walk(feed_out) for f in fs)
     if chat:
         out += [os.path.join(chat, n) for n in sorted(os.listdir(chat))]
     return out
@@ -170,9 +173,11 @@ def copy_frontend(dest, chat):
     for name in SHARED_FILES:
         if os.path.isfile(os.path.join(HERE, name)):
             shutil.copy2(os.path.join(HERE, name), os.path.join(dest, name))
-    media = os.path.join(HERE, "media")
-    if os.path.isdir(media):
-        shutil.copytree(media, os.path.join(dest, "media"), dirs_exist_ok=True)
+    # Feed data: feed.js falls back to out/feed.json (+ out/media/) when OSS has none.
+    feed_out = os.path.join(HERE, "out")
+    shutil.rmtree(os.path.join(dest, "out"), ignore_errors=True)
+    if os.path.isdir(feed_out):
+        shutil.copytree(feed_out, os.path.join(dest, "out"))
     if chat:
         shutil.rmtree(os.path.join(dest, "chat"), ignore_errors=True)
         shutil.copytree(chat, os.path.join(dest, "chat"))

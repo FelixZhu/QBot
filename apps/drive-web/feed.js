@@ -98,29 +98,64 @@
     return date.toLocaleString("en-CA", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit" });
   }
 
+  function shanghaiYmdOf(value) {
+    if (!value) return "";
+    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+    var d = new Date(value);
+    if (isNaN(d.getTime())) return "";
+    return ymd(d, TZ);
+  }
+
+  function shanghaiToday() {
+    return ymd(new Date(), TZ);
+  }
+
+  function shanghaiYesterday() {
+    var parts = shanghaiToday().split("-").map(Number);
+    var utc = Date.UTC(parts[0], parts[1] - 1, parts[2]) - 86400000;
+    return ymd(new Date(utc), "UTC");
+  }
+
+  function weekdayZh(ymdStr) {
+    var parts = (ymdStr || "").split("-").map(Number);
+    if (parts.length < 3 || !parts[0]) return "";
+    var dow = new Date(Date.UTC(parts[0], parts[1] - 1, parts[2])).getUTCDay();
+    return "日一二三四五六".charAt(dow);
+  }
+
+  function relativeDay(value) {
+    var that = shanghaiYmdOf(value);
+    if (!that) return "";
+    if (that === shanghaiToday()) return "今天";
+    if (that === shanghaiYesterday()) return "昨天";
+    return "";
+  }
+
   function formatTime(iso) {
     if (!iso) return "";
     var d = new Date(iso);
     if (isNaN(d.getTime())) return "";
-    var today = ymd(new Date(), TZ);
     var that = ymd(d, TZ);
     var hm = new Intl.DateTimeFormat("zh-CN", {
       timeZone: TZ, hour: "2-digit", minute: "2-digit", hour12: false
     }).format(d);
-    if (that === today) return "今天 " + hm;
-    if (that === shanghaiYesterday()) return "昨天 " + hm;
+    var rel = relativeDay(iso);
+    if (rel) return rel + " " + hm;
     if (weekStart(d) === weekStart(new Date())) {
       var weekday = new Intl.DateTimeFormat("zh-CN", { timeZone: TZ, weekday: "short" }).format(d);
       return weekday + " " + hm;
     }
-    var md = new Intl.DateTimeFormat("en-CA", { timeZone: TZ, month: "2-digit", day: "2-digit" }).format(d);
-    return md.replace("/", "-");
+    var md = new Intl.DateTimeFormat("zh-CN", { timeZone: TZ, month: "numeric", day: "numeric" }).format(d);
+    return md + " " + hm;
   }
 
-  function shanghaiYesterday() {
-    var parts = ymd(new Date(), TZ).split("-").map(Number);
-    var utc = Date.UTC(parts[0], parts[1] - 1, parts[2]) - 86400000;
-    return ymd(new Date(utc), "UTC");
+  function formatDateLabel(value) {
+    var that = shanghaiYmdOf(value);
+    if (!that) return "";
+    var parts = that.split("-").map(Number);
+    var abs = parts[1] + " 月 " + parts[2] + " 日 · 周" + weekdayZh(that);
+    var rel = relativeDay(that);
+    return rel ? rel + " · 周" + weekdayZh(that) : abs;
   }
 
   function weekStart(date) {
@@ -296,7 +331,7 @@
 
   function typeLabel(c) {
     if (c.type === "file" && c.data && c.data.subtype === "due") return "文件提醒 · 到期";
-    if (c.type === "file" && c.data && c.data.subtype === "new") return "文件提醒 · 新文件";
+    if (c.type === "file" && c.data && c.data.subtype === "new") return "文件提醒 · 新入库";
     return TYPE_LABEL[c.type] || c.type;
   }
 
@@ -360,7 +395,8 @@
       return;
     }
     if (c.type === "digest") {
-      if (data.date_label) stage.appendChild(el("div", { class: "mini", text: data.date_label, style: { marginBottom: "8px", fontSize: "12px", color: "var(--text-3)" } }));
+      var dlabel = formatDateLabel(data.date || c.time);
+      if (dlabel) stage.appendChild(el("div", { class: "mini", text: dlabel, style: { marginBottom: "8px", fontSize: "12px", color: "var(--text-3)" } }));
       stage.appendChild(el("h2", { text: c.title }));
       var n = (data.highlights || []).length || 3;
       stage.appendChild(el("div", { class: "q-sum", text: "今天 " + n + " 条值得看。" }));
@@ -372,7 +408,8 @@
       return;
     }
     if (c.type === "english") {
-      stage.appendChild(el("div", { class: "mini", text: "今天的表达", style: { marginBottom: "12px", fontSize: "12px", color: "var(--text-3)" } }));
+      var enDay = relativeDay(data.date || c.time) || formatDateLabel(data.date || c.time) || "今日";
+      stage.appendChild(el("div", { class: "mini", text: enDay + "的表达", style: { marginBottom: "12px", fontSize: "12px", color: "var(--text-3)" } }));
       stage.appendChild(el("div", { class: "q-phrase", text: data.expression || c.title }));
       if (data.meaning) stage.appendChild(el("div", { class: "meaning", text: data.meaning }));
       if (data.example) {
@@ -409,14 +446,11 @@
           el("span", { class: "big", text: label }),
           el("h2", { text: c.title })
         ));
-        if (c.summary) stage.appendChild(el("div", { class: "q-sum", text: c.summary, style: { marginTop: "8px" } }));
-      } else {
-        stage.appendChild(el("h2", { text: c.title }));
-        if (c.summary) stage.appendChild(el("div", { class: "q-sum", text: c.summary }));
+        return;
       }
-      if (data.source) {
-        stage.appendChild(el("div", { class: "src", text: data.source, style: { marginTop: "16px" } }));
-      }
+      if (data.dir) stage.appendChild(el("div", { class: "mini", text: data.dir, style: { marginBottom: "8px", fontSize: "12px", color: "var(--text-3)" } }));
+      stage.appendChild(el("h2", { text: c.title }));
+      stage.appendChild(el("span", { class: "q-tag", text: data.tag || "新入库" }));
       return;
     }
     stage.appendChild(el("h2", { text: c.title }));
