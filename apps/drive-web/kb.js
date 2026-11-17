@@ -42,6 +42,13 @@
       .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
       .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
   }
+  /* A standard URL removes "." and ".." segments, including the %2E form.
+     That would open a different object, so these keys get no link. */
+  function hasDotSegment(key) {
+    return String(key == null ? "" : key).split("/").some(function (seg) {
+      return seg === "." || seg === "..";
+    });
+  }
   /* Keep '/' as the path separator. encodeURIComponent (not encodeURI) so
      space, '#', '?', '%' and non-ASCII stay part of the object key. */
   function encodeOssKey(key) {
@@ -58,6 +65,7 @@
      so they cannot swallow the key or carry a script URL. */
   function safeFileUrl(base, key) {
     if (base == null || key == null || key === "") return "";
+    if (hasDotSegment(key)) return "";
     var raw = String(base).trim();
     if (!raw) return "";
     var encoded = encodeOssKey(key);
@@ -508,7 +516,8 @@
 
   KB.prototype.detailHtml = function (f) {
     var meta = [formatDir(f.dir), human(f.size), fmtDate(f.mtime), f.doc_type].filter(Boolean).join(" · ");
-    var url = safeFileUrl(this.data && this.data.base, f.key);
+    var dotBlocked = hasDotSegment(f.key);
+    var url = dotBlocked ? "" : safeFileUrl(this.data && this.data.base, f.key);
     var player = "";
     if (url && f.kind === "video") player = '<video class="kb-media" src="' + esc(url) + '" controls playsinline preload="metadata"></video>';
     else if (url && f.kind === "audio") player = '<audio class="kb-media" src="' + esc(url) + '" controls preload="metadata"></audio>';
@@ -520,6 +529,7 @@
       (f.summary ? '<p class="kb-s">' + esc(f.summary) + "</p>" : "") +
       '<p class="kb-m">' + esc(meta) + "</p>" +
       ((f.tags || []).length ? '<div class="kb-tags">' + f.tags.map(function (t) { return '<span class="kb-tag">' + esc(t) + "</span>"; }).join("") + "</div>" : "") +
+      (dotBlocked ? '<p class="kb-nolink">这个对象键含有单独的 . 或 .. 路径段。浏览器会把这种网址折叠成别的对象，所以不提供打开链接。</p>' : "") +
       (url ? '<a class="kb-open" href="' + esc(url) + '" target="_blank" rel="noopener">' + (player ? "用其他应用打开" : "打开文件") + "</a>" : "") +
       "</div>";
   };

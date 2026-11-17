@@ -162,7 +162,7 @@ async function loadKb(sessionId, data) {
   await evalJson(sessionId, source);
 }
 
-async function withPage(width, height, fn) {
+async function withPage(width, height, fn, pageUrl) {
   const created = await send("Target.createTarget", { url: "about:blank" });
   const attached = await send("Target.attachToTarget", { targetId: created.targetId, flatten: true });
   const sessionId = attached.sessionId;
@@ -178,7 +178,7 @@ async function withPage(width, height, fn) {
       screenHeight: height,
     }, sessionId);
     const loaded = waitEvent("Page.loadEventFired", sessionId);
-    await send("Page.navigate", { url: origin + "/harness.html" }, sessionId);
+    await send("Page.navigate", { url: pageUrl || (origin + "/harness.html") }, sessionId);
     await loaded;
     await fn(sessionId);
   } finally {
@@ -262,6 +262,25 @@ describe("知识库行为", { concurrency: false, timeout: 120000 }, () => {
           res.writeHead(200, { "Content-Type": "audio/wav", "Content-Length": wav.length, "Cache-Control": "no-store" });
           res.end(wav);
           return;
+        }
+        const rel = decodeURIComponent(url.pathname).replace(/^\/+/, "");
+        const parts = rel.split("/");
+        const disk = rel && !parts.includes("..") ? path.resolve(driveWeb, rel) : "";
+        if (disk && (disk === driveWeb || disk.startsWith(driveWeb + path.sep))) {
+          try {
+            const body = await readFile(disk);
+            const type = disk.endsWith(".html") ? "text/html; charset=utf-8"
+              : disk.endsWith(".js") || disk.endsWith(".mjs") ? "text/javascript; charset=utf-8"
+              : disk.endsWith(".css") ? "text/css; charset=utf-8"
+              : disk.endsWith(".webmanifest") ? "application/manifest+json"
+              : disk.endsWith(".png") ? "image/png"
+              : "application/octet-stream";
+            res.writeHead(200, { "Content-Type": type, "Cache-Control": "no-store" });
+            res.end(body);
+            return;
+          } catch {
+            /* missing static file */
+          }
         }
         res.writeHead(url.pathname === "/favicon.ico" ? 204 : 404);
         res.end();
@@ -845,36 +864,130 @@ describe("知识库行为", { concurrency: false, timeout: 120000 }, () => {
       assert.equal(blocked.html.includes("user:placeholder"), false);
       assert.equal(blocked.html.includes("placeholder@"), false);
       assert.equal(blocked.html.includes("?q=1"), false);
+
+      assert.equal(new URL("https://files.example.test/pub/docs/%2E%2E/x.txt").pathname, "/pub/x.txt");
+      assert.equal(new URL("https://files.example.test/pub/docs/%2E/x.txt").pathname, "/pub/docs/x.txt");
+      const dotted = await evalAsync(sessionId, `
+        window.qbotTab = () => {};
+        function collapsed(key) {
+          const naive = "https://files.example.test/pub/" + key.split("/").map(encodeURIComponent).join("/");
+          return new URL(naive).pathname;
+        }
+        const cases = [
+          { key: "docs/../季度观察-示例.pdf", kind: "pdf", name: "季度观察-示例.pdf", dir: "docs/.." },
+          { key: "audio/./示例-片段.wav", kind: "audio", name: "示例-片段.wav", dir: "audio/." },
+        ];
+        const reports = [];
+        for (const item of cases) {
+          const naivePath = collapsed(item.key);
+          window.KB.mount(document.getElementById("tab-kb"), {
+            base: "https://files.example.test/pub",
+            files: [{
+              key: item.key, name: item.name, summary: "示例", tags: ["示例"],
+              kind: item.kind, doc_type: "文档", size: 8, mtime: 1794816000,
+              dir: item.dir, private: false,
+            }],
+          });
+          const opened = window.qbotKb.open(item.key);
+          const root = document.getElementById("tab-kb");
+          reports.push({
+            key: item.key,
+            opened,
+            link: !!root.querySelector("a.kb-open, audio, video"),
+            note: (root.querySelector(".kb-nolink") || {}).textContent || "",
+            leaked: root.innerHTML.includes(naivePath),
+            naivePath,
+          });
+        }
+        const kept = [
+          ["docs/季度.观察-示例.pdf", "季度.观察-示例.pdf", "docs"],
+          ["docs/.hidden/说明.txt", "说明.txt", "docs/.hidden"],
+        ];
+        const round = [];
+        for (const [key, name, dir] of kept) {
+          window.KB.mount(document.getElementById("tab-kb"), {
+            base: "https://files.example.test/pub",
+            files: [{
+              key, name, summary: "示例", tags: [], kind: "file", doc_type: "文档",
+              size: 8, mtime: 1794816000, dir, private: false,
+            }],
+          });
+          window.qbotKb.open(key);
+          const href = document.querySelector("a.kb-open").getAttribute("href");
+          const decoded = href.slice("https://files.example.test/pub/".length).split("/").map(decodeURIComponent).join("/");
+          round.push({ key, href, decoded, note: !!document.querySelector(".kb-nolink") });
+        }
+        return { reports, round, encodedDot: new URL("https://files.example.test/pub/docs/%2E%2E/x.txt").pathname };
+      `);
+      assert.equal(dotted.encodedDot, "/pub/x.txt");
+      for (const item of dotted.reports) {
+        assert.equal(item.opened, true, item.key);
+        assert.equal(item.link, false, item.key);
+        assert.equal(item.leaked, false, item.naivePath);
+        assert.match(item.note, /不提供打开链接/);
+      }
+      assert.equal(dotted.round[0].decoded, "docs/季度.观察-示例.pdf");
+      assert.equal(dotted.round[0].note, false);
+      assert.equal(dotted.round[1].decoded, "docs/.hidden/说明.txt");
+      assert.equal(dotted.round[1].href.includes("/.hidden/"), true);
+      assert.equal(dotted.round[1].note, false);
     });
   });
 
-  test("390 和 840 脱敏截图", async () => {
-    await withPage(390, 844, async (sessionId) => {
-      await loadKb(sessionId, fixture);
-      const text = await evalJson(sessionId, "document.getElementById('tab-kb').textContent");
-      assert.equal(text.includes("示例-私密"), false);
-      assert.equal(text.includes("本周小结.md"), true);
-      const file = await shot(sessionId, 390, 844, "kb-390-home.png");
-      assert.ok(file.endsWith("kb-390-home.png"));
-    });
-    await withPage(840, 900, async (sessionId) => {
-      await loadKb(sessionId, fixture);
-      const text = await evalJson(sessionId, "document.getElementById('tab-kb').textContent");
-      assert.equal(text.includes("示例-私密"), false);
-      assert.equal(text.includes("季度观察-示例.pdf"), true);
-      await shot(sessionId, 840, 900, "kb-840-home.png");
-    });
-    state.mode = "404";
-    await withPage(390, 844, async (sessionId) => {
-      await loadKb(sessionId);
-      await evalAsync(sessionId, `
-        const deadline = Date.now() + 4000;
-        while (!document.querySelector("#kb-retry")) {
-          if (Date.now() > deadline) throw new Error("no retry for screenshot");
-          await new Promise((r) => setTimeout(r, 20));
-        }
-      `);
-      await shot(sessionId, 390, 844, "kb-390-index-error.png");
-    });
+  test("完整外壳 390/840 深浅色：末尾筛选项可点", async () => {
+    state.mode = "ok";
+    const shots = [
+      [390, 844, "light", "kb-shell-390-light.png"],
+      [390, 844, "dark", "kb-shell-390-dark.png"],
+      [840, 900, "light", "kb-shell-840-light.png"],
+      [840, 900, "dark", "kb-shell-840-dark.png"],
+    ];
+    for (const [width, height, theme, name] of shots) {
+      await withPage(width, height, async (sessionId) => {
+        const view = await evalAsync(sessionId, `
+          const deadline = Date.now() + 6000;
+          while (!document.querySelector("#tab-kb .kb-chip")) {
+            if (Date.now() > deadline) throw new Error("shell kb did not mount: " + document.body.innerText.slice(0, 200));
+            await new Promise((r) => setTimeout(r, 30));
+          }
+          document.documentElement.setAttribute("data-theme", ${JSON.stringify(theme)});
+          const chips = Array.from(document.querySelectorAll("#tab-kb .kb-chip"));
+          if (chips.length < 2) throw new Error("too few chips");
+          const pane = document.querySelector(".kb-pane").getBoundingClientRect();
+          const clipped = [];
+          for (const chip of chips) {
+            const r = chip.getBoundingClientRect();
+            const hit = document.elementFromPoint(Math.min(window.innerWidth - 1, r.left + r.width / 2), r.top + r.height / 2);
+            const inside = r.left >= pane.left - 1 && r.right <= pane.right + 1
+              && r.top >= pane.top - 1 && r.bottom <= pane.bottom + 1
+              && r.left >= -1 && r.right <= window.innerWidth + 1 && r.bottom <= window.innerHeight + 1;
+            const hittable = !!(hit && (hit === chip || chip.contains(hit)));
+            if (!inside || !hittable || chip.scrollWidth > chip.clientWidth + 1) clipped.push(chip.textContent);
+          }
+          const last = chips[chips.length - 1];
+          const label = last.textContent;
+          last.click();
+          const selected = document.querySelector("#tab-kb .kb-chip.on");
+          return {
+            clipped,
+            on: !!(selected && selected.textContent === label && label !== "全部"),
+            label,
+            count: chips.length,
+            private: document.getElementById("tab-kb").textContent.includes("示例-私密"),
+            rail: !!document.querySelector(".qbs-nav"),
+            theme: document.documentElement.getAttribute("data-theme"),
+            bg: getComputedStyle(document.querySelector(".kb")).backgroundColor,
+          };
+        `);
+        assert.deepEqual(view.clipped, [], name + " " + JSON.stringify(view));
+        assert.equal(view.on, true, name + " last=" + view.label);
+        assert.equal(view.private, false, name);
+        assert.equal(view.rail, true, name);
+        assert.equal(view.theme, theme, name);
+        if (theme === "dark") assert.equal(view.bg, "rgb(31, 29, 26)", name);
+        if (theme === "light") assert.equal(view.bg, "rgb(250, 248, 243)", name);
+        await shot(sessionId, width, height, name);
+      }, origin + "/template.html#/");
+    }
   });
 });

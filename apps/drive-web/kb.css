@@ -65,17 +65,12 @@
 }
 .kb-search.has-q .kb-clear{display:grid}
 
-/* Tag chips: horizontal scroll + trailing fade (not just a hidden scrollbar) */
+/* Tag chips wrap in the pane. At 840 the pane is 300px (240px from 600–719),
+   narrower than a single row, and a trailing fade was cutting off the last chips. */
 .kb-chips-wrap{position:relative;flex:none;min-width:0}
 .kb-chips{
-  display:flex;gap:var(--sp-2);overflow-x:auto;scrollbar-width:thin;
+  display:flex;flex-wrap:wrap;align-content:flex-start;gap:var(--sp-2);
   padding:var(--sp-1) var(--sp-4) var(--sp-2);
-  -webkit-overflow-scrolling:touch;
-}
-.kb-chips::-webkit-scrollbar{height:0}
-.kb-chips-wrap.is-overflow::after{
-  content:"";position:absolute;top:0;right:0;bottom:0;width:40px;pointer-events:none;
-  background:linear-gradient(to right,transparent,var(--kb-chips-fade));
 }
 .kb-chip{
   flex:none;display:inline-flex;align-items:center;justify-content:center;
@@ -230,6 +225,10 @@
 .kb-detail .kb-s{color:var(--text-2);margin:0 0 var(--sp-4)}
 .kb-detail .kb-m{color:var(--text-3);font-size:var(--fs-meta)}
 .kb-detail .kb-tags{display:flex;flex-wrap:wrap;gap:var(--sp-1);margin:var(--sp-4) 0}
+.kb-nolink{
+  margin:var(--sp-4) 0 0;max-width:36em;
+  color:var(--text-2);font-size:var(--fs-meta);line-height:var(--lh-meta);
+}
 .kb-open{
   display:inline-flex;align-items:center;justify-content:center;
   min-height:var(--touch);padding:0 var(--sp-4);margin-top:var(--sp-5);
