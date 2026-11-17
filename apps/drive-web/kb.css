@@ -21,7 +21,7 @@
 .kb-scroll{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
 
 /* Folded: one scrolling column */
-.kb-pane{background:var(--bg)}
+.kb-pane{background:var(--bg);--kb-chips-fade:var(--bg)}
 .kb-main{background:var(--surface);flex:1}
 
 /* Search */
@@ -37,19 +37,27 @@
   font:inherit;font-size:var(--fs-body);color:var(--text-1);
 }
 .kb-search input::placeholder{color:var(--text-3)}
+.kb-search input[type="search"]::-webkit-search-cancel-button,
+.kb-search input[type="search"]::-webkit-search-decoration{display:none}
+
 .kb-search .kb-clear{
   width:var(--touch);height:var(--touch);margin-right:-8px;
   display:none;place-items:center;color:var(--text-3);border-radius:var(--r-sm);
 }
 .kb-search.has-q .kb-clear{display:grid}
 
-/* Tag chips */
+/* Tag chips: horizontal scroll + trailing fade (not just a hidden scrollbar) */
+.kb-chips-wrap{position:relative;flex:none;min-width:0}
 .kb-chips{
-  display:flex;gap:var(--sp-2);overflow-x:auto;scrollbar-width:none;
+  display:flex;gap:var(--sp-2);overflow-x:auto;scrollbar-width:thin;
   padding:var(--sp-1) var(--sp-4) var(--sp-2);
   -webkit-overflow-scrolling:touch;
 }
-.kb-chips::-webkit-scrollbar{display:none}
+.kb-chips::-webkit-scrollbar{height:0}
+.kb-chips-wrap.is-overflow::after{
+  content:"";position:absolute;top:0;right:0;bottom:0;width:40px;pointer-events:none;
+  background:linear-gradient(to right,transparent,var(--kb-chips-fade));
+}
 .kb-chip{
   flex:none;display:inline-flex;align-items:center;justify-content:center;
   height:32px;margin:6px 0;padding:0 var(--sp-3);
@@ -111,13 +119,14 @@
   color:var(--text-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
 }
 
-/* File-type icon */
+/* File-type icon. Folders use secondary text. Dark mode uses brighter,
+   lower-saturation type colors — tokens.css does not retint --ft-*. */
 .kb-fi{
   width:28px;height:28px;flex:none;display:inline-grid;place-items:center;
-  position:relative;color:var(--ft-other);
+  position:relative;color:var(--text-2);
 }
 .kb-fi svg{width:100%;height:100%}
-.kb-fi[data-t="folder"]{color:var(--ft-folder)}
+.kb-fi[data-t="folder"]{color:var(--text-2)}
 .kb-fi[data-t="pdf"]{color:var(--ft-pdf)}
 .kb-fi[data-t="video"]{color:var(--ft-video)}
 .kb-fi[data-t="audio"]{color:var(--ft-audio)}
@@ -195,7 +204,7 @@
   background:var(--btn-primary-bg);color:var(--btn-primary-fg);
 }
 
-/* Sheet / dialog for 待开通 */
+/* Sheet / dialog for 尚未配置 */
 .kb-scrim{
   position:fixed;inset:0;z-index:40;background:var(--scrim);
   opacity:0;pointer-events:none;transition:opacity var(--dur-3) var(--ease);
@@ -233,7 +242,6 @@
 .kb-tw.open{transform:rotate(90deg)}
 @media (min-width:600px){
   .kb-vault{min-height:48px;padding:8px 12px;width:calc(100% - 24px)}
-  .kb-vault .kb-m{display:none}
   .kb-vault .kb-chev{display:none}
 }
 @media (prefers-reduced-motion:reduce){
@@ -242,7 +250,7 @@
 
 /* Folded: one home column — search / chips / vault / folders / recents. Tree stays in the pane only when unfolded. */
 @media (max-width:599px){
-  .kb-pane{flex:none;background:transparent}
+  .kb-pane{flex:none;background:transparent;--kb-chips-fade:var(--surface)}
   .kb-pane .kb-scroll{display:none}
 }
 
@@ -266,3 +274,27 @@
 @media (min-width:600px) and (max-width:719px){
   .kb-pane{width:240px}
 }
+
+/* Dark: brighter, lower-sat file-type colors so icons stay readable on --surface */
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]) .kb-fi[data-t="folder"]{color:var(--text-2)}
+  :root:not([data-theme="light"]) .kb-fi[data-t="pdf"]{color:#E08B7A}
+  :root:not([data-theme="light"]) .kb-fi[data-t="video"]{color:#B7A3D4}
+  :root:not([data-theme="light"]) .kb-fi[data-t="audio"]{color:#D4B07A}
+  :root:not([data-theme="light"]) .kb-fi[data-t="md"]{color:var(--text-2)}
+  :root:not([data-theme="light"]) .kb-fi[data-t="image"],
+  :root:not([data-theme="light"]) .kb-fi[data-t="sheet"]{color:#7EBE96}
+  :root:not([data-theme="light"]) .kb-fi[data-t="doc"]{color:#8AAAC4}
+  :root:not([data-theme="light"]) .kb-fi[data-t="code"],
+  :root:not([data-theme="light"]) .kb-fi[data-t="file"]{color:var(--text-2)}
+}
+:root[data-theme="dark"] .kb-fi[data-t="folder"]{color:var(--text-2)}
+:root[data-theme="dark"] .kb-fi[data-t="pdf"]{color:#E08B7A}
+:root[data-theme="dark"] .kb-fi[data-t="video"]{color:#B7A3D4}
+:root[data-theme="dark"] .kb-fi[data-t="audio"]{color:#D4B07A}
+:root[data-theme="dark"] .kb-fi[data-t="md"]{color:var(--text-2)}
+:root[data-theme="dark"] .kb-fi[data-t="image"],
+:root[data-theme="dark"] .kb-fi[data-t="sheet"]{color:#7EBE96}
+:root[data-theme="dark"] .kb-fi[data-t="doc"]{color:#8AAAC4}
+:root[data-theme="dark"] .kb-fi[data-t="code"],
+:root[data-theme="dark"] .kb-fi[data-t="file"]{color:var(--text-2)}

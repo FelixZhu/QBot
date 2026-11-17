@@ -1,0 +1,138 @@
+{
+  "bucket": "sample",
+  "base": "",
+  "generated": 1794935144,
+  "count": 8,
+  "files": [
+    {
+      "key": "笔记/本周小结.md",
+      "name": "本周小结.md",
+      "type": "text/markdown",
+      "kind": "md",
+      "doc_type": "MD",
+      "size": 4280,
+      "mtime": 1794931544,
+      "dir": "笔记",
+      "summary": "本周阅读与待办的一句话记录。",
+      "tags": [
+        "笔记",
+        "周报"
+      ],
+      "private": false
+    },
+    {
+      "key": "笔记/读书摘录.md",
+      "name": "读书摘录.md",
+      "type": "text/markdown",
+      "kind": "md",
+      "doc_type": "MD",
+      "size": 8120,
+      "mtime": 1794848744,
+      "dir": "笔记",
+      "summary": "近期阅读的几段摘录和自己的批注。",
+      "tags": [
+        "笔记",
+        "阅读"
+      ],
+      "private": false
+    },
+    {
+      "key": "报告/公开行业综述.pdf",
+      "name": "公开行业综述.pdf",
+      "type": "application/pdf",
+      "kind": "pdf",
+      "doc_type": "PDF",
+      "size": 1240000,
+      "mtime": 1794675944,
+      "dir": "报告",
+      "summary": "一份面向公众的行业综述，便于快速了解背景。",
+      "tags": [
+        "报告",
+        "摘要"
+      ],
+      "private": false
+    },
+    {
+      "key": "报告/季度观察-示例.pdf",
+      "name": "季度观察-示例.pdf",
+      "type": "application/pdf",
+      "kind": "pdf",
+      "doc_type": "PDF",
+      "size": 890000,
+      "mtime": 1794071144,
+      "dir": "报告",
+      "summary": "用公开资料整理的季度观察示例，仅供界面预览。",
+      "tags": [
+        "报告",
+        "公开"
+      ],
+      "private": false
+    },
+    {
+      "key": "视频/如何用助手整理日常笔记-完整版.mp4",
+      "name": "如何用助手整理日常笔记-完整版.mp4",
+      "type": "video/mp4",
+      "kind": "video",
+      "doc_type": "视频",
+      "size": 42500000,
+      "mtime": 1794503144,
+      "dir": "视频",
+      "summary": "演示用助手整理日常笔记的完整流程。",
+      "tags": [
+        "视频",
+        "教程",
+        "入门"
+      ],
+      "private": false
+    },
+    {
+      "key": "音频/助手使用入门.m4a",
+      "name": "助手使用入门.m4a",
+      "type": "audio/mp4",
+      "kind": "audio",
+      "doc_type": "音频",
+      "size": 18200000,
+      "mtime": 1794416744,
+      "dir": "音频",
+      "summary": "一段介绍助手常用功能的入门音频。",
+      "tags": [
+        "音频",
+        "播客",
+        "入门"
+      ],
+      "private": false
+    },
+    {
+      "key": "文档/会议纪要模板.md",
+      "name": "会议纪要模板.md",
+      "type": "text/markdown",
+      "kind": "md",
+      "doc_type": "MD",
+      "size": 2100,
+      "mtime": 1793207144,
+      "dir": "文档",
+      "summary": "可复用的会议纪要模板，方便会后快速记录。",
+      "tags": [
+        "文档",
+        "模板"
+      ],
+      "private": false
+    },
+    {
+      "key": "文档/资料整理说明.md",
+      "name": "资料整理说明.md",
+      "type": "text/markdown",
+      "kind": "md",
+      "doc_type": "MD",
+      "size": 3500,
+      "mtime": 1792343144,
+      "dir": "文档",
+      "summary": "说明公开资料如何按主题归档，便于检索。",
+      "tags": [
+        "文档",
+        "公开"
+      ],
+      "private": false
+    }
+  ]
+}
