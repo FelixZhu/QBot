@@ -154,7 +154,7 @@ flowchart TD
   L -.->|仅本地预览且 OSS 读失败时回退| J
 ```
 
-构建时只读来源，不改原文件。英语音频和课程讲义会复制到 `out/media/`；讲解视频体积较大（约数十 MB），不复制进 `out/media/`，卡片上只注明「含讲解视频」。上传时，相对路径 `media/…` 或 `out/media/…` 会被改写成 OSS 公网地址 `https://qian-grokbot.oss-cn-beijing.aliyuncs.com/feed/media/<文件名>`。上传按文件 MD5 / 大小判断，未改动的对象会跳过。
+构建时只读来源，不改原文件。英语音频和课程讲义会复制到 `out/media/`；讲解视频体积较大（约数十 MB），不复制进 `out/media/`。没有 `media.url` 时，前端只说明视频还没放进卡片，不编造地址。上传时，相对路径 `media/…` 或 `out/media/…` 会被改写成 OSS 公网地址 `https://qian-grokbot.oss-cn-beijing.aliyuncs.com/feed/media/<文件名>`。上传按文件 MD5 / 大小判断，未改动的对象会跳过。
 
 ### 代码位置和入口
 
@@ -215,7 +215,8 @@ QbotFeed.mount(document.getElementById("tab-feed"), { feedUrl: "out/feed.json" }
 | `title` | 标题 |
 | `summary` | 摘要；新文件批量卡为空字符串 |
 | `media.kind` | `none` / `audio` / `video` |
-| `media.url` | 媒体地址；本地为相对路径 `media/…`，上传后改为 OSS 公网地址 |
+| `media.url` | 媒体地址；本地为相对路径 `media/…`，上传后改为 OSS 公网地址。只接受 http(s)，不接受 `javascript:`、`data:` 或带用户名口令的地址。没有这个字段时，前端不会编造地址 |
+| `media.width` / `media.height` | 可选。视频在读到文件宽高之前，用它们撑开原始比例 |
 | `open_url` | 主按钮打开的链接 |
 | `private` | 是否私密。公开 feed 中必须为 `false`，否则扫描失败 |
 | `data` | 类型专有字段 |
@@ -224,7 +225,7 @@ QbotFeed.mount(document.getElementById("tab-feed"), { feedUrl: "out/feed.json" }
 
 - **digest**：`date`、`date_label`、`highlights`（最多 3 条，每条有 `title`、`category`）。`open_url` 指向 `https://ai-daily-ej4.pages.dev/archive/YYYY-MM-DD`。
 - **english**：`date`、`date_label`、`expression`、`meaning`、`example`、`example_zh`。
-- **study**：`course`、`day`、`total`、`brief`、`has_video`。
+- **study**：`course`、`day`、`total`、`brief`、`has_video`。`has_video` 为真但没有 `media.url` 时，卡片写明视频还没放进来，不播放。有 `media.url` 时按视频播放。
 - **file**（当前只生成批量卡）：`subtype` 为 `new-batch`，另有 `count` 和 `files[]`。每条文件含 `name`（已去掉 BV 号等难看 ID）、`dir`（可读文件夹名，如「B站视频」「小宇宙播客」「xhs · 小红书」）、`key`、`kind`、`open_url`（知识库站点 hash 路径）、`time`。
 
 ### 卡片类型和排序
@@ -269,21 +270,27 @@ QbotFeed.mount(document.getElementById("tab-feed"), { feedUrl: "out/feed.json" }
 
 折叠（宽度 &lt; 600px）：只有全屏竖滑。一屏一张卡，`scroll-snap-type: y mandatory` 且 `scroll-snap-stop: always`。滑动容器绝对铺满舞台（`position: absolute; inset: 0`）。松手后若停在两张卡之间，会吸附到最近的整张卡。右侧有进度点，可点跳转。
 
-展开（宽度 ≥ 600px）：左边是按 Bot 分组的目录（头像、标题、Bot 名、时间，当前卡高亮），右边仍是同样的竖滑卡片流。点目录滚到对应卡；滑动右边时目录高亮跟着走。折展切换或旋转时保持当前卡。
+顶栏只有一条，高 44px。左侧是「主动服务 · 当前卡的 Bot 名」，右侧是短时间和「⋯」。卡片里不再放头像、来源、日期或类型角标，标题只排一次。正文左右内边距 20px，从顶部对齐，不在卡片里垂直居中。
+
+展开（宽度 ≥ 600px）：左边是按 Bot 分组的目录（头像、标题、Bot 名、时间，当前卡高亮），右边仍是同样的竖滑卡片流，共用上面这一条顶栏。点目录滚到对应卡；滑动右边时目录高亮跟着走。折展切换或旋转时保持当前卡。
 
 桌面：滚轮一次翻一张（模块在滚轮处理里会 `preventDefault`）；键盘 `↑` / `↓` / `PageUp` / `PageDown` / `j` / `k` 翻页，`Home` 回到第一张，`End` 到最后一张，`Escape` 走与返回键相同的逻辑。
 
-音频同时只播一条。切到另一张卡、或收到 `qbot:tab` 且目标不是 feed 时，会停止播放。切回 feed 时重新按当前卡排版，位置保留。
+音频同时只播一条，视频也是。切到另一张卡、收到 `qbot:tab` 且目标不是 feed、页面被隐藏（`visibilitychange`）或进入 `pagehide` 时暂停。外壳若在 App 进后台时派发 `qbot:appstate`（`detail.state` 为 `background`、`inactive` 或 `hidden`），模块同样暂停。切回 feed 时重新按当前卡排版，位置保留。
 
-滑动松手时：位移超过视口高度的 15%，或速度超过 0.3px/ms，就翻到相邻那一张；否则吸附到最近的整张卡。判断只在 `touchstart` / `touchend` 上用被动监听完成，纵向 touch 不调用 `preventDefault`，原生 `scroll-snap` 仍然保留。
+滑动松手时：位移超过视口高度的 15%，或速度超过 0.3px/ms，就翻到相邻那一张；否则吸附到最近的整张卡。判断只在 `touchstart` / `touchend` 上用被动监听完成，纵向 touch 不调用 `preventDefault`，原生 `scroll-snap` 仍然保留。不把整条音频播放器排除在外：只有进度条和按钮不翻页，点在空白处或时间文字上仍会翻页。
 
-主按钮：日报打开外部归档页（这是唯一会 `window.open` 的情况）；英语播放/暂停音频；接着学的讲义是站内资源，不跳出 App。文件卡的「打开知识库」直接调用外壳的 `window.qbotTab("kb")` 切到知识库 Tab。点某个文件行时，先调用 `window.qbotKb.open(key)`（`key` 为公开索引里的 OSS 路径，与知识库 `files[].key` 完全一致；该函数内部会自己切 Tab 并打开详情，找不到或私密文件返回 `false`）。若 `qbotKb` 不存在，或 `open` 返回 `false`，再退化为 `qbotTab("kb")`。两种情况都不会打开系统浏览器。
+视频在卡片里点按播放，按文件原始宽高比显示，可暂停、拖动进度和全屏。`has_video` 为真但没有地址，或地址打不开时，卡片说明暂时不能播。
 
-返回键由外壳调用 `window.qbotFeed.back()`：
+主按钮：日报和接着学里的同源正文在 App 内排出来，不使用 iframe。外部 http(s) 地址不会赋给任何 iframe（包括隐藏的探测框）。空沙箱不能证明 Android 1.0.4 注入到子框架里的 Java 接口已经消失，所以这里不靠沙箱去隔离，而是根本不加载外部页面。已安装外壳若提供 `window.qbotShell`（接口在 IM 的模块里，本文件不改外壳）：打开文章调用 `qbotShell.openArticle(url)`，由它显示说明；「用浏览器打开」调用 `qbotShell.openExternal(url)`。没有这套接口时，Feed 自己写出同样的说明，按钮退化为 `window.open(url, "_blank", "noopener,noreferrer")`。不声称任意远程网页能在旧 App 里渲染。英语仍是播放/暂停。文件卡的「打开知识库」直接调用外壳的 `window.qbotTab("kb")`。点某个文件行时，先调用 `window.qbotKb.open(key)`（`key` 为公开索引里的 OSS 路径，与知识库 `files[].key` 完全一致；该函数内部会自己切 Tab 并打开详情，找不到或私密文件返回 `false`）。若 `qbotKb` 不存在，或 `open` 返回 `false`，再退化为 `qbotTab("kb")`。文件不会因此打开系统浏览器。
 
-1. 若有打开的菜单或密钥弹层，先关掉，返回 `true`；
-2. 否则若不在第一张卡（以当前滚动位置和内部索引为准），立刻滚回第一张，返回 `true`；
-3. 已在第一张，返回 `false`，由外壳切回「对话」。
+返回键由外壳调用 `window.qbotFeed.back()`，阅读页优先：
+
+1. 若 App 内阅读页开着，先关掉，滚回打开前的那张卡和当时的 `scrollTop`，返回 `true`；
+2. 否则若菜单开着，先关掉，返回 `true`；
+3. 否则若密钥弹层开着，先关掉，返回 `true`；
+4. 否则若不在第一张卡，立刻滚回第一张，返回 `true`；
+5. 已在第一张，返回 `false`，由外壳切回「对话」。
 
 ### 和外壳的约定
 
@@ -292,8 +299,9 @@ QbotFeed.mount(document.getElementById("tab-feed"), { feedUrl: "out/feed.json" }
 - 滚动容器 `.q-feed`（展开时右侧实际在滚的也是它）带有 class `scroller`，让旧外壳的下拉刷新选择器能认出它，避免在卡片中间下拉时整页重载。
 - 切到知识库用外壳导出的 `window.qbotTab("kb")`（即 `template.html` 里的 `setTab`）。打开某个公开文件时先调用 `window.qbotKb.open(key)`（它内部会再调 `qbotTab("kb")`）；接口不存在或返回 `false` 时，退化为只切 Tab。不要用 `window.open` 打开知识库或站内文件。
 - Feed 通常在页面加载时就把模块挂到 `#tab-feed`，此时面板往往是隐藏的，高度为 0。外壳每次切 Tab 都应派发 `resize` 和 `qbot:tab`（`detail.tab` 为当前 Tab 名）。模块会监听这两件事，并用 `ResizeObserver` 在容器有高度后再对齐到当前卡。
-- 离开 feed 时停音频，由 feed 在 `qbot:tab` 里自己处理。
-- 返回顺序接 `window.qbotFeed.back()`，无需外壳再实现滑回第一张的逻辑。
+- 离开 feed 时停音频和视频，由 feed 在 `qbot:tab` 里自己处理。页面隐藏和 `pagehide` 也会暂停。外壳可以另外派发 `qbot:appstate`（见上），当前 `apps/qbot-app/App.tsx` 还没有派发这个事件，因此 App 进后台时是否暂停取决于 WebView 会不会让页面变成 hidden。
+- Feed 不把外部地址放进 iframe，也不要外壳做跨源代理。`qbotShell.openArticle(url)` 和 `qbotShell.openExternal(url)` 由外壳提供时才调用。没有外壳接口时，「用浏览器打开」是 `window.open(url, "_blank", "noopener,noreferrer")`。
+- 返回顺序接 `window.qbotFeed.back()`。阅读页的关闭和回到原卡都在这个函数里，外壳不用再实现。
 
 ### 定时任务和推送
 
@@ -304,8 +312,10 @@ QbotFeed.mount(document.getElementById("tab-feed"), { feedUrl: "out/feed.json" }
 ### 后续计划
 
 - 私密文件提醒卡：等知识库的加密和本地密钥方案就绪后再接；现在的密钥弹层只是占位。
-- 英语视频卡：当每日英语改为竖屏视频时，把 `media.kind` 设为 `video` 即可，版式里已留 9:16 画框位置。
+- 讲解视频：前端已经能播 `media.kind = "video"` 且带有 http(s) `media.url` 的卡片，比例跟文件走，不再预留 9:16 裁切框。本仓库没有那条约 36MB 的学习视频，也没有 `build_feed.py` 这条汇总管道（它在协调机上，不在这个公开仓库）。因此这里不能把真实文件接进 feed，也没有上传到 OSS。公开测试只用 `apps/drive-web/fixtures/` 里生成的合成短片。管道要在协调机上把真实地址写进 `media.url` 之后，卡片才会播到那条片子。
 - 手机推送：用 expo-notifications 加 FCM，仍然保持克制，不会默认频繁推。
+
+界面检查：`node apps/drive-web/test/feed-redesign.mjs`。它用本机 Chrome 打开合成 fixture，覆盖 390/840 浅色与深色顶栏、视频播放暂停全屏、无地址和打不开的视频、切 Tab / 后台暂停、阅读页开关与被禁止的跨源页、文件跳转、进度条与滑动，以及返回键和菜单。
 
 ## 整体数据流
 
@@ -392,7 +402,7 @@ python3 apps/drive-web/refresh_site.py --push
 
 - 纵向 touch 上，feed 不调用 `preventDefault`（只在鼠标滚轮和键盘翻页时拦截）。
 - `#panel-feed` 保持 `overflow: hidden`，并有确定的高度，不要让外壳自己滚。一屏一张卡的吸附由 feed 内部完成。
-- 收到 `qbot:tab` 且目标不是 `feed` 时，模块自己停掉音频；切回 feed 时重新按当前卡排版，位置保留。
+- 收到 `qbot:tab` 且目标不是 `feed` 时，模块自己停掉音频和视频；切回 feed 时重新按当前卡排版，位置保留。`qbotFeed.back()` 会先关掉阅读页，再关菜单和弹层，最后才滚回第一张卡。
 
 **知识库：**
 

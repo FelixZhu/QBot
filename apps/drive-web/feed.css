@@ -1,4 +1,3 @@
-
 /* Host fills the tab mount, even after #panel-feed is un-hidden. */
 #panel-feed,
 #panel-feed #tab-feed,
@@ -11,6 +10,7 @@
 #panel-feed[hidden]{display:none}
 /* QBot 主动服务 tab module — mounts into #tab-feed
  * Depends on tokens.css + layout.css + components.css
+ * One 44px bar. Card body is top-aligned with 20px horizontal padding.
  */
 
 .feed-root{
@@ -19,13 +19,35 @@
   background:var(--surface);color:var(--text-1);
   position:relative;overflow:hidden;
 }
-.feed-root .feed-top{
+.feed-root > .feed-top,
+.feed-detail > .feed-top{
   flex:none;
+  height:44px;min-height:44px;max-height:44px;
+  box-sizing:border-box;
+  display:flex;align-items:center;gap:4px;
+  padding:0 0 0 20px;
+  background:var(--surface);color:var(--text-1);
 }
-.feed-root .feed-top .count{
+.feed-root .feed-brand{
+  flex:1;min-width:0;
+  font-size:var(--fs-title-s);line-height:var(--lh-title-s);font-weight:var(--fw-bold);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.feed-root .feed-time{
+  flex:none;
   font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--text-3);
-  padding-right:var(--sp-2);flex:none;
+  padding-right:2px;font-variant-numeric:tabular-nums;
 }
+.feed-root > .feed-top .qb-iconbtn,
+.feed-detail > .feed-top .qb-iconbtn{
+  width:44px;height:44px;flex:none;
+}
+.feed-browser{
+  flex:none;height:32px;margin-right:8px;padding:0 10px;
+  border-radius:var(--r-sm);color:var(--accent-ink);
+  font-size:var(--fs-meta);font-weight:var(--fw-bold);
+}
+.feed-fallback .feed-browser{margin:0}
 
 .feed-body{
   flex:1;min-height:0;min-width:0;
@@ -34,7 +56,6 @@
 
 /* 折叠：中栏列表隐藏，只留全屏竖滑 */
 .feed-list{display:none;flex:none;flex-direction:column;min-height:0;background:var(--bg);border-right:1px solid var(--line)}
-.feed-list .qb-topbar{background:var(--bg)}
 .feed-list .q-rows,.feed-list .rows{flex:1;min-height:0;overflow:auto;padding:var(--sp-1) var(--sp-2) var(--sp-4)}
 .feed-list .feed-group{
   font-size:var(--fs-meta);line-height:var(--lh-meta);color:var(--text-3);
@@ -50,28 +71,24 @@
   content:"";position:absolute;left:0;top:12px;bottom:12px;width:3px;
   border-radius:2px;background:var(--accent);
 }
-.feed-list .q-av, .feed-root .q-who .q-av{
+.feed-list .q-av{
   width:32px;height:32px;border-radius:10px;flex:none;
   display:grid;place-items:center;
   font-size:12px;font-weight:var(--fw-bold);color:var(--brand-cream);
   background:var(--brand-ink);
 }
-.feed-root .q-who .q-av{width:28px;height:28px;border-radius:9px;font-size:13px;font-weight:var(--fw-bold)}
 .feed-root .av-info{background:var(--brand-ink);color:var(--brand-cream)}
 .feed-root .av-en{background:#3E7B57;color:var(--brand-cream)}
 .feed-root .av-st{background:#4A6886;color:var(--brand-cream)}
-.feed-root .q-who .q-av.av-file,
 .feed-list .q-av.av-file,
 .feed-root .file-row .q-av.av-file{
   background:var(--fill);color:var(--text-2);
 }
-.feed-root .q-who .av-file .q-fi,
 .feed-list .av-file .q-fi{width:20px;height:20px}
 .feed-root .file-row .file-ico,
 .feed-root .file-row .q-fi{width:36px;height:36px;flex:none}
 .feed-root .file-row .file-ico{display:inline-grid;place-items:center}
 
-/* 深色：Info 头像的墨色块在 #171614 上几乎看不见，改成反白 */
 :root[data-theme="dark"] .feed-root .av-info{background:#EDE8DF;color:#171614}
 @media (prefers-color-scheme:dark){
   :root:not([data-theme="light"]) .feed-root .av-info{background:#EDE8DF;color:#171614}
@@ -97,7 +114,6 @@
 }
 .feed-stage .q-feed::-webkit-scrollbar{display:none}
 
-/* 右侧进度点（折叠） */
 .feed-pager{
   position:absolute;right:0;top:50%;transform:translateY(-50%);
   display:flex;flex-direction:column;gap:0;z-index:3;
@@ -114,18 +130,22 @@
 }
 .feed-pager button[aria-current="true"] i{height:16px;background:var(--text-1)}
 
-/* 卡片微调 */
 .feed-root .mini{font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--text-3)}
 
+/* Body horizontal padding is 20px. Content starts at the top, at every width. */
 .feed-root .q-fcard{
-  padding:var(--sp-4) var(--sp-5) var(--sp-4);
-  padding-right:calc(var(--sp-5) + 12px); /* 给进度点留空 */
+  padding:12px 20px 16px;
+  scroll-snap-align:start;scroll-snap-stop:always;
+  height:100%;min-height:100%;max-height:100%;
+  display:flex;flex-direction:column;position:relative;
+  box-sizing:border-box;flex:none;
 }
 .feed-root .q-fcard h2{
   display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;
 }
-.feed-root .q-fcard .hl li > span{
-  display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;min-width:0;
+.feed-root .q-fcard .q-stage{
+  flex:1;display:flex;flex-direction:column;justify-content:flex-start;align-items:stretch;
+  min-height:0;padding-top:0;
 }
 .feed-root .q-fcard .q-bar{gap:var(--sp-2)}
 .feed-root .q-fcard .q-bar .q-btn{flex:none}
@@ -133,7 +153,6 @@
 .feed-root .q-fcard .q-bar .q-btn.q-snooze{width:84px}
 .feed-root .q-fcard .q-bar .q-btn.q-ghost{padding:0 var(--sp-2);min-width:var(--touch)}
 
-/* 每日英语 */
 .feed-root .meaning{
   font-size:18px;line-height:28px;margin-top:10px;font-weight:var(--fw-bold);
 }
@@ -150,42 +169,68 @@
   position:absolute;inset:0 auto 0 0;width:0;background:var(--accent);border-radius:2px;
 }
 
-/* 竖屏视频槽：仅 media.kind=video 时渲染，版式与音频卡共用其余部分 */
-.feed-root .vframe{
-  aspect-ratio:9/16;max-height:52%;width:auto;align-self:center;
-  border-radius:var(--r-md);background:#1C1B19;position:relative;overflow:hidden;margin-top:var(--sp-4);
+/* Inline video keeps the file's own aspect ratio. object-fit contain does not crop it. */
+.feed-root .q-video{
+  position:relative;width:100%;max-width:100%;
+  margin-top:var(--sp-4);
+  border-radius:var(--r-md);overflow:hidden;
+  background:#1C1B19;
 }
-.feed-root .vframe video{width:100%;height:100%;object-fit:cover;display:block}
-.feed-root .vframe .subs{
-  position:absolute;left:12px;right:12px;bottom:16px;
-  color:#F3EFE7;font-size:15px;line-height:22px;text-align:center;
-  text-shadow:0 1px 4px rgba(0,0,0,.6);
+.feed-root .q-video video{
+  display:block;width:100%;height:auto;max-height:52vh;
+  object-fit:contain;background:#1C1B19;
 }
-.feed-root .vframe .ring{
-  position:absolute;right:12px;top:12px;
-  width:72px;height:72px;border-radius:50%;
-  border:5px solid color-mix(in srgb,#F3EFE7 25%,transparent);
-  border-top-color:var(--accent);
+.feed-root .q-video-play{
+  position:absolute;left:50%;top:42%;transform:translate(-50%,-50%);
+  width:56px;height:56px;border-radius:50%;
   display:grid;place-items:center;
-  font-size:20px;font-weight:700;color:#F3EFE7;
+  background:var(--btn-primary-bg);color:var(--btn-primary-fg);
+}
+.feed-root .q-video.is-playing .q-video-play{display:none}
+.feed-root .q-video-play{z-index:4}
+.feed-root .q-video-bar{
+  position:absolute;left:0;right:0;bottom:0;z-index:4;
+  display:flex;align-items:center;gap:4px;
+  padding:8px 4px 6px;
+  background:linear-gradient(transparent, rgba(28,27,25,.72));
+}
+.feed-root .q-video-pp,
+.feed-root .q-video-fs{
+  width:44px;height:44px;flex:none;color:#F3EFE7;
+  display:grid;place-items:center;
+}
+.feed-root .q-video .q-track{
+  flex:1;height:44px;display:flex;align-items:center;cursor:pointer;
+}
+.feed-root .q-video .rail{
+  position:relative;width:100%;height:4px;border-radius:2px;
+  background:rgba(243,239,231,.35);
+}
+.feed-root .q-video .rail i{
+  position:absolute;left:0;top:0;bottom:0;width:0;
+  background:var(--accent);border-radius:2px;
+}
+.feed-root .q-video.is-unavailable{
+  min-height:88px;padding:16px 16px 18px;
+  display:flex;align-items:flex-start;justify-content:flex-start;
+  background:var(--fill);color:var(--text-2);
+}
+.feed-root .q-video.is-unavailable video,
+.feed-root .q-video.is-unavailable .q-video-bar,
+.feed-root .q-video.is-unavailable .q-video-play{display:none}
+.feed-root .q-video-msg{
+  margin:0;font-size:var(--fs-read);line-height:var(--lh-read);color:var(--text-2);
 }
 
-/* 接着学进度 */
-.feed-root .q-fcard .progress{height:6px;margin-top:var(--sp-5)}
-.feed-root .q-fcard .progress i{background:var(--text-1);width:0}
+.feed-root .q-fcard .progress{height:6px;margin-top:var(--sp-5);background:var(--fill);border-radius:3px;overflow:hidden}
+.feed-root .q-fcard .progress i{display:block;height:100%;background:var(--text-1);width:0}
 
-/* 文件到期：大号剩余天数 */
-.feed-root .due{
-  display:flex;align-items:baseline;gap:var(--sp-3);flex-wrap:wrap;
-}
+.feed-root .due{display:flex;align-items:baseline;gap:var(--sp-3);flex-wrap:wrap}
 .feed-root .due .big{font-size:var(--fs-display);line-height:var(--lh-display);font-weight:var(--fw-bold);color:var(--accent-ink)}
 .feed-root .due h2{margin:0}
 
-/* 私密卡 */
 .feed-root .q-fcard.is-private .q-stage{align-items:flex-start}
-.feed-root .priv{
-  display:flex;align-items:center;gap:var(--sp-4);
-}
+.feed-root .priv{display:flex;align-items:center;gap:var(--sp-4)}
 .feed-root .priv .lock{
   width:40px;height:40px;border-radius:12px;flex:none;
   background:var(--btn-primary-bg);color:var(--btn-primary-fg);
@@ -193,14 +238,12 @@
 }
 .feed-root .priv h2{font-size:var(--fs-title);line-height:var(--lh-title);margin:0}
 
-/* 空 / 错 */
 .feed-root .empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center}
 .feed-root .empty .mark{width:40px;height:40px;margin:0 auto var(--sp-4);color:var(--text-1)}
 .feed-root .empty .mark .dot{fill:var(--accent)}
 .feed-root .feed-error{padding:var(--sp-8) var(--sp-5);text-align:center}
 .feed-root .feed-error p{color:var(--text-2);margin:0 0 var(--sp-4)}
 
-/* Toast */
 .feed-root .feed-toast{
   position:absolute;left:50%;bottom:calc(var(--sp-5) + env(safe-area-inset-bottom));
   transform:translateX(-50%) translateY(8px);
@@ -215,12 +258,12 @@
   min-height:var(--touch);min-width:var(--touch);padding:0 var(--sp-2);
 }
 
-/* 解锁弹层（模块内，不依赖页面 .qb-app.is-sheet） */
 .feed-root .feed-scrim{
   position:absolute;inset:0;background:var(--scrim);z-index:20;
   opacity:0;pointer-events:none;transition:opacity var(--dur-3) var(--ease);
 }
-.feed-root.is-sheet .feed-scrim{opacity:1;pointer-events:auto}
+.feed-root.is-sheet .feed-scrim,
+.feed-root.is-menu .feed-scrim{opacity:1;pointer-events:auto}
 .feed-root .feed-sheet{
   position:absolute;left:0;right:0;bottom:0;z-index:21;max-height:85%;
   background:var(--surface-raised);border-radius:var(--r-lg) var(--r-lg) 0 0;
@@ -234,25 +277,44 @@
   content:"";display:block;width:36px;height:4px;border-radius:2px;background:var(--line-strong);
   margin:0 auto var(--sp-4);
 }
-
-
-
-.feed-root .q-fcard .q-tag{
-  display:inline-flex;align-items:center;align-self:flex-start;
-  margin-top:var(--sp-4);
-  padding:2px var(--sp-2);
-  border-radius:var(--r-pill);
-  background:var(--fill);color:var(--text-2);
-  font-size:var(--fs-caption);line-height:var(--lh-caption);
+.feed-menu{
+  display:none;position:absolute;top:44px;right:8px;z-index:22;
+  min-width:200px;padding:4px;
+  background:var(--surface-raised);color:var(--text-1);
+  border:1px solid var(--line);border-radius:var(--r-sm);box-shadow:var(--shadow-2);
 }
+.feed-root.is-menu .feed-menu{display:block}
+.feed-menu button{
+  display:flex;align-items:center;width:100%;text-align:left;
+  min-height:44px;padding:0 12px;border-radius:var(--r-sm);
+}
+.feed-menu button:active{background:var(--fill)}
 
-/* 文件卡：390 也从顶部排，不垂直居中 */
-.feed-root .q-fcard.is-file .q-stage{
-  justify-content:flex-start;padding-top:var(--sp-4);
+.feed-detail{
+  position:absolute;inset:0;z-index:30;
+  display:flex;flex-direction:column;min-height:0;
+  background:var(--surface);color:var(--text-1);
 }
-@media (min-width:600px){
-  .feed-root .q-fcard.is-file .q-stage{padding-top:var(--sp-8)}
+.feed-detail-body{
+  flex:1;min-height:0;overflow:auto;
+  padding:12px 20px 24px;
 }
+.feed-status{margin:0;color:var(--text-3);font-size:var(--fs-meta);line-height:var(--lh-meta)}
+.feed-reader h2{
+  font-size:var(--fs-title);line-height:var(--lh-title);
+  margin:0 0 12px;font-weight:var(--fw-bold);
+}
+.feed-reader p,.feed-reader pre{
+  margin:0 0 12px;
+  font-size:var(--fs-read);line-height:var(--lh-read);color:var(--text-1);
+  white-space:pre-wrap;
+}
+.feed-fallback p{
+  margin:8px 0 16px;
+  font-size:var(--fs-read);line-height:var(--lh-read);color:var(--text-2);
+}
+.feed-root [hidden]{display:none !important}
+
 .feed-root .file-list{display:block;margin:var(--sp-5) 0 0;padding:0;width:100%}
 .feed-root .file-more{
   font-size:var(--fs-meta);line-height:var(--lh-meta);color:var(--text-3);
@@ -273,39 +335,18 @@
   display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
 }
 .feed-root .file-row .q-m{font-size:var(--fs-meta);line-height:var(--lh-meta);color:var(--text-3)}
-/* 卡片舞台：窄屏垂直居中；≥600px 从顶部排，避免展开时标题上方大块空白 */
-.feed-root .q-fcard{
-  scroll-snap-align:start;scroll-snap-stop:always;
-  height:100%;min-height:100%;max-height:100%;
-  display:flex;flex-direction:column;position:relative;
-  box-sizing:border-box;flex:none;
-}
-.feed-root .q-fcard .q-stage{
-  flex:1;display:flex;flex-direction:column;justify-content:center;min-height:0;
-}
+
+/* ≥600px: left directory, right vertical feed, the same one 44px bar. */
 @media (min-width:600px){
-  .feed-root .q-fcard .q-stage{justify-content:flex-start;padding-top:var(--sp-8)}
-}
-/* 展开：左列表 + 右详情 */
-@media (min-width:600px){
-  .feed-root > .feed-top{display:none}
+  .feed-root > .feed-top{display:flex}
   .feed-list{display:flex;width:var(--pane-w)}
   .feed-pager{display:none}
-  .feed-stage .q-feed{
-    overflow-y:auto;
-    scroll-snap-type:y mandatory;
-    scroll-snap-stop:always;
-  }
-  .feed-root .q-fcard{
-    padding:var(--sp-6) var(--sp-8) var(--sp-8);
-    padding-right:var(--sp-8);
-  }
-  .feed-root .q-fcard .q-who,
+  .feed-root .q-fcard{padding:12px 20px 16px}
+  .feed-root .q-fcard .q-stage{justify-content:flex-start;padding-top:0}
   .feed-root .q-fcard .q-stage,
   .feed-root .q-fcard .q-bar{
-    width:100%;max-width:600px;margin-left:auto;margin-right:auto;
+    width:auto;max-width:none;margin-left:0;margin-right:0;
   }
-  .feed-root .q-fcard .q-bar{padding-top:var(--sp-6)}
   .feed-root .feed-sheet{
     left:50%;right:auto;bottom:auto;top:50%;width:min(440px,calc(100% - 48px));
     border-radius:var(--r-lg);
