@@ -455,8 +455,18 @@
   };
 
   var inst = null;
+  function pauseMedia(root) {
+    Array.prototype.forEach.call(root.querySelectorAll("video,audio"), function (m) { try { m.pause(); } catch (e) {} });
+  }
   function mount(el, data) {
     inst = new KB(el, data || { files: [] });
+    /* Stop playback when the tab is switched away or the app goes to background */
+    if ("IntersectionObserver" in window) {
+      new IntersectionObserver(function (es) {
+        es.forEach(function (x) { if (!x.isIntersecting) pauseMedia(el); });
+      }).observe(el);
+    }
+    document.addEventListener("visibilitychange", function () { if (document.hidden) pauseMedia(el); });
     return inst;
   }
 

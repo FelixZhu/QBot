@@ -2,13 +2,13 @@
  * Token variables (--bg, --surface, --text-1 …) come from the shared apps/drive-web/tokens.css,
  * which the page loads globally; nothing is duplicated here.
  * All classes are prefixed qc- so nothing collides with the drive page's CSS. */
-#chat-root{height:100%;font-family:var(--font);color:var(--text-1);font-size:15px;line-height:24px}
+#chat-root{height:100%;min-height:0;overflow:hidden;font-family:var(--font);color:var(--text-1);font-size:15px;line-height:24px}
 #chat-root *,#chat-root *::before,#chat-root *::after{box-sizing:border-box}
 :where(#chat-root) button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
 #chat-root :focus-visible{outline:none;box-shadow:0 0 0 3px rgba(217,119,75,.35);border-radius:10px}
 
-.qc{height:100%;display:grid;grid-template-columns:minmax(0,1fr);position:relative;background:var(--surface)}
-.qc-main{min-width:0;min-height:0;display:flex;flex-direction:column;position:relative;background:var(--surface)}
+.qc{height:100%;min-height:0;overflow:hidden;display:grid;grid-template-columns:minmax(0,1fr);position:relative;background:var(--surface)}
+.qc-main{min-width:0;min-height:0;overflow:hidden;display:flex;flex-direction:column;position:relative;background:var(--surface)}
 
 /* conversation list: drawer when folded, column when unfolded */
 .qc-pane{position:fixed;inset:0 auto 0 0;z-index:50;width:min(86vw,320px);background:var(--bg);border-right:1px solid var(--line);
@@ -80,8 +80,20 @@
 @keyframes qc-breathe{50%{opacity:.35;transform:scale(.92)}}
 @media (prefers-reduced-motion:reduce){.qc-thinking .mark b,.qc-thinking .mark i,.qc-recbar .wave i{animation:none}}
 
-/* composer — voice first */
-.qc-composer{flex:none;background:var(--surface);border-top:1px solid var(--line);padding:8px 16px 12px}
+/* composer — voice first.
+ * assistant-ui's form defaults to a column that fills the thread; force a
+ * bottom bar so the message list keeps its height and the field stays put. */
+.qc-composer,
+form.qc-composer{
+  flex:0 0 auto!important;height:auto!important;min-height:0!important;max-height:none!important;
+  width:100%;align-self:stretch;flex-direction:row!important;
+  background:var(--surface);border-top:1px solid var(--line);
+  padding:8px 16px calc(12px + env(safe-area-inset-bottom));
+}
+@media (max-width:599px){
+  /* the shell tab bar already includes the home-indicator inset */
+  .qc-composer,form.qc-composer{padding-bottom:12px}
+}
 .qc-composer>*{max-width:640px;margin-left:auto;margin-right:auto}
 .qc-voice-row{display:flex;align-items:center;justify-content:space-between}
 .qc-side{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;color:var(--text-2);background:var(--fill);flex:none}
@@ -97,10 +109,10 @@
 .qc-recbar .wave i{width:3px;height:6px;border-radius:2px;background:var(--accent);animation:qc-wave .9s ease-in-out infinite}
 @keyframes qc-wave{50%{height:18px}}
 .qc-recbar .tm{font-family:var(--font-mono)}
-.qc-composer.kb{display:flex;align-items:flex-end;gap:8px}
+.qc-composer.kb,form.qc-composer.kb{display:flex;flex-direction:row!important;align-items:flex-end;gap:8px;width:100%}
 .qc-composer.kb>*{margin:0}
-.qc-field{flex:1;min-height:44px;max-height:140px;resize:none;padding:10px 16px;border-radius:22px;border:1px solid var(--line);background:var(--surface-raised);
-  font:inherit;font-size:15px;line-height:22px;color:var(--text-1);outline:none}
+.qc-field{flex:1;min-width:0;min-height:44px;max-height:140px;resize:none;padding:10px 16px;border-radius:22px;border:1px solid var(--line);background:var(--surface-raised);
+  font:inherit;font-size:15px;line-height:22px;color:var(--text-1);outline:none;overflow-y:auto}
 .qc-field:focus{border-color:var(--line-strong)}
 .qc-field::placeholder{color:var(--text-3)}
 .qc-send{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;flex:none;background:var(--btn-primary-bg);color:var(--btn-primary-fg)}

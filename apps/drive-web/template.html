@@ -204,9 +204,13 @@ pre.code .hljs{background:none;padding:0}
 /* ================= QBot shell: bottom tabs (folded) / 72px rail (unfolded) =================
  * Design: BRAND.md §8.1. Colors/sizes come from tokens.css (loaded globally, single copy in
  * apps/drive-web/). The drive's own colliding variables were renamed --d-* so the two never clash. */
-html,body{height:100%;overflow:hidden}
-.qbs{position:fixed;inset:0;display:grid;grid-template-rows:minmax(0,1fr) auto;grid-template-areas:"main" "nav"}
-.qbs-panel{grid-area:main;min-width:0;min-height:0;position:relative;overflow:hidden}
+html,body{height:100%;overflow:hidden;overscroll-behavior:none}
+.qbs{position:fixed;inset:0;display:grid;grid-template-rows:minmax(0,1fr) auto;grid-template-areas:"main" "nav";
+  overflow:hidden;overscroll-behavior:none;height:100%;height:100dvh}
+.qbs-panel{grid-area:main;min-width:0;min-height:0;height:100%;position:relative;overflow:hidden;overscroll-behavior:contain}
+/* Keep inactive tabs laid out (not display:none) so feed/kb can measure a definite height and scroll is preserved. */
+.qbs-panel[hidden]{display:block!important;visibility:hidden;pointer-events:none;z-index:0}
+.qbs-panel:not([hidden]){z-index:1}
 .qbs-panel[hidden]{display:none}
 #panel-kb>.app{height:100%}
 #tab-kb[hidden],#panel-kb>.app[hidden]{display:none}
@@ -221,6 +225,8 @@ html,body{height:100%;overflow:hidden}
 .qbs-brand{display:none}
 .qbs-item{flex:1;position:relative;height:56px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
   font-size:11px;line-height:16px;color:var(--text-3);-webkit-tap-highlight-color:transparent}
+.qbs-item:active{background:var(--fill)}
+@media (hover:hover){.qbs-item:hover{background:var(--fill-hover);color:var(--text-1)}}
 .qbs-item svg{width:24px;height:24px}
 .qbs-item>span{white-space:nowrap;overflow:hidden;text-overflow:clip;max-width:100%;line-height:16px}
 .qbs-item>*{flex:none}
@@ -228,14 +234,16 @@ html,body{height:100%;overflow:hidden}
 .qbs-item .dot{position:absolute;top:8px;left:calc(50% + 8px);width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 2px var(--bg)}
 .qbs-item .dot[hidden]{display:none}
 .qbs-item:focus-visible{outline:none;box-shadow:inset 0 0 0 2px var(--accent-soft)}
-#tab-feed,#tab-kb{height:100%;background:var(--surface);color:var(--text-1);font-family:var(--font)}
+#tab-feed,#tab-kb{height:100%;min-height:0;overflow:hidden;background:var(--surface);color:var(--text-1);font-family:var(--font)}
+#panel-feed,#panel-kb,#panel-chat,#chat-root{height:100%;min-height:0}
 .qbs-empty{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:24px;text-align:center}
 .qbs-empty svg{width:48px;height:48px;opacity:.35;margin-bottom:8px}
 .qbs-empty b{font-size:17px;line-height:24px}
 .qbs-empty span{font-size:14px;line-height:22px;color:var(--text-3);max-width:280px}
 @media (min-width:600px){
   .qbs{grid-template-rows:none;grid-template-columns:72px minmax(0,1fr);grid-template-areas:"nav main"}
-  .qbs-nav{flex-direction:column;align-items:center;gap:4px;border-top:0;border-right:1px solid var(--line);padding:calc(12px + env(safe-area-inset-top)) 0 12px}
+  .qbs-nav{flex-direction:column;align-items:center;gap:4px;border-top:0;border-right:1px solid var(--line);
+    padding:calc(12px + env(safe-area-inset-top)) 0 calc(12px + env(safe-area-inset-bottom));overflow:hidden}
   .qbs-brand{display:grid;place-items:center;width:44px;height:44px;margin-bottom:12px}
   .qbs-brand svg{width:30px;height:30px}
   .qbs-item{flex:none;width:60px;height:60px;border-radius:14px;font-size:11px}
@@ -280,7 +288,10 @@ html,body{height:100%;overflow:hidden}
 (function(){var t=null;try{t=sessionStorage.getItem("qbs_tab")}catch(e){}
   if(t!=="chat"&&t!=="feed"&&t!=="kb")t=(window.__qbHash||"").indexOf("#/")===0?"kb":"chat";
   window.__qbTab=t;
-  ["chat","feed"].forEach(function(n){document.getElementById("panel-"+n).hidden=n!==t});
+  ["chat","feed"].forEach(function(n){
+    var p=document.getElementById("panel-"+n);p.hidden=n!==t;
+    if(n!==t)p.setAttribute("inert","");else p.removeAttribute("inert");
+  });
   document.querySelectorAll(".qbs-item").forEach(function(b){if(b.dataset.qbsTab===t)b.setAttribute("aria-current","page");else b.removeAttribute("aria-current")});
 })();
 </script>
@@ -703,14 +714,38 @@ armAway();
   var TABS=["chat","feed","kb"],cur=window.__qbTab||"chat",V="__VERSION__";
   var kbPanel=document.getElementById("panel-kb"),kbEl=document.getElementById("tab-kb"),app=document.getElementById("app");
   kbPanel.hidden=cur!=="kb";
+  if(cur!=="kb")kbPanel.setAttribute("inert","");
+  /* Keep the shell inside the visual viewport so the composer stays visible above the soft keyboard. */
+  function fitViewport(){
+    var el=document.getElementById("qbs"),vv=window.visualViewport;
+    if(!el)return;
+    if(!vv){el.style.top=el.style.left=el.style.width=el.style.height="";return}
+    el.style.top=vv.offsetTop+"px";
+    el.style.left=vv.offsetLeft+"px";
+    el.style.width=vv.width+"px";
+    el.style.height=vv.height+"px";
+    el.style.right="auto";
+    el.style.bottom="auto";
+  }
+  if(window.visualViewport){
+    visualViewport.addEventListener("resize",fitViewport);
+    visualViewport.addEventListener("scroll",fitViewport);
+  }
+  fitViewport();
   var driveBack=window.qbotBack,kbMode=false;
+  function syncPanel(n,on){
+    var p=document.getElementById("panel-"+n);
+    p.hidden=!on;
+    if(on)p.removeAttribute("inert");else p.setAttribute("inert","");
+  }
   function setTab(t){
     if(TABS.indexOf(t)<0||t===cur)return;
     cur=t;
-    TABS.forEach(function(n){document.getElementById("panel-"+n).hidden=n!==t});
+    TABS.forEach(function(n){syncPanel(n,n===t)});
     document.querySelectorAll(".qbs-item").forEach(function(b){if(b.dataset.qbsTab===t)b.setAttribute("aria-current","page");else b.removeAttribute("aria-current")});
     try{sessionStorage.setItem("qbs_tab",t)}catch(e){}
-    if(t==="kb")window.dispatchEvent(new Event("resize"));
+    /* Every tab: feed (and kb) mount while hidden, so they need a resize once the panel has a definite height. */
+    window.dispatchEvent(new Event("resize"));
     window.dispatchEvent(new CustomEvent("qbot:tab",{detail:{tab:t}}));
   }
   /* 知识库: kb.js (knowledge-base engineer) shows the list; files open in the existing drive viewer. */
@@ -729,24 +764,37 @@ armAway();
   window.qbotTab=setTab;
   window.qbotCurrentTab=function(){return cur};
   window.qbotSetFeedUnread=function(on){document.getElementById("qbsFeedDot").hidden=!on};
+  function restoreShellHistory(){
+    try{history.pushState({qbot:"shell"},"",location.pathname+location.search+location.hash)}catch(e){}
+  }
   window.qbotBack=function(opts){
+    opts=opts||{};
+    var handled=false;
     if(cur==="kb"){
       if(kbMode&&!kbPanel.classList.contains("kb-viewing")){
-        if(window.qbotKb&&typeof window.qbotKb.back==="function"&&window.qbotKb.back())return true;
+        if(window.qbotKb&&typeof window.qbotKb.back==="function"&&window.qbotKb.back())handled=true;
       }else if(kbMode){
         /* viewer opened from the kb list: close drive overlays first, then straight back to the list */
         var ov=document.getElementById("qsOv").classList.contains("open")||app.classList.contains("info-open")||app.classList.contains("drawer");
-        if(ov&&driveBack&&driveBack(opts))return true;
-        showViewer(false);return true;
+        if(ov&&driveBack&&driveBack(opts))handled=true;
+        else{showViewer(false);handled=true}
       }else{
-        if(driveBack&&driveBack(opts))return true;
-        if(opts&&opts.fromPop)return false;
+        if(driveBack&&driveBack(opts))handled=true;
+        else if(opts&&opts.fromPop)handled=false;
+        else{setTab("chat");handled=true}
       }
-      setTab("chat");return true;
+      if(!handled){setTab("chat");handled=true}
+    }else if(cur==="chat"){
+      handled=!!(window.qbotChat&&window.qbotChat.back());
+    }else if(cur==="feed"){
+      /* true = feed handled (sheet or not first card); false = already on first card, go to 对话 */
+      if(window.qbotFeed&&typeof window.qbotFeed.back==="function"&&window.qbotFeed.back())handled=true;
+      else{setTab("chat");handled=true}
+    }else{
+      setTab("chat");handled=true;
     }
-    if(cur==="chat")return !!(window.qbotChat&&window.qbotChat.back());
-    if(window.qbotFeed&&typeof window.qbotFeed.back==="function"&&window.qbotFeed.back())return true;
-    setTab("chat");return true;
+    if(handled&&opts.fromPop)restoreShellHistory();
+    return handled;
   };
   /* Optional standalone modules: load only if they were published next to index.html. */
   function exists(u){return fetch(u,{method:"HEAD",cache:"no-store"}).then(function(r){return r.ok}).catch(function(){return false})}

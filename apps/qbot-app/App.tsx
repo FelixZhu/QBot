@@ -64,7 +64,7 @@ const PAGE_BRIDGE = `
   function isAtTop() {
     function top(el) { return !el || (el.scrollTop || 0) <= 0; }
     if (!top(document.scrollingElement) || !top(document.documentElement) || !top(document.body)) return false;
-    var nodes = document.querySelectorAll('.scroller,.tree,.pdfwrap,.qs-list,.info');
+    var nodes = document.querySelectorAll('.scroller,.tree,.pdfwrap,.qs-list,.info,.qc-viewport,.q-feed,.kb-scroll,#kb-main-scroll,#kb-pane-scroll,.feed-stage');
     for (var i = 0; i < nodes.length; i++) {
       var el = nodes[i];
       if ((el.scrollHeight > el.clientHeight + 1) && el.scrollTop > 0) return false;

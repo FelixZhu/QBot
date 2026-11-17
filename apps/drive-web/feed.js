@@ -307,8 +307,8 @@
     syncChrome();
     attachObserver();
     hydrateAudioMeta();
-    if (state.wide && state.visible.length) showOnly(state.index);
-    else if (state.visible.length) scrollToIndex(state.index, "auto");
+    bindResize();
+    requestAnimationFrame(function () { layoutFeed("auto", true); });
   }
 
   function topbar() {
@@ -334,9 +334,14 @@
         (function () { var b = el("button", { class: "qb-iconbtn", type: "button", "aria-label": "更多", onClick: restoreMuted }); b.innerHTML = ICO.more; return b; })()
       )
     );
-    var rows = el("div", { class: "rows" });
+    var rows = el("div", { class: "q-rows" });
+    var lastBot = null;
     state.visible.forEach(function (c, i) {
-      var meta = botMeta(c.bot);
+      var bot = (c.bot || "QBot");
+      if (bot !== lastBot) {
+        rows.appendChild(el("div", { class: "feed-group", text: bot }));
+        lastBot = bot;
+      }
       var row = el("button", {
         class: "q-row" + (i === state.index ? " active" : ""),
         type: "button",
@@ -345,11 +350,11 @@
       },
         avatarEl(c),
         el("div", { class: "q-t" },
+          el("div", { class: "q-n", text: listTitle(c) }),
           el("div", { class: "meta" },
-            el("b", { class: "k", text: listKind(c) }),
+            el("span", { class: "k", text: bot }),
             el("span", { class: "when", text: formatTime(c.time) })
-          ),
-          el("div", { class: "q-n", text: listTitle(c) })
+          )
         )
       );
       rows.appendChild(row);
@@ -395,7 +400,9 @@
       track.appendChild(cardEl(c, i));
     });
     track.addEventListener("scroll", onScroll, { passive: true });
+    track.addEventListener("scrollend", snapToNearest, { passive: true });
     track.addEventListener("keydown", onKey);
+    track.addEventListener("wheel", onWheel, { passive: false });
     return track;
   }
 
@@ -584,7 +591,7 @@
   function attachObserver() {
     if (state.observer) { state.observer.disconnect(); state.observer = null; }
     var track = $(".feed-stage .q-feed");
-    if (!track || state.wide) return;
+    if (!track) return;
     var cards = $all(".q-fcard", track);
     state.observer = new IntersectionObserver(function (entries) {
       var best = null, ratio = 0;
@@ -593,32 +600,80 @@
       });
       if (best && ratio >= 0.6) {
         var i = Number(best.dataset.i);
-        if (i !== state.index && !isNaN(i)) setIndex(i, false);
+        if (i !== state.index && !isNaN(i)) setIndex(i, true);
       }
-    }, { root: track, threshold: [0.6, 0.9] });
+    }, { root: track, threshold: [0.55, 0.9] });
     cards.forEach(function (c) { state.observer.observe(c); });
   }
 
-  function onScroll() { /* observer handles index */ }
+  function nearestIndex() {
+    var track = $(".feed-stage .q-feed");
+    if (!track || !track.clientHeight) return state.index;
+    var h = track.clientHeight;
+    var i = Math.round(track.scrollTop / h);
+    return Math.max(0, Math.min(state.visible.length - 1, i));
+  }
+
+  function snapToNearest() {
+    if (state._paging) return;
+    var i = nearestIndex();
+    if (i !== state.index) setIndex(i, true);
+    var track = $(".feed-stage .q-feed");
+    var card = track && $all(".q-fcard", track)[i];
+    if (!track || !card) return;
+    var top = card.offsetTop;
+    var delta = Math.abs(track.scrollTop - top);
+    if (delta <= 1) {
+      if (delta) track.scrollTop = top;
+      return;
+    }
+    /* Small leftover gaps snap instantly; larger ones keep the smooth settle. */
+    track.scrollTo({ top: top, behavior: delta < 24 ? "auto" : "smooth" });
+  }
+
+  function onScroll() {
+    clearTimeout(state._snapTimer);
+    state._snapTimer = setTimeout(snapToNearest, 80);
+  }
+
+  function onWheel(e) {
+    if (Math.abs(e.deltaY) < 8) return;
+    e.preventDefault();
+    if (state._wheelLock) return;
+    state._wheelLock = true;
+    goTo(state.index + (e.deltaY > 0 ? 1 : -1));
+    setTimeout(function () { state._wheelLock = false; }, 420);
+  }
 
   function onKey(e) {
+    if (e.key === "Escape") {
+      if (back()) e.preventDefault();
+      return;
+    }
     if (e.key === "ArrowDown" || e.key === "PageDown" || e.key === "j") { e.preventDefault(); goTo(state.index + 1); }
     if (e.key === "ArrowUp" || e.key === "PageUp" || e.key === "k") { e.preventDefault(); goTo(state.index - 1); }
+    if (e.key === "Home") { e.preventDefault(); goTo(0); }
+    if (e.key === "End") { e.preventDefault(); goTo(state.visible.length - 1); }
   }
 
   function goTo(i) {
     if (!state.visible.length) return;
     i = Math.max(0, Math.min(state.visible.length - 1, i));
     setIndex(i, true);
-    if (state.wide) showOnly(i);
-    else scrollToIndex(i, "smooth");
+    scrollToIndex(i, "smooth");
   }
 
   function setIndex(i, updateList) {
+    var prev = state.index;
     state.index = i;
+    if (prev !== i) {
+      var cur = state.visible[i];
+      if (!cur || state.playingId !== cur.id) stopAudio();
+    }
     syncChrome();
     if (updateList !== false) {
-      $all(".feed-list .q-row").forEach(function (row, idx) {
+      $all(".feed-list .q-row").forEach(function (row) {
+        var idx = Number(row.dataset.i);
         row.classList.toggle("active", idx === i);
       });
     }
@@ -639,36 +694,65 @@
 
   function scrollToIndex(i, behavior) {
     var track = $(".feed-stage .q-feed");
-    var card = $all(".q-fcard", track)[i];
+    var card = track && $all(".q-fcard", track)[i];
     if (!track || !card) return;
     var top = card.offsetTop;
     /* Only scroll the feed itself — scrollIntoView would also drag the window
        and hide the top bar / tab bar. */
+    state._paging = true;
     if (behavior === "smooth") track.scrollTo({ top: top, behavior: "smooth" });
     else track.scrollTop = top;
+    clearTimeout(state._pageTimer);
+    state._pageTimer = setTimeout(function () { state._paging = false; }, 480);
   }
 
-  function showOnly(i) {
-    $all(".feed-stage .q-fcard").forEach(function (card, idx) {
-      card.style.display = idx === i ? "flex" : "none";
-    });
+  function layoutFeed(behavior, force) {
+    var track = $(".feed-stage .q-feed");
+    if (!track || !track.clientHeight) return;
+    var h = track.clientHeight;
+    if (force || state._lastH !== h) {
+      state._lastH = h;
+      scrollToIndex(state.index, behavior || "auto");
+    }
+    syncChrome();
   }
 
   function bindResize() {
     if (state._mq) state._mq.removeEventListener("change", onMq);
     state._mq = window.matchMedia("(min-width: 600px)");
     state._mq.addEventListener("change", onMq);
+    if (!state._onTab) {
+      state._onTab = function (e) {
+        var tab = e && e.detail && e.detail.tab;
+        if (tab && tab !== "feed") { stopAudio(); return; }
+        requestAnimationFrame(function () { layoutFeed("auto", true); });
+      };
+      window.addEventListener("qbot:tab", state._onTab);
+    }
+    if (!state._onResize) {
+      state._onResize = function () {
+        state.wide = window.matchMedia("(min-width: 600px)").matches;
+        layoutFeed("auto");
+      };
+      window.addEventListener("resize", state._onResize);
+    }
+    if (typeof ResizeObserver !== "undefined") {
+      if (state._ro) { state._ro.disconnect(); state._ro = null; }
+      if (state.root) {
+        state._ro = new ResizeObserver(function () {
+          clearTimeout(state._layoutTimer);
+          state._layoutTimer = setTimeout(function () { layoutFeed("auto"); }, 40);
+        });
+        state._ro.observe(state.root);
+        var stage = $(".feed-stage");
+        if (stage) state._ro.observe(stage);
+      }
+    }
   }
   function onMq(e) {
     state.wide = e.matches;
     if (!state.root || !state.all.length) return;
-    /* Re-render so overflow/observer match the layout. */
-    var keep = state.index;
-    render();
-    state.index = keep;
-    if (state.wide) showOnly(keep);
-    else scrollToIndex(keep, "auto");
-    syncChrome();
+    requestAnimationFrame(function () { layoutFeed("auto", true); });
   }
 
   function primaryText(c) {
@@ -862,16 +946,35 @@
     if (root) root.classList.remove("is-sheet");
   }
 
+  function back() {
+    var root = $(".feed-root");
+    if (root && root.classList.contains("is-sheet")) { closeSheet(); return true; }
+    var i = Math.max(state.index || 0, nearestIndex());
+    if (i > 0 && state.visible.length) {
+      setIndex(0, true);
+      scrollToIndex(0, "auto");
+      return true;
+    }
+    return false;
+  }
+
   function unmount() {
     stopAudio();
     if (state.observer) { state.observer.disconnect(); state.observer = null; }
     if (state._mq) { state._mq.removeEventListener("change", onMq); state._mq = null; }
+    if (state._ro) { state._ro.disconnect(); state._ro = null; }
+    if (state._onTab) { window.removeEventListener("qbot:tab", state._onTab); state._onTab = null; }
+    if (state._onResize) { window.removeEventListener("resize", state._onResize); state._onResize = null; }
     clearTimeout(state.toastTimer);
+    clearTimeout(state._snapTimer);
+    clearTimeout(state._pageTimer);
+    clearTimeout(state._layoutTimer);
     if (state.root) state.root.innerHTML = "";
     state.root = null;
     state.all = [];
     state.visible = [];
   }
 
-  global.QbotFeed = { mount: mount, unmount: unmount };
+  global.QbotFeed = { mount: mount, unmount: unmount, back: back };
+  global.qbotFeed = global.QbotFeed;
 })(window);

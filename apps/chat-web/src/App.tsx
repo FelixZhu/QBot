@@ -192,9 +192,19 @@ function Composer({ toast }: { toast: (m: string) => void }) {
     }
   };
 
+  const grow = useCallback(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.setProperty("height", "auto", "important");
+    el.style.setProperty("height", Math.min(el.scrollHeight, 140) + "px", "important");
+  }, []);
+
   useEffect(() => {
-    if (keyboard) inputRef.current?.focus();
-  }, [keyboard]);
+    if (keyboard) {
+      inputRef.current?.focus({ preventScroll: true });
+      grow();
+    }
+  }, [keyboard, text, grow]);
 
   if (keyboard) {
     return (
@@ -203,7 +213,7 @@ function Composer({ toast }: { toast: (m: string) => void }) {
           <IconMic size={22} />
         </button>
         <ComposerPrimitive.Input ref={inputRef} className="qc-field" rows={1} submitMode="none"
-          placeholder="给 QBot 发消息" onKeyDown={onKey} />
+          placeholder="给 QBot 发消息" onKeyDown={onKey} onInput={grow} />
         <button type="button" className="qc-send" aria-label="发送" disabled={!text.trim()} onClick={send}>
           <IconSend />
         </button>
@@ -303,6 +313,13 @@ export function ChatApp() {
       },
     };
   }, [drawer]);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width:600px)");
+    const onChange = () => { if (mq.matches) setDrawer(false); };
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
 
   const toggleMode = () => {
     const next: MockMode = mode === "whole" ? "stream" : "whole";
