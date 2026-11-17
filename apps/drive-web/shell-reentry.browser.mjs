@@ -3,7 +3,8 @@
  */
 import { spawn } from "node:child_process";
 import { setTimeout as sleep } from "node:timers/promises";
-import { writeFileSync, mkdirSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { execFileSync } from "node:child_process";
 
 const url = process.argv[2];
 const frameDir = process.argv[3] || "/tmp/evidence-v4-frames";
@@ -31,8 +32,8 @@ function check(name, ok, detail) {
 
 const chrome = spawn("/usr/local/bin/google-chrome", [
   "--headless=new",
-  "--remote-debugging-port=9341",
-  "--user-data-dir=/tmp/chrome-evidence-v4",
+  "--remote-debugging-port=9361",
+  "--user-data-dir=/tmp/chrome-release-candidate",
   "--no-first-run",
   "--no-default-browser-check",
   "--disable-translate",
@@ -62,7 +63,7 @@ async function ev(expr) {
 async function connect() {
   for (let i = 0; i < 40; i++) {
     try {
-      const list = await fetch("http://127.0.0.1:9341/json/list").then((r) => r.json());
+      const list = await fetch("http://127.0.0.1:9361/json/list").then((r) => r.json());
       const page = list.find((t) => t.type === "page");
       if (page) {
         ws = new WebSocket(page.webSocketDebuggerUrl);
@@ -72,6 +73,10 @@ async function connect() {
         });
         ws.addEventListener("message", (msg) => {
           const m = JSON.parse(msg.data);
+          if (m.method === "Fetch.requestPaused") {
+            fulfillHarness(m.params).catch((err) => console.error("harness", err));
+            return;
+          }
           if (m.id && pending.has(m.id)) {
             const p = pending.get(m.id);
             pending.delete(m.id);
@@ -181,10 +186,16 @@ async function boot(width, height) {
 async function openCard(i) {
   await click('button[data-qbs-tab="feed"]');
   await sleep(350);
-  const row = `.q-row[data-i="${i}"]`;
-  const wide = await ev(`(() => { const el = document.querySelector(${JSON.stringify(row)}); if (!el) return false; const r = el.getBoundingClientRect(); return r.width > 1 && r.height > 1; })()`);
-  if (wide) await click(row);
-  else await click(`.feed-pager button[aria-label="第 ${i + 1} 张"]`);
+  const how = await ev(`(() => {
+    const row = document.querySelector(${JSON.stringify(`.q-row[data-i="${i}"]`)});
+    const rr = row && row.getBoundingClientRect();
+    if (rr && rr.width > 1 && rr.height > 1) { row.click(); return "row"; }
+    const pager = document.querySelector(${JSON.stringify(`.feed-pager button[aria-label="第 ${i + 1} 张"]`)});
+    if (!pager) throw new Error("no card control");
+    pager.click();
+    return "pager";
+  })()`);
+  if (how !== "row" && how !== "pager") throw new Error("card " + i);
   await sleep(450);
 }
 async function openArticle() {
@@ -221,9 +232,46 @@ function brief(r) {
   };
 }
 
+const harnessMp4 = "/tmp/harness-clip.mp4";
+execFileSync("ffmpeg", ["-y", "-f", "lavfi", "-i", "testsrc=size=320x180:rate=15", "-f", "lavfi", "-i", "sine", "-t", "2", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", harnessMp4], { stdio: "ignore" });
+let harnessFeed = null;
+async function fulfillHarness(params) {
+  const reqUrl = params.request.url;
+  if (reqUrl.includes("out/feed.json")) {
+    if (!harnessFeed) {
+      const real = await fetch(new URL("out/feed.json", url)).then((r) => r.text());
+      const data = JSON.parse(real);
+      const card = data.cards.find((c) => c.type === "english") || data.cards[1];
+      card.media = { kind: "video", url: "/__harness__/clip.mp4", width: 320, height: 180 };
+      harnessFeed = JSON.stringify(data);
+    }
+    await call("Fetch.fulfillRequest", {
+      requestId: params.requestId,
+      responseCode: 200,
+      responseHeaders: [{ name: "content-type", value: "application/json" }],
+      body: Buffer.from(harnessFeed).toString("base64")
+    });
+    return;
+  }
+  if (reqUrl.includes("__harness__/clip.mp4")) {
+    await call("Fetch.fulfillRequest", {
+      requestId: params.requestId,
+      responseCode: 200,
+      responseHeaders: [{ name: "content-type", value: "video/mp4" }],
+      body: readFileSync(harnessMp4).toString("base64")
+    });
+    return;
+  }
+  await call("Fetch.continueRequest", { requestId: params.requestId });
+}
+
 try {
   await connect();
   await call("Page.enable");
+  await call("Fetch.enable", { patterns: [
+    { urlPattern: "*out/feed.json*", requestStage: "Request" },
+    { urlPattern: "*__harness__/clip.mp4*", requestStage: "Request" }
+  ] });
   await call("Page.navigate", { url });
   await ready();
   const loaded = await ev(`Promise.all(["feed.js","feed.css","kb.js","kb.css","shell-media.js"].map(async (p) => {
