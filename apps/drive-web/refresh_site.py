@@ -2,11 +2,12 @@
 """Rebuild Qian's Drive (read-only page on GitHub Pages) from OSS bucket qian-grokbot.
 
 Lists the bucket (read-only), keeps publicly readable objects only (skips
-_site/, trash/, _test/ and private-ACL objects), embeds the file list into
-template.html, and writes index.html + manifest.json + PWA assets into the
-GitHub Pages repo dir (default /workspace/qian-drive-repo). Writes nothing to
-OSS. Credentials come from OSS_ACCESS_KEY_ID / OSS_ACCESS_KEY_SECRET and are
-never printed or written anywhere.
+_site/, trash/, _test/, private/ and private-ACL objects), embeds the file list
+into template.html, writes index.json (summaries/tags from the local OSS
+index), and copies kb.js / kb.css plus PWA assets into the GitHub Pages repo
+dir (default /workspace/qian-drive-repo). Writes nothing to OSS. Credentials
+come from OSS_ACCESS_KEY_ID / OSS_ACCESS_KEY_SECRET and are never printed or
+written anywhere.
 
 Usage: python3 refresh_site.py [--push] [--repo DIR]
   --push   git commit + push the repo (only if something changed)
@@ -17,12 +18,15 @@ import oss2
 ENDPOINT = os.environ.get("OSS_ENDPOINT", "https://oss-cn-beijing.aliyuncs.com")
 BUCKET = os.environ.get("OSS_BUCKET", "qian-grokbot")
 BASE = "https://%s.%s" % (BUCKET, ENDPOINT.split("://", 1)[1])
-EXCLUDE = ("_site/", "trash/", "_test/")
+EXCLUDE = ("_site/", "trash/", "_test/", "private/")
 HERE = os.path.dirname(os.path.abspath(__file__))
-_QBOT_WEB = "/workspace/qbot-push/apps/drive-web"
-if os.path.isfile(os.path.join(_QBOT_WEB, "template.html")):
-    HERE = _QBOT_WEB
+INDEX_FILE = os.path.expanduser("~/.oss_index.json")
 GIT_ID = ["-c", "user.name=FelixZhu", "-c", "user.email=FelixZhu@users.noreply.github.com"]
+
+KIND_LABEL = {
+    "pdf": "PDF", "video": "视频", "audio": "音频", "image": "图片",
+    "md": "MD", "doc": "文档", "sheet": "表格", "code": "代码", "file": "文件",
+}
 
 
 def bucket():
@@ -30,6 +34,35 @@ def bucket():
     if not kid or not sec:
         sys.exit("missing OSS credentials in environment")
     return oss2.Bucket(oss2.Auth(kid, sec), ENDPOINT, BUCKET)
+
+
+def file_kind(key, ct):
+    ext = key.rsplit(".", 1)[-1].lower() if "." in key else ""
+    if ext == "pdf" or ct == "application/pdf":
+        return "pdf"
+    if ext in ("mp4", "webm", "mov", "mkv") or ct.startswith("video/"):
+        return "video"
+    if ext in ("m4a", "mp3", "wav", "aac", "ogg", "flac") or ct.startswith("audio/"):
+        return "audio"
+    if ext in ("png", "jpg", "jpeg", "gif", "webp", "svg") or ct.startswith("image/"):
+        return "image"
+    if ext in ("md", "markdown"):
+        return "md"
+    if ext in ("doc", "docx"):
+        return "doc"
+    if ext in ("xls", "xlsx", "csv"):
+        return "sheet"
+    if ext in ("js", "ts", "py", "json", "html", "css", "go", "rs") or ct.startswith("text/"):
+        return "code"
+    return "file"
+
+
+def load_local_index():
+    try:
+        data = json.loads(open(INDEX_FILE, encoding="utf-8").read())
+        return data.get(BUCKET, {}).get("objects", {})
+    except (OSError, ValueError):
+        return {}
 
 
 def build_manifest(b):
@@ -48,6 +81,41 @@ def build_manifest(b):
     files.sort(key=lambda f: f["key"])
     return {"bucket": BUCKET, "base": BASE, "generated": int(time.time()),
             "count": len(files), "total_size": sum(f["size"] for f in files), "files": files}, skipped
+
+
+def build_index(manifest):
+    """Public-file catalog for the knowledge-base tab. Private-ACL / private/ keys
+    are omitted so their names are not published on GitHub Pages. The schema still
+    carries a `private` flag (title/type/date only, no summary) for later use."""
+    local = load_local_index()
+    out = []
+    for f in manifest["files"]:
+        k = f["key"]
+        kind = file_kind(k, f.get("type") or "")
+        ent = local.get(k) or {}
+        name = k.rsplit("/", 1)[-1]
+        directory = k.rsplit("/", 1)[0] if "/" in k else ""
+        rec = {
+            "key": k,
+            "name": name,
+            "type": f.get("type") or "application/octet-stream",
+            "kind": kind,
+            "doc_type": KIND_LABEL.get(kind, "文件"),
+            "size": f["size"],
+            "mtime": f["mtime"],
+            "dir": directory,
+            "summary": (ent.get("summary") or "").strip(),
+            "tags": list(ent.get("tags") or []),
+            "private": False,
+        }
+        out.append(rec)
+    return {
+        "bucket": manifest["bucket"],
+        "base": manifest["base"],
+        "generated": manifest["generated"],
+        "count": len(out),
+        "files": out,
+    }
 
 
 def check_cors(files, origin="https://felixzhu.github.io"):
@@ -69,26 +137,40 @@ def git(repo, *args):
     return subprocess.run(["git", *GIT_ID, *args], cwd=repo, check=True, capture_output=True, text=True).stdout
 
 
+def write_tree(dest, html, mjson, vjson, idxjson):
+    os.makedirs(dest, exist_ok=True)
+    open(os.path.join(dest, "index.html"), "w", encoding="utf-8").write(html)
+    open(os.path.join(dest, "manifest.json"), "w", encoding="utf-8").write(mjson)
+    open(os.path.join(dest, "version.json"), "w", encoding="utf-8").write(vjson)
+    open(os.path.join(dest, "index.json"), "w", encoding="utf-8").write(idxjson)
+    assets = os.path.join(HERE, "assets")
+    if os.path.isdir(assets):
+        shutil.copytree(assets, dest, dirs_exist_ok=True)
+    open(os.path.join(dest, ".nojekyll"), "a").close()
+    for name in ("kb.js", "kb.css"):
+        src = os.path.join(HERE, name)
+        if os.path.isfile(src):
+            shutil.copy2(src, os.path.join(dest, name))
+
+
 def main():
     repo = sys.argv[sys.argv.index("--repo") + 1] if "--repo" in sys.argv else "/workspace/qian-drive-repo"
     m, skipped = build_manifest(bucket())
     m["cors"] = check_cors(m["files"])
+    index = build_index(m)
     mjson = json.dumps(m, ensure_ascii=False, separators=(",", ":"))
+    idxjson = json.dumps(index, ensure_ascii=False, separators=(",", ":"))
     tpl = open(os.path.join(HERE, "template.html"), encoding="utf-8").read()
     html = tpl.replace("__MANIFEST__", mjson.replace("</", r"<\/")).replace("__BASE__", BASE)
     ver = hashlib.sha1(html.encode("utf-8")).hexdigest()[:12]
     html = html.replace("__VERSION__", ver)
     vjson = json.dumps({"version": ver, "generated": m["generated"]}, separators=(",", ":"))
-    for d in (repo, os.path.join(HERE, "dist")):
-        os.makedirs(d, exist_ok=True)
-        open(os.path.join(d, "index.html"), "w", encoding="utf-8").write(html)
-        open(os.path.join(d, "manifest.json"), "w", encoding="utf-8").write(mjson)
-        open(os.path.join(d, "version.json"), "w", encoding="utf-8").write(vjson)
-        shutil.copytree(os.path.join(HERE, "assets"), d, dirs_exist_ok=True)
-        open(os.path.join(d, ".nojekyll"), "a").close()
+    write_tree(repo, html, mjson, vjson, idxjson)
+    write_tree(os.path.join(HERE, "dist"), html, mjson, vjson, idxjson)
     print("page version: %s" % ver)
-
-    print("files listed: %d (%.1f MB); bucket CORS for Pages origin: %s" % (m["count"], m["total_size"] / 1048576, "yes (pdf.js inline)" if m["cors"] else "no (native-viewer fallback)"))
+    print("files listed: %d (%.1f MB); index.json: %d; bucket CORS for Pages origin: %s" % (
+        m["count"], m["total_size"] / 1048576, index["count"],
+        "yes (pdf.js inline)" if m["cors"] else "no (native-viewer fallback)"))
     if skipped:
         print("skipped (not public): %s" % ", ".join(skipped))
     if "--push" in sys.argv:
