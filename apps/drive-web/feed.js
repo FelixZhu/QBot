@@ -11,8 +11,14 @@
  *     5. otherwise return false so the shell can switch to 对话
  *   Optional: window "qbot:appstate" with detail.state "background"|"inactive"|"hidden"
  *   pauses audio and video. The page also pauses on visibilitychange (hidden) and pagehide.
- *   "用浏览器打开" calls window.open(url, "_blank", "noopener,noreferrer") for a validated
- *   http(s) URL. The existing WebView onOpenWindow path sends that to the system browser.
+ *   External pages are never assigned to an iframe. An empty sandbox does not
+ *   isolate Android 1.0.4's Java bridge, which is injected into subframes.
+ *   When window.qbotShell exists (shell contract from the IM module, not owned here):
+ *     openArticle(url) shows the explanation; openExternal(url) opens the browser.
+ *   Without that API, the feed shows the same explanation itself and the explicit
+ *   browser button uses window.open(url, "_blank", "noopener,noreferrer").
+ *   Same-origin text we fetched ourselves can be shown. Arbitrary remote pages
+ *   are not rendered inside the app.
  */
 (function (global) {
   "use strict";
@@ -31,6 +37,7 @@
   var SNOOZE_KEY = "qbot-feed-snoozed";
   var TZ = "Asia/Shanghai";
   var PAGE_BYTES = 600000;
+  var HANDOFF_MSG = "这个页面不会嵌进 App。这里不加载外部网页：空沙箱不能证明安卓上的接口已经消失，所以不会把外部地址放进 iframe。需要看原文时用浏览器打开。";
 
   var ICO = {
     play: '<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8.6 5.8v12.4c0 .7.8 1.1 1.4.7l9.2-6.2c.6-.4.6-1.2 0-1.6L10 5.1c-.6-.4-1.4 0-1.4.7z"/></svg>',
@@ -223,6 +230,21 @@
     if (u.protocol !== "http:" && u.protocol !== "https:") return "";
     if (u.username || u.password) return "";
     return u.href;
+  }
+
+  function sameDocumentOrigin(url) {
+    try {
+      if (typeof location === "undefined" || !location.origin) return false;
+      return new URL(url).origin === location.origin;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function shellApi() {
+    var s = global.qbotShell;
+    if (!s || typeof s !== "object") return null;
+    return s;
   }
 
   function visibleCards(all) {
@@ -1240,24 +1262,49 @@
     closeSheet();
   }
 
-  function openPage(c) {
-    var safe = safeHttpUrl(c && c.open_url);
+  function rememberDetail(c, safe) {
     var track = $(".feed-stage .q-feed");
     state.detail = {
       index: state.index,
       scrollTop: track ? track.scrollTop : 0,
       url: safe,
       title: (c && c.title) || "页面",
-      cardId: c && c.id
+      cardId: c && c.id,
+      via: ""
     };
+  }
+
+  function openPage(c) {
+    var safe = safeHttpUrl(c && c.open_url);
+    rememberDetail(c, safe);
     pauseForLifecycle();
     var root = $(".feed-root");
     if (!root) return;
     var old = root.querySelector(".feed-detail");
     if (old) old.remove();
+    if (safe && !sameDocumentOrigin(safe)) {
+      openExternalArticle(c, safe);
+      return;
+    }
     root.classList.add("is-detail");
     root.appendChild(buildDetail(c, safe));
     if (safe) loadPage(safe);
+  }
+
+  /* External http(s) never becomes an iframe src, hidden or otherwise. */
+  function openExternalArticle(c, safe) {
+    var shell = shellApi();
+    if (shell && typeof shell.openArticle === "function") {
+      state.detail.via = "shell";
+      try { shell.openArticle(safe); } catch (e) { state.detail.via = ""; }
+      if (state.detail && state.detail.via === "shell") return;
+    }
+    var root = $(".feed-root");
+    if (!root || !state.detail) return;
+    state.detail.via = "feed";
+    root.classList.add("is-detail");
+    root.appendChild(buildDetail(c, safe));
+    showPageFallback(safe, HANDOFF_MSG);
   }
 
   function buildDetail(c, safe) {
@@ -1302,6 +1349,10 @@
   }
 
   function loadPage(url) {
+    if (!sameDocumentOrigin(url)) {
+      showPageFallback(url, HANDOFF_MSG);
+      return;
+    }
     var token = ++state._pageToken;
     var ctrl = typeof AbortController === "function" ? new AbortController() : null;
     var opts = { method: "GET", mode: "cors", credentials: "omit", redirect: "follow", cache: "no-store" };
@@ -1323,7 +1374,7 @@
     }).catch(function () {
       clearTimeout(timer);
       if (token !== state._pageToken || !state.detail) return;
-      probeFrame(url, token);
+      showPageFallback(url, HANDOFF_MSG);
     });
   }
 
@@ -1362,50 +1413,6 @@
     return box;
   }
 
-  /* A load event is not proof. Chrome exposes neither a blocked frame nor a
-   * sandboxed cross-origin frame to the parent, so the iframe stays hidden and
-   * is removed unless its document text can actually be read. */
-  function probeFrame(url, token) {
-    var body = $(".feed-detail-body");
-    if (!body) return;
-    var iframe = el("iframe", {
-      class: "feed-frame",
-      sandbox: "",
-      referrerpolicy: "no-referrer",
-      tabindex: "-1",
-      title: "页面",
-      hidden: true
-    });
-    body.appendChild(iframe);
-    var done = false;
-    function finish() {
-      if (done || token !== state._pageToken || !state.detail) return;
-      done = true;
-      var text = frameText(iframe);
-      try { iframe.src = "about:blank"; } catch (e) {}
-      if (iframe.parentNode) iframe.parentNode.removeChild(iframe);
-      if (text) showReader(el("article", { class: "feed-reader" }, el("p", { text: text.slice(0, 20000) })));
-      else showPageFallback(url, "这个页面不能在 App 里打开。网站可能禁止了内嵌，而浏览器又不让我们确认里面有没有内容。");
-    }
-    iframe.addEventListener("load", finish);
-    iframe.addEventListener("error", finish);
-    setTimeout(finish, 2500);
-    iframe.src = url;
-  }
-
-  function frameText(iframe) {
-    try {
-      var doc = iframe.contentDocument;
-      if (!doc || !doc.body) return "";
-      var href = "";
-      try { href = String(doc.URL || ""); } catch (e) { return ""; }
-      if (!href || href === "about:blank") return "";
-      return String(doc.body.innerText || doc.body.textContent || "").replace(/\s+/g, " ").trim();
-    } catch (e) {
-      return "";
-    }
-  }
-
   function showReader(node) {
     var body = $(".feed-detail-body");
     if (!body || !node) return;
@@ -1439,6 +1446,11 @@
   function openInBrowser(url) {
     var safe = safeHttpUrl(url);
     if (!safe) return;
+    var shell = shellApi();
+    if (shell && typeof shell.openExternal === "function") {
+      try { shell.openExternal(safe); } catch (e) { toast("没有打开浏览器。"); }
+      return;
+    }
     try { window.open(safe, "_blank", "noopener,noreferrer"); }
     catch (e) { toast("没有打开浏览器。"); }
   }
@@ -1447,6 +1459,12 @@
     var saved = state.detail;
     state.detail = null;
     state._pageToken += 1;
+    if (saved && saved.via === "shell") {
+      var shell = shellApi();
+      if (shell && typeof shell.close === "function") {
+        try { shell.close(); } catch (e) {}
+      }
+    }
     var node = state.root && state.root.querySelector(".feed-detail");
     if (node) node.remove();
     var root = $(".feed-root");

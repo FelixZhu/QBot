@@ -278,7 +278,7 @@ QbotFeed.mount(document.getElementById("tab-feed"), { feedUrl: "out/feed.json" }
 
 视频在卡片里点按播放，按文件原始宽高比显示，可暂停、拖动进度和全屏。`has_video` 为真但没有地址，或地址打不开时，卡片说明暂时不能播。
 
-主按钮：日报和接着学的讲义在 App 内打开阅读页，不直接跳出。能读到的正文（同源，或带 CORS 的文本/HTML）排在阅读页里。跨源页面如果读不到正文，会再试一次隐藏的沙箱 iframe，但 **iframe 的 load 事件不算已经可读**——读不到文档正文就关掉 iframe，写出原因，并给出「用浏览器打开」。这个按钮只对校验过的 http(s) 地址调用 `window.open(url, "_blank", "noopener,noreferrer")`，不设代理，也不绕过 CORS。英语仍是播放/暂停。文件卡的「打开知识库」直接调用外壳的 `window.qbotTab("kb")`。点某个文件行时，先调用 `window.qbotKb.open(key)`（`key` 为公开索引里的 OSS 路径，与知识库 `files[].key` 完全一致；该函数内部会自己切 Tab 并打开详情，找不到或私密文件返回 `false`）。若 `qbotKb` 不存在，或 `open` 返回 `false`，再退化为 `qbotTab("kb")`。文件不会因此打开系统浏览器。
+主按钮：日报和接着学里的同源正文在 App 内排出来，不使用 iframe。外部 http(s) 地址不会赋给任何 iframe（包括隐藏的探测框）。空沙箱不能证明 Android 1.0.4 注入到子框架里的 Java 接口已经消失，所以这里不靠沙箱去隔离，而是根本不加载外部页面。已安装外壳若提供 `window.qbotShell`（接口在 IM 的模块里，本文件不改外壳）：打开文章调用 `qbotShell.openArticle(url)`，由它显示说明；「用浏览器打开」调用 `qbotShell.openExternal(url)`。没有这套接口时，Feed 自己写出同样的说明，按钮退化为 `window.open(url, "_blank", "noopener,noreferrer")`。不声称任意远程网页能在旧 App 里渲染。英语仍是播放/暂停。文件卡的「打开知识库」直接调用外壳的 `window.qbotTab("kb")`。点某个文件行时，先调用 `window.qbotKb.open(key)`（`key` 为公开索引里的 OSS 路径，与知识库 `files[].key` 完全一致；该函数内部会自己切 Tab 并打开详情，找不到或私密文件返回 `false`）。若 `qbotKb` 不存在，或 `open` 返回 `false`，再退化为 `qbotTab("kb")`。文件不会因此打开系统浏览器。
 
 返回键由外壳调用 `window.qbotFeed.back()`，阅读页优先：
 
@@ -296,7 +296,7 @@ QbotFeed.mount(document.getElementById("tab-feed"), { feedUrl: "out/feed.json" }
 - 切到知识库用外壳导出的 `window.qbotTab("kb")`（即 `template.html` 里的 `setTab`）。打开某个公开文件时先调用 `window.qbotKb.open(key)`（它内部会再调 `qbotTab("kb")`）；接口不存在或返回 `false` 时，退化为只切 Tab。不要用 `window.open` 打开知识库或站内文件。
 - Feed 通常在页面加载时就把模块挂到 `#tab-feed`，此时面板往往是隐藏的，高度为 0。外壳每次切 Tab 都应派发 `resize` 和 `qbot:tab`（`detail.tab` 为当前 Tab 名）。模块会监听这两件事，并用 `ResizeObserver` 在容器有高度后再对齐到当前卡。
 - 离开 feed 时停音频和视频，由 feed 在 `qbot:tab` 里自己处理。页面隐藏和 `pagehide` 也会暂停。外壳可以另外派发 `qbot:appstate`（见上），当前 `apps/qbot-app/App.tsx` 还没有派发这个事件，因此 App 进后台时是否暂停取决于 WebView 会不会让页面变成 hidden。
-- 「用浏览器打开」走 `window.open`。现有 WebView 的 `onOpenWindow` 会把它交给系统浏览器。Feed 不要求外壳新增接口，也不要外壳做跨源代理。
+- Feed 不把外部地址放进 iframe，也不要外壳做跨源代理。`qbotShell.openArticle(url)` 和 `qbotShell.openExternal(url)` 由外壳提供时才调用。没有外壳接口时，「用浏览器打开」是 `window.open(url, "_blank", "noopener,noreferrer")`。
 - 返回顺序接 `window.qbotFeed.back()`。阅读页的关闭和回到原卡都在这个函数里，外壳不用再实现。
 
 ### 定时任务和推送
