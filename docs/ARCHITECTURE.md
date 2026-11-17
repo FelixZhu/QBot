@@ -452,3 +452,16 @@ Feed 里的 `<video>` 如果布局高度小于 180 或宽度小于 160（默认 
 - 全屏依赖当前 APK 里已经打开的 `allowsFullscreenVideo`。没有为全屏发新包。
 - APK 为了下拉刷新把 WebView 放在 ScrollView 里（`nestedScrollEnabled` 已开）。这次没改原生。若某台机器上内嵌控制条仍然点不到，那才需要改外壳并提高 `versionCode`。
 - 切 Tab 时不能靠 IntersectionObserver 判断离开（隐藏用的是 `visibility` + `inert`）。外壳暂停视频听的是 `qbot:tab` 和 `visibilitychange`。
+
+## 外观
+
+手机系统是浅色、QBot 却是深色，有两条互不依赖的原因：
+
+1. **存下来的选择。** 旧的月亮按钮在知识库侧栏 `#btnTheme` 里。知识库模块加上 `kb-mode` 之后，整块 `.side` 是 `display: none`，三个 Tab 都点不到它。那个按钮只会在「当前看起来是深色」和「浅色」之间切换，并写入 `localStorage` 的 `qd2_theme`。一旦写成 `"dark"`，就盖过系统，而且没有入口改回来。默认值仍是 `"auto"`；没人点过按钮时，不会自己变成 dark。
+2. **系统同步。** `"auto"` 看的是 WebView 的 `prefers-color-scheme`，不是设置 App 里那一颗开关的原文。已安装的 1.0.4 不会把系统夜间模式另外传给网页。媒体查询在回到前台时有时不发 `change`。这次在 `change`、页面重新可见、`pageshow` 和 `focus` 时重新读一次。若 WebView 自己报错，网页无法猜到手机真实设置。
+
+外壳在底栏（宽度 &lt; 600，含 390）和左侧轨（≥ 600，含 840）放了 **外观**，三个 Tab 共用。选项是 **浅色**、**深色**、**跟随系统**。只写入 `qd2_theme`，不动其他 localStorage。已经存成 `dark` 或 `light` 的值原样保留，菜单里能看到当前项，可以改成跟随系统。不会清空、也不会强制改回 auto。
+
+显式浅色或深色始终生效。只有跟随系统才跟 `prefers-color-scheme`。`<html data-theme>` 写成决定后的 `light` 或 `dark`（现有 tokens、feed.css、网盘的 `--d-*` 不用改），`data-theme-mode` 记下选择。
+
+状态栏颜色仍由 1.0.4 外壳的 `useColorScheme()` 决定，这次没改原生，也没有在真机上核对。若状态栏和网页不一致，或跟随系统始终跟错，需要另一次外壳改动并提高 `versionCode`。

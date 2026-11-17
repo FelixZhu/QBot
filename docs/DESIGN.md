@@ -33,7 +33,7 @@ QBot 是 Qian 的私人助理：安静、可靠、先给结论。观感追求克
 
 ## 3. 设计变量
 
-源文件：`tokens.css`。用法：`<html data-theme="light|dark">`；不设时跟随系统 `prefers-color-scheme`。深色也可由 `:root[data-theme="dark"]` 强制打开。
+源文件：`tokens.css`。`<html data-theme="light|dark">` 是已经决定的外观：`light` 永远浅色，`dark` 永远深色。跟随系统时外壳把 `data-theme` 设成当时的 light 或 dark，并把选择记在 `data-theme-mode="auto"`。三个 Tab 共用底栏 / 左轨上的「外观」：浅色、深色、跟随系统。
 
 ### 3.1 颜色
 

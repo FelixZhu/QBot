@@ -11,7 +11,7 @@ written anywhere.
 
 Also builds the QBot chat tab (../chat-web, Vite) into chat/, and copies the shared
 design CSS (tokens/layout/components.css), the feed module (feed.js, feed.css,
-out/feed.json, out/media/) and shell-media.js next to index.html when present.
+out/feed.json, out/media/), shell-media.js and shell-theme.js next to index.html when present.
 
 Usage: python3 refresh_site.py [--push] [--repo DIR] [--no-chat-build]
   --push           git commit + push the repo (only if something changed)
@@ -154,7 +154,7 @@ def build_chat():
     return dist
 
 
-SHARED_FILES = ("tokens.css", "layout.css", "components.css", "feed.js", "feed.css", "shell-media.js")
+SHARED_FILES = ("tokens.css", "layout.css", "components.css", "feed.js", "feed.css", "shell-media.js", "shell-theme.js")
 
 
 def frontend_files(chat):

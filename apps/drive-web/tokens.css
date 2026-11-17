@@ -1,7 +1,10 @@
 /* QBot design tokens v0 — 2026-11-17
  * 主色来源：App 图标方案 C（奶白底 #F3EFE7 + 墨色圆角块 + 陶土色圆点 #D9774B）
  * 原则：大面积奶白 + 墨色；陶土橙只做"那个点"（选中、未读、录音、高亮），不做大面积填充。
- * 用法：<html data-theme="light|dark">；不设时跟随系统。
+ * 用法：<html data-theme="light|dark"> 是已经决定的外观。
+ * data-theme="light" 永远浅色，data-theme="dark" 永远深色。
+ * 跟随系统时外壳把 data-theme 设成当前系统的 light 或 dark，并把选择记在 data-theme-mode="auto"。
+ * 不设 data-theme 时，下面的 prefers-color-scheme 仍然生效（脚本还没跑的第一帧）。
  */
 :root{
   /* ---- 品牌原色（不直接用于组件，组件用下面的语义色） ---- */
