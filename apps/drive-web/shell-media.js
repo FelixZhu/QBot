@@ -26,6 +26,13 @@
   var LOAD_MS = 12000;
   var VIDEO_EXT = /\.(mp4|webm|m4v|ogv|mov)(?=$|[?#])/i;
   var UNSUPPORTED_EXT = /\.(m3u8|mpd|mkv)(?=$|[?#])/i;
+  /* Empty sandbox: unique opaque origin, no scripts, no same-origin access,
+     no top navigation, no popups. An external document must not run script
+     inside this WebView. Android injects ReactNativeWebView into every frame;
+     without allow-scripts the framed page cannot call it. allow-same-origin
+     is omitted so a same-site document cannot read the parent window,
+     localStorage, or remove the sandbox. */
+  var ARTICLE_SANDBOX = "";
 
   var CAPABILITIES = {
     version: 1,
@@ -216,7 +223,7 @@
         title: "文章",
         hidden: true,
         referrerpolicy: "no-referrer",
-        sandbox: "allow-scripts allow-same-origin allow-forms allow-downloads"
+        sandbox: ARTICLE_SANDBOX
       });
       video = el("video", {
         class: "qbs-ov-video",
@@ -579,6 +586,7 @@
     LOAD_MS: LOAD_MS,
     CAPABILITIES: CAPABILITIES,
     FAIL_COPY: FAIL_COPY,
+    ARTICLE_SANDBOX: ARTICLE_SANDBOX,
     classifyUrl: classifyUrl,
     isShellPage: isShellPage,
     frameVerdict: frameVerdict,

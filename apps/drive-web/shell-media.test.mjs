@@ -65,6 +65,17 @@ test("feed.js still opens articles with window.open; shell does not edit it", ()
   assert.match(feedJs, /class: "q-vframe"/);
 });
 
+test("article frame cannot inherit the app bridge or other protocols", () => {
+  assert.equal(api.ARTICLE_SANDBOX, "");
+  assert.equal(/\ballow-scripts\b/.test(api.ARTICLE_SANDBOX), false);
+  assert.equal(/\ballow-same-origin\b/.test(api.ARTICLE_SANDBOX), false);
+  assert.equal(/\ballow-top-navigation\b/.test(api.ARTICLE_SANDBOX), false);
+  assert.equal(/\ballow-popups\b/.test(api.ARTICLE_SANDBOX), false);
+  const src = readFileSync(new URL("./shell-media.js", import.meta.url), "utf8");
+  assert.match(src, /sandbox: ARTICLE_SANDBOX/);
+  assert.equal(src.includes("allow-scripts allow-same-origin"), false);
+});
+
 test("safe URL protocols", () => {
   const ok = api.classifyUrl("https://ai-daily-ej4.pages.dev/archive/2026-11-17", BASE);
   assert.equal(ok.ok, true);

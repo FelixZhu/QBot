@@ -417,7 +417,7 @@ python3 apps/drive-web/refresh_site.py --push
 | 方法 | 作用 |
 |---|---|
 | `capabilities()` | 能力说明。`requiresNewApk` 为 `false`。 |
-| `openArticle(url)` | http(s) 文章用沙箱 iframe 打开（不允许顶层跳转，避免换掉 Feed）。直接媒体文件改走播放器。 |
+| `openArticle(url)` | http(s) 文章放在空沙箱 iframe 里（不给脚本、不同源、不许顶层跳转、不许弹窗），因此打不开父页面的桥。直接媒体文件改走播放器。需要脚本的页面用浏览器按钮离开这个 WebView。 |
 | `playVideo(url)` | 带控制条的内嵌播放器，`object-fit: contain`，按视频自身宽高比。全屏走元素的 `requestFullscreen` / `webkitEnterFullscreen`（当前 APK 已开 `allowsFullscreenVideo`）。 |
 | `openExternal(url)` | 系统浏览器。见下面的「浏览器」。 |
 | `close()` / `isOpen()` | 关掉浮层。返回键先走这里。 |
