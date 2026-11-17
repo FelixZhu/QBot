@@ -1,5 +1,7 @@
 /* Knowledge-base tab. Mounts into #tab-kb when present.
-   Reads ./index.json (or window.KB_INDEX). Dispatches "kb:open" on file click. */
+   Reads ./index.json (or window.KB_INDEX). Dispatches "kb:open" on file click.
+   A failed index shows an error and a retry button; it is not an empty folder.
+   File links percent-encode each object-key segment and only allow http(s). */
 (function () {
   "use strict";
 
@@ -39,6 +41,39 @@
     return String(s == null ? "" : s)
       .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
       .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+  }
+  /* Keep '/' as the path separator. encodeURIComponent (not encodeURI) so
+     space, '#', '?', '%' and non-ASCII stay part of the object key. */
+  function encodeOssKey(key) {
+    try {
+      return String(key).split("/").map(function (seg) {
+        return encodeURIComponent(seg);
+      }).join("/");
+    } catch (e) {
+      return null;
+    }
+  }
+  /* Build a public file URL without resolving '.' / '..' in the key.
+     Reject anything that is not http(s); drop userinfo, query and hash on base
+     so they cannot swallow the key or carry a script URL. */
+  function safeFileUrl(base, key) {
+    if (base == null || key == null || key === "") return "";
+    var raw = String(base).trim();
+    if (!raw) return "";
+    var encoded = encodeOssKey(key);
+    if (encoded == null) return "";
+    var probe;
+    try {
+      var page = (typeof location !== "undefined" && location.href) ? location.href : "https://kb.invalid/";
+      probe = new URL(raw, page);
+    } catch (e) {
+      return "";
+    }
+    if (probe.protocol !== "http:" && probe.protocol !== "https:") return "";
+    var path = String(probe.pathname || "").replace(/\/+$/, "");
+    var href = probe.origin + path + "/" + encoded;
+    if (href.indexOf("http://") !== 0 && href.indexOf("https://") !== 0) return "";
+    return href;
   }
   function icon(kind) {
     return '<span class="kb-fi" data-t="' + esc(kind || "file") + '">' + (KIND_ICON[kind] || KIND_ICON.file) + "</span>";
@@ -473,7 +508,7 @@
 
   KB.prototype.detailHtml = function (f) {
     var meta = [formatDir(f.dir), human(f.size), fmtDate(f.mtime), f.doc_type].filter(Boolean).join(" · ");
-    var url = (this.data.base ? this.data.base.replace(/\/$/, "") + "/" + encodeURI(f.key) : "");
+    var url = safeFileUrl(this.data && this.data.base, f.key);
     var player = "";
     if (url && f.kind === "video") player = '<video class="kb-media" src="' + esc(url) + '" controls playsinline preload="metadata"></video>';
     else if (url && f.kind === "audio") player = '<audio class="kb-media" src="' + esc(url) + '" controls preload="metadata"></audio>';
@@ -490,11 +525,15 @@
   };
 
   var inst = null;
+  var indexLoadGen = 0;
+  var watchedEls = [];
   function pauseMedia(root) {
     Array.prototype.forEach.call(root.querySelectorAll("video,audio"), function (m) { try { m.pause(); } catch (e) {} });
   }
-  function mount(el, data) {
-    inst = new KB(el, data || { files: [] });
+  /* One set of listeners per root. Retry and a second mount must not stack them. */
+  function watch(el) {
+    if (!el || watchedEls.indexOf(el) >= 0) return;
+    watchedEls.push(el);
     /* Stop playback when the tab is switched away or the app goes to background */
     if ("IntersectionObserver" in window) {
       new IntersectionObserver(function (es) {
@@ -507,7 +546,50 @@
       var t = e.detail && e.detail.tab;
       if (t && t !== "kb") pauseMedia(el);
     });
+  }
+  function mount(el, data) {
+    var next = new KB(el, data || { files: [] });
+    inst = next;
+    watch(el);
     return inst;
+  }
+
+  function indexDataOk(data) {
+    return !!data && typeof data === "object" && Array.isArray(data.files);
+  }
+
+  function showIndexError(el) {
+    el.classList.add("kb");
+    el.classList.remove("is-detail", "is-sheet");
+    el.innerHTML =
+      '<div class="kb-index-error" role="alert">' +
+        '<p class="kb-empty">打不开索引，检查网络后重试</p>' +
+        '<button type="button" class="kb-retry" id="kb-retry">重试</button>' +
+      "</div>";
+    var btn = el.querySelector("#kb-retry");
+    if (btn) btn.addEventListener("click", function () { loadIndex(el); });
+  }
+
+  function loadIndex(el) {
+    var req = ++indexLoadGen;
+    var retryBtn = el.querySelector("#kb-retry");
+    if (retryBtn) {
+      retryBtn.disabled = true;
+      retryBtn.textContent = "正在重试…";
+    }
+    fetch(INDEX_URL, { cache: "no-store" }).then(function (r) {
+      if (!r.ok) throw new Error("index " + r.status);
+      return r.json();
+    }).then(function (data) {
+      if (!indexDataOk(data)) throw new Error("index shape");
+      return data;
+    }).then(function (data) {
+      if (req !== indexLoadGen) return;
+      mount(el, data);
+    }).catch(function () {
+      if (req !== indexLoadGen) return;
+      showIndexError(el);
+    });
   }
 
   function boot() {
@@ -515,14 +597,7 @@
     if (!el || el.getAttribute("data-kb-ready")) return;
     el.setAttribute("data-kb-ready", "1");
     if (window.KB_INDEX) { mount(el, window.KB_INDEX); return; }
-    fetch(INDEX_URL, { cache: "no-store" }).then(function (r) {
-      if (!r.ok) throw new Error("index " + r.status);
-      return r.json();
-    }).then(function (data) { mount(el, data); }).catch(function () {
-      mount(el, { files: [] });
-      var main = el.querySelector("#kb-main-scroll");
-      if (main) main.innerHTML = '<div class="kb-empty">打不开索引，检查网络后重试</div>';
-    });
+    loadIndex(el);
   }
 
   window.KB = { mount: mount, boot: boot };
