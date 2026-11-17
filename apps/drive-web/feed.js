@@ -1017,6 +1017,13 @@
     if (root) root.classList.remove("is-sheet");
   }
 
+  /* Idempotent. This feed build has no private article page. PR4's feed does;
+     the integration copy exports the same name via feed-close-detail.mjs and
+     must not call the shell. */
+  function closeDetail() {
+    return false;
+  }
+
   function back() {
     var root = $(".feed-root");
     if (root && root.classList.contains("is-sheet")) { closeSheet(); return true; }
@@ -1046,6 +1053,6 @@
     state.visible = [];
   }
 
-  global.QbotFeed = { mount: mount, unmount: unmount, back: back };
+  global.QbotFeed = { mount: mount, unmount: unmount, back: back, closeDetail: closeDetail };
   global.qbotFeed = global.QbotFeed;
 })(window);

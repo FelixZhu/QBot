@@ -261,7 +261,10 @@
         var b = e.target.closest ? e.target.closest("[data-act]") : null;
         if (!b) return;
         var act = b.getAttribute("data-act");
-        if (act === "back") apiClose();
+        if (act === "back") {
+          if (typeof win.qbotBack === "function") win.qbotBack();
+          else apiClose();
+        }
         else if (act === "external" || act === "external-fail") openExternal(currentUrl);
         else if (act === "full") requestFull();
       });
@@ -308,9 +311,14 @@
 
     function setOpen(on) {
       ensure();
+      var was = open;
       open = on;
       overlay.hidden = !on;
-      if (on) {
+      if (on && !was) {
+        try {
+          var tab = typeof win.qbotCurrentTab === "function" ? win.qbotCurrentTab() : "";
+          win.history.pushState({ qbot: "overlay", tab: tab }, "", win.location.pathname + win.location.search + win.location.hash);
+        } catch (e) {}
         var back = overlay.querySelector("[data-act=back]");
         if (back && back.focus) back.focus();
       }

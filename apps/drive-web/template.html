@@ -722,7 +722,18 @@ window.qbotDriveOpen=function(key){if(byKey[key])openItem(key)};
 window.addEventListener("hashchange",function(){var id=fromHash();if(id&&id!==S.active)openItem(id,{noHash:true})});
 window.addEventListener("popstate",function(){
   if(ignorePop){ignorePop--;return}
-  qbotBack({fromPop:true});
+  if(window.__qbotIgnorePop){
+    window.__qbotIgnorePop--;
+    if(window.__qbotHistSync){
+      var sync=window.__qbotHistSync;
+      window.__qbotHistSync="";
+      try{history.replaceState({qbot:"tab",tab:sync},"",location.pathname+location.search+location.hash)}catch(e){}
+    }
+    return;
+  }
+  /* Call the shell wrapper installed later, not this drive-only function. */
+  var fn=window.qbotBack||qbotBack;
+  fn({fromPop:true});
 });
 function toast(t){var e=$("toast");e.textContent=t;e.classList.add("show");clearTimeout(toast.t);toast.t=setTimeout(function(){e.classList.remove("show")},1600)}
 function copy(t,msg){(navigator.clipboard&&window.isSecureContext?navigator.clipboard.writeText(t):Promise.reject()).then(function(){toast(msg||"已复制")}).catch(function(){var a=document.createElement("textarea");a.value=t;a.style.position="fixed";a.style.opacity="0";document.body.appendChild(a);a.select();try{document.execCommand("copy");toast(msg||"已复制")}catch(e){prompt("复制链接",t)}a.remove()})}
@@ -784,12 +795,31 @@ armAway();
     p.hidden=!on;
     if(on)p.removeAttribute("inert");else p.setAttribute("inert","");
   }
-  function setTab(t){
+  var skipFeedHome=false;
+  function histUrl(){return location.pathname+location.search+location.hash}
+  function pushHist(state){try{history.pushState(state,"",histUrl())}catch(e){}}
+  function setTab(t,opts){
+    opts=opts||{};
     if(TABS.indexOf(t)<0||t===cur)return;
+    if(!opts.fromHistory&&window.qbotShell&&qbotShell.isOpen&&qbotShell.isOpen()){
+      closeShellOverlay();
+      skipFeedHome=false;
+      if(history.state&&history.state.qbot==="overlay"){
+        try{history.replaceState({qbot:"tab",tab:t},"",histUrl())}catch(e){}
+      }
+    }
     cur=t;
     TABS.forEach(function(n){syncPanel(n,n===t)});
     document.querySelectorAll(".qbs-item").forEach(function(b){if(b.dataset.qbsTab===t)b.setAttribute("aria-current","page");else b.removeAttribute("aria-current")});
     try{sessionStorage.setItem("qbs_tab",t)}catch(e){}
+    if(!opts.fromHistory){
+      var st=history.state;
+      if(t==="chat"&&st&&st.qbot==="tab"&&st.tab&&st.tab!=="chat"){
+        try{history.replaceState({qbot:"tab",tab:"chat"},"",histUrl())}catch(e){}
+      }else if(t!=="chat"&&(!st||st.qbot!=="tab"||st.tab!==t)){
+        pushHist({qbot:"tab",tab:t});
+      }
+    }
     /* Every tab: feed (and kb) mount while hidden, so they need a resize once the panel has a definite height. */
     window.dispatchEvent(new Event("resize"));
     window.dispatchEvent(new CustomEvent("qbot:tab",{detail:{tab:t}}));
@@ -819,18 +849,20 @@ armAway();
   if(qbsHost&&window.MutationObserver)new MutationObserver(markScrollers).observe(qbsHost,{childList:true,subtree:true});
   markScrollers();
   function restoreShellHistory(){
-    try{history.pushState({qbot:"shell"},"",location.pathname+location.search+location.hash)}catch(e){}
+    try{history.pushState({qbot:"tab",tab:cur},"",histUrl())}catch(e){}
   }
   /* Close the article overlay without using qbotFeed.back(). That method also
      scrolls to the first card when no detail is open, so one back would both
      close the overlay and change cards. closeDetail(), when Feed provides it,
-     clears only the open page and restores that card's index and scroll. */
+     clears only the open page and restores that card's index and scroll.
+     It must not call back into the shell. The next back returns to 对话. */
   function closeShellOverlay(){
     var feed=window.qbotFeed, shell=window.qbotShell;
     if(feed&&typeof feed.closeDetail==="function"){
       try{feed.closeDetail()}catch(e){}
     }
     if(shell&&typeof shell.isOpen==="function"&&shell.isOpen())shell.close();
+    skipFeedHome=true;
     return true;
   }
   window.qbotBack=function(opts){
@@ -840,10 +872,14 @@ armAway();
       if(opts.fromPop)restoreShellHistory();
       return true;
     }
-    /* Article / video overlay sits above the feed. Closing it must not move the card. */
+    /* Article / video overlay sits above the feed. Closing it must not move the card.
+       A real history entry was pushed when it opened. Pop that entry instead of
+       pushing a replacement, or the browser back button and the shell disagree. */
     if(window.qbotShell&&qbotShell.isOpen()){
+      if(!opts.fromPop&&history.state&&history.state.qbot==="overlay"){
+        try{history.back();return true}catch(e){}
+      }
       closeShellOverlay();
-      if(opts.fromPop)restoreShellHistory();
       return true;
     }
     var handled=false;
@@ -864,8 +900,19 @@ armAway();
     }else if(cur==="chat"){
       handled=!!(window.qbotChat&&window.qbotChat.back());
     }else if(cur==="feed"){
-      /* true = feed handled (sheet or not first card); false = already on first card, go to 对话 */
-      if(window.qbotFeed&&typeof window.qbotFeed.back==="function"&&window.qbotFeed.back())handled=true;
+      var feedRoot=document.querySelector("#panel-feed .feed-root");
+      var layered=feedRoot&&(feedRoot.classList.contains("is-sheet")||feedRoot.classList.contains("is-menu")||feedRoot.classList.contains("is-detail"));
+      if(layered&&window.qbotFeed&&typeof window.qbotFeed.back==="function"&&window.qbotFeed.back())handled=true;
+      else if(skipFeedHome){
+        /* The article already consumed one back. This one returns to 对话.
+           Do not call qbotFeed.back(): that would spend the press on the first card. */
+        if(!opts.fromPop&&history.state&&history.state.qbot==="tab"&&history.state.tab===cur){
+          try{history.back();return true}catch(e){}
+        }
+        skipFeedHome=false;
+        setTab("chat",{fromHistory:true});
+        handled=true;
+      }else if(window.qbotFeed&&typeof window.qbotFeed.back==="function"&&window.qbotFeed.back())handled=true;
       else{setTab("chat");handled=true}
     }else{
       setTab("chat");handled=true;
