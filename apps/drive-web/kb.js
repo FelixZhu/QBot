@@ -467,6 +467,11 @@
       }).observe(el);
     }
     document.addEventListener("visibilitychange", function () { if (document.hidden) pauseMedia(el); });
+    /* Shell hides tabs with visibility+inert, which IntersectionObserver can't see */
+    window.addEventListener("qbot:tab", function (e) {
+      var t = e.detail && e.detail.tab;
+      if (t && t !== "kb") pauseMedia(el);
+    });
     return inst;
   }
 
