@@ -8,8 +8,13 @@ GitHub Pages repo dir (default /workspace/qian-drive-repo). Writes nothing to
 OSS. Credentials come from OSS_ACCESS_KEY_ID / OSS_ACCESS_KEY_SECRET and are
 never printed or written anywhere.
 
-Usage: python3 refresh_site.py [--push] [--repo DIR]
-  --push   git commit + push the repo (only if something changed)
+Also builds the QBot chat tab (../chat-web, Vite) and copies its bundle to chat/,
+plus the shared design CSS (tokens.css, components.css) next to index.html.
+
+Usage: python3 refresh_site.py [--push] [--repo DIR] [--no-chat-build]
+  --push           git commit + push the repo (only if something changed)
+  --repo DIR       write the site somewhere else (e.g. a local preview dir)
+  --no-chat-build  reuse the existing ../chat-web/dist instead of running npm run build
 """
 import hashlib, json, os, shutil, subprocess, sys, time, mimetypes
 import oss2
@@ -65,18 +70,51 @@ def check_cors(files, origin="https://felixzhu.github.io"):
     return acao in ("*", origin)
 
 
+def build_chat():
+    """Build ../chat-web and return its dist dir, or None if the app is absent."""
+    app = os.path.join(os.path.dirname(HERE), "chat-web")
+    if not os.path.isfile(os.path.join(app, "package.json")):
+        return None
+    if "--no-chat-build" not in sys.argv:
+        if not os.path.isdir(os.path.join(app, "node_modules")):
+            subprocess.run(["npm", "ci"], cwd=app, check=True)
+        subprocess.run(["npm", "run", "build"], cwd=app, check=True, stdout=subprocess.DEVNULL)
+    dist = os.path.join(app, "dist")
+    if not os.path.isfile(os.path.join(dist, "chat.js")):
+        sys.exit("chat-web build output missing: %s/chat.js" % dist)
+    return dist
+
+
+SHARED_CSS = ("tokens.css", "components.css")
+
+
+def copy_frontend(dest, chat):
+    """Shared design CSS + chat bundle into the site dir (kept separate from the write loop)."""
+    for name in SHARED_CSS:
+        if os.path.isfile(os.path.join(HERE, name)):
+            shutil.copy2(os.path.join(HERE, name), os.path.join(dest, name))
+    if chat:
+        shutil.rmtree(os.path.join(dest, "chat"), ignore_errors=True)
+        shutil.copytree(chat, os.path.join(dest, "chat"))
+
+
 def git(repo, *args):
     return subprocess.run(["git", *GIT_ID, *args], cwd=repo, check=True, capture_output=True, text=True).stdout
 
 
 def main():
     repo = sys.argv[sys.argv.index("--repo") + 1] if "--repo" in sys.argv else "/workspace/qian-drive-repo"
+    chat = build_chat()
     m, skipped = build_manifest(bucket())
     m["cors"] = check_cors(m["files"])
     mjson = json.dumps(m, ensure_ascii=False, separators=(",", ":"))
     tpl = open(os.path.join(HERE, "template.html"), encoding="utf-8").read()
     html = tpl.replace("__MANIFEST__", mjson.replace("</", r"<\/")).replace("__BASE__", BASE)
-    ver = hashlib.sha1(html.encode("utf-8")).hexdigest()[:12]
+    h = hashlib.sha1(html.encode("utf-8"))
+    for f in [os.path.join(HERE, n) for n in SHARED_CSS] + ([os.path.join(chat, n) for n in sorted(os.listdir(chat))] if chat else []):
+        if os.path.isfile(f):  # page version must change when only CSS or the chat bundle changes
+            h.update(open(f, "rb").read())
+    ver = h.hexdigest()[:12]
     html = html.replace("__VERSION__", ver)
     vjson = json.dumps({"version": ver, "generated": m["generated"]}, separators=(",", ":"))
     for d in (repo, os.path.join(HERE, "dist")):
@@ -85,6 +123,7 @@ def main():
         open(os.path.join(d, "manifest.json"), "w", encoding="utf-8").write(mjson)
         open(os.path.join(d, "version.json"), "w", encoding="utf-8").write(vjson)
         shutil.copytree(os.path.join(HERE, "assets"), d, dirs_exist_ok=True)
+        copy_frontend(d, chat)
         open(os.path.join(d, ".nojekyll"), "a").close()
     print("page version: %s" % ver)
 

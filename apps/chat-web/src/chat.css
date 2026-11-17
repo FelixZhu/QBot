@@ -1,0 +1,123 @@
+/* QBot chat tab — follows /workspace/qbot-design (BRAND.md §8.3, tokens.css, components.css).
+ * Token variables (--bg, --surface, --text-1 …) come from the shared apps/drive-web/tokens.css,
+ * which the page loads globally; nothing is duplicated here.
+ * All classes are prefixed qc- so nothing collides with the drive page's CSS. */
+#chat-root{height:100%;font-family:var(--font);color:var(--text-1);font-size:15px;line-height:24px}
+#chat-root *,#chat-root *::before,#chat-root *::after{box-sizing:border-box}
+:where(#chat-root) button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
+#chat-root :focus-visible{outline:none;box-shadow:0 0 0 3px rgba(217,119,75,.35);border-radius:10px}
+
+.qc{height:100%;display:grid;grid-template-columns:minmax(0,1fr);position:relative;background:var(--surface)}
+.qc-main{min-width:0;min-height:0;display:flex;flex-direction:column;position:relative;background:var(--surface)}
+
+/* conversation list: drawer when folded, column when unfolded */
+.qc-pane{position:fixed;inset:0 auto 0 0;z-index:50;width:min(86vw,320px);background:var(--bg);border-right:1px solid var(--line);
+  transform:translateX(-102%);transition:transform 280ms var(--ease);padding-top:env(safe-area-inset-top);overflow-y:auto}
+.qc.is-drawer .qc-pane{transform:none;box-shadow:0 18px 48px rgba(28,27,25,.16)}
+.qc-scrim{position:fixed;inset:0;z-index:40;background:var(--scrim);opacity:0;pointer-events:none;transition:opacity 280ms var(--ease)}
+.qc.is-drawer .qc-scrim{opacity:1;pointer-events:auto}
+.qc-list-head{display:flex;align-items:center;height:52px;padding:0 8px 0 20px}
+.qc-list-head .title{flex:1;font-size:17px;font-weight:700}
+.qc-conv{display:flex;align-items:center;gap:12px;width:calc(100% - 16px);margin:0 8px 2px;min-height:64px;padding:8px 12px;border-radius:10px;text-align:left}
+.qc-conv.on{background:var(--fill)}
+.qc-conv:active{background:var(--fill)}
+.qc-conv .av{width:36px;height:36px;border-radius:12px;flex:none;display:grid;place-items:center;background:var(--surface-raised);border:1px solid var(--line);font-weight:700;color:var(--text-2)}
+.qc-conv .av svg{width:26px;height:26px}
+.qc-conv .t{flex:1;min-width:0;display:flex;flex-direction:column}
+.qc-conv .n{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.qc-conv .m{font-size:13px;line-height:20px;color:var(--text-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.qc-conv .tm{font-size:12px;color:var(--text-3);align-self:flex-start;margin-top:4px}
+
+/* top bar: one row, 52px */
+.qc-topbar{flex:none;display:flex;align-items:center;gap:4px;min-height:calc(52px + env(safe-area-inset-top));padding:env(safe-area-inset-top) 4px 0;
+  background:var(--surface);border-bottom:1px solid transparent;transition:border-color 200ms}
+.qc-topbar.is-scrolled{border-bottom-color:var(--line)}
+.qc-topbar .title{flex:1;min-width:0;padding:0 8px;font-size:17px;line-height:24px;font-weight:700}
+.qc-iconbtn{width:44px;height:44px;display:inline-grid;place-items:center;border-radius:10px;color:var(--text-2);flex:none}
+.qc-iconbtn:active{background:var(--fill)}
+@media (hover:hover){.qc-iconbtn:hover{background:var(--fill-hover);color:var(--text-1)}}
+
+/* thread */
+.qc-thread{flex:1;min-height:0;display:flex;flex-direction:column}
+.qc-viewport{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+.qc-msgs{max-width:640px;margin:0 auto;padding:4px 16px 16px;display:flex;flex-direction:column}
+.qc-day{align-self:center;font-size:12px;line-height:18px;color:var(--text-3);margin:12px 0 16px}
+.qc-row{display:flex;flex-direction:column}
+.qc-row.me{align-items:flex-end}
+.qc-bubble{max-width:78%;padding:8px 14px;border-radius:20px 20px 6px 20px;background:var(--btn-primary-bg);color:var(--btn-primary-fg);word-break:break-word;white-space:pre-wrap}
+.qc-bubble p{margin:0}
+.qc-row.queued .qc-bubble{opacity:.6}
+.qc-bot{display:flex;gap:10px;max-width:100%;align-self:stretch}
+.qc-bot .av{width:24px;height:24px;flex:none;margin-top:1px}
+.qc-bot .body{flex:1;min-width:0}
+.qc-ts{font-size:12px;line-height:18px;color:var(--text-3);margin:4px 4px 16px 34px}
+.qc-ts.r{margin:4px 4px 16px 0}
+.qc-row.me .qc-ts{margin-left:0}
+
+/* markdown in replies (no bubble; reading layout) */
+.qc-md{font-size:15px;line-height:26px;color:var(--text-1);word-break:break-word}
+.qc-md>:first-child{margin-top:0}.qc-md>:last-child{margin-bottom:0}
+.qc-md p,.qc-md ul,.qc-md ol,.qc-md table,.qc-md blockquote,.qc-md pre{margin:0 0 10px}
+.qc-md ul,.qc-md ol{padding-left:1.4em}
+.qc-md li{margin:2px 0}
+.qc-md strong{font-weight:700}
+.qc-md a{color:var(--accent-ink);text-decoration:underline;text-decoration-color:var(--accent-soft);text-underline-offset:3px}
+.qc-md code{font-family:var(--font-mono);font-size:.88em;background:var(--fill);padding:1px 5px;border-radius:6px}
+.qc-md pre{background:var(--surface-raised);border:1px solid var(--line);padding:12px 14px;border-radius:10px;overflow:auto;font-size:13px;line-height:1.6}
+.qc-md pre code{background:none;padding:0}
+.qc-md blockquote{padding:2px 14px;border-left:3px solid var(--accent);color:var(--text-2)}
+.qc-md table{border-collapse:collapse;display:block;overflow-x:auto;font-size:14px}
+.qc-md th,.qc-md td{border-bottom:1px solid var(--line);padding:6px 12px 6px 0;text-align:left;white-space:nowrap}
+.qc-md th{color:var(--text-3);font-weight:700;font-size:13px}
+
+/* QBot is thinking: ink block + terracotta dot, slow 2.4s breathing */
+.qc-thinking{display:flex;align-items:center;gap:12px;padding:2px 0 4px}
+.qc-thinking .mark{display:flex;align-items:flex-end;gap:3px;height:18px}
+.qc-thinking .mark b{width:14px;height:16px;border-radius:5px;background:var(--text-1);animation:qc-breathe 2.4s var(--ease) infinite}
+.qc-thinking .mark i{width:6px;height:6px;border-radius:50%;background:var(--accent);animation:qc-breathe 2.4s var(--ease) .3s infinite}
+.qc-thinking .t{font-size:13px;line-height:20px;color:var(--text-3);display:flex;flex-direction:column}
+.qc-thinking .long{font-size:12px;line-height:18px}
+@keyframes qc-breathe{50%{opacity:.35;transform:scale(.92)}}
+@media (prefers-reduced-motion:reduce){.qc-thinking .mark b,.qc-thinking .mark i,.qc-recbar .wave i{animation:none}}
+
+/* composer — voice first */
+.qc-composer{flex:none;background:var(--surface);border-top:1px solid var(--line);padding:8px 16px 12px}
+.qc-composer>*{max-width:640px;margin-left:auto;margin-right:auto}
+.qc-voice-row{display:flex;align-items:center;justify-content:space-between}
+.qc-side{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;color:var(--text-2);background:var(--fill);flex:none}
+.qc-mic-wrap{display:flex;flex-direction:column;align-items:center}
+.qc-mic{width:64px;height:64px;border-radius:50%;display:grid;place-items:center;background:var(--btn-primary-bg);color:var(--btn-primary-fg);
+  box-shadow:0 6px 20px rgba(28,27,25,.08);touch-action:none;transition:transform 120ms var(--ease),background 200ms}
+.qc-mic:active{transform:scale(.96)}
+.qc-mic.rec{background:var(--accent);color:#fff;box-shadow:0 0 0 8px var(--accent-soft),0 0 0 16px rgba(217,119,75,.06)}
+.qc-mic-hint{font-size:12px;line-height:18px;color:var(--text-3);margin-top:4px}
+.qc-recbar{display:flex;align-items:center;gap:12px;min-height:44px;padding:0 16px;margin-bottom:8px;border-radius:22px;background:var(--accent-soft);color:var(--accent-ink);font-size:13px}
+.qc-recbar.cancel{background:var(--fill);color:var(--text-2)}
+.qc-recbar .wave{display:flex;align-items:center;gap:3px;flex:1;height:20px}
+.qc-recbar .wave i{width:3px;height:6px;border-radius:2px;background:var(--accent);animation:qc-wave .9s ease-in-out infinite}
+@keyframes qc-wave{50%{height:18px}}
+.qc-recbar .tm{font-family:var(--font-mono)}
+.qc-composer.kb{display:flex;align-items:flex-end;gap:8px}
+.qc-composer.kb>*{margin:0}
+.qc-field{flex:1;min-height:44px;max-height:140px;resize:none;padding:10px 16px;border-radius:22px;border:1px solid var(--line);background:var(--surface-raised);
+  font:inherit;font-size:15px;line-height:22px;color:var(--text-1);outline:none}
+.qc-field:focus{border-color:var(--line-strong)}
+.qc-field::placeholder{color:var(--text-3)}
+.qc-send{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;flex:none;background:var(--btn-primary-bg);color:var(--btn-primary-fg)}
+.qc-send:disabled{opacity:.3}
+
+.qc-toast{position:absolute;left:50%;bottom:132px;transform:translateX(-50%);z-index:30;display:inline-flex;align-items:center;min-height:40px;padding:8px 16px;
+  border-radius:999px;background:var(--btn-primary-bg);color:var(--btn-primary-fg);font-size:13px;white-space:nowrap;box-shadow:0 6px 20px rgba(28,27,25,.08)}
+
+/* unfolded (≥600): list column + chat */
+@media (min-width:600px){
+  .qc{grid-template-columns:300px minmax(0,1fr)}
+  .qc-pane{position:static;transform:none;width:auto;box-shadow:none;z-index:auto}
+  .qc-scrim{display:none}
+  .only-folded{display:none!important}
+  .qc-topbar{padding-left:16px}
+}
+@media (min-width:600px) and (max-width:719px){.qc{grid-template-columns:240px minmax(0,1fr)}}
+@media (min-width:1024px){.qc{grid-template-columns:320px minmax(0,1fr)}}
+/* while thinking, the breathing mark stands in for the avatar */
+.qc-bot:has(.qc-thinking) .av{visibility:hidden}

@@ -1,0 +1,129 @@
+/* QBot design tokens v0 — 2026-11-17
+ * 主色来源：App 图标方案 C（奶白底 #F3EFE7 + 墨色圆角块 + 陶土色圆点 #D9774B）
+ * 原则：大面积奶白 + 墨色；陶土橙只做"那个点"（选中、未读、录音、高亮），不做大面积填充。
+ * 用法：<html data-theme="light|dark">；不设时跟随系统。
+ */
+:root{
+  /* ---- 品牌原色（不直接用于组件，组件用下面的语义色） ---- */
+  --brand-cream:#F3EFE7;
+  --brand-ink:#1C1B19;
+  --brand-terracotta:#D9774B;
+
+  /* ---- 表面 ---- */
+  --bg:#F3EFE7;            /* App 底色、侧栏、状态栏、启动页 */
+  --surface:#FAF8F3;       /* 内容区、阅读区 */
+  --surface-raised:#FFFEFB;/* 卡片、弹层、输入框 */
+  --fill:#ECE7DD;          /* 选中行、标签底、按下态 */
+  --fill-hover:rgba(28,27,25,.05);
+  --scrim:rgba(28,27,25,.32);
+
+  /* ---- 文字（对比度均在 --surface #FAF8F3 上测得） ---- */
+  --text-1:#1C1B19;        /* 16.2:1 正文、标题 */
+  --text-2:#5C574E;        /*  6.8:1 次要正文、图标 */
+  --text-3:#736D62;        /*  4.8:1 元信息、时间（最小 12px） */
+  --text-on-ink:#F3EFE7;   /* 墨色按钮/用户气泡上的字 15.0:1 */
+
+  /* ---- 强调 ---- */
+  --accent:#D9774B;        /* 陶土橙：圆点、选中指示条、录音、图形；不承载小字（2.96:1） */
+  --accent-ink:#A94E27;    /* 陶土橙文字/链接/高亮字 5.2:1；白字在其上 5.5:1 */
+  --accent-soft:rgba(217,119,75,.12); /* 搜索高亮底、选中弱底 */
+  --focus-ring:0 0 0 3px rgba(217,119,75,.35);
+
+  /* ---- 主按钮：墨色块（呼应图标的黑色圆角块） ---- */
+  --btn-primary-bg:#1C1B19;
+  --btn-primary-fg:#F3EFE7;
+
+  /* ---- 线 ---- */
+  --line:#E3DDD1;
+  --line-strong:#D2CABB;
+
+  /* ---- 状态色（低饱和，只用于小面积） ---- */
+  --success:#3E7B57;
+  --warning:#8F5B0E;  /* 5.3:1 */
+  --danger:#B3402E;
+  --info:#4A6886;
+
+  /* ---- 文件类型色（只用在类型角标/图标描边，不做大块） ---- */
+  --ft-folder:#5C574E;
+  --ft-pdf:#B3402E;
+  --ft-doc:#4A6886;
+  --ft-md:#1C1B19;
+  --ft-image:#3E7B57;
+  --ft-video:#6E5A8A;
+  --ft-audio:#8F5B0E;
+  --ft-code:#5B6470;
+  --ft-sheet:#3E7B57;
+  --ft-other:#8A8478;
+
+  /* ---- 字体 ---- */
+  --font:"Microsoft YaHei","微软雅黑","PingFang SC","Noto Sans SC","HarmonyOS Sans SC",system-ui,sans-serif;
+  --font-mono:ui-monospace,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;
+  --fw-regular:400;
+  --fw-bold:700;   /* 雅黑只有常规和粗体，不要用 500/600 期待中间字重 */
+
+  /* ---- 字号 / 行高（中文正文行高 1.6–1.75） ---- */
+  --fs-caption:12px; --lh-caption:18px;  /* 时间、角标 */
+  --fs-meta:13px;    --lh-meta:20px;     /* 路径、大小、按钮小字 */
+  --fs-body:15px;    --lh-body:24px;     /* 列表、气泡、正文（手机） */
+  --fs-read:16px;    --lh-read:28px;     /* 文档阅读 */
+  --fs-title-s:17px; --lh-title-s:24px;  /* 卡片标题、顶栏标题 */
+  --fs-title:20px;   --lh-title:28px;    /* 页面标题 */
+  --fs-display:26px; --lh-display:34px;  /* 文档 H1、空状态大标题 */
+
+  /* ---- 间距（4 的倍数） ---- */
+  --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:16px; --sp-5:20px; --sp-6:24px; --sp-8:32px; --sp-10:40px; --sp-12:48px;
+
+  /* ---- 圆角 ---- */
+  --r-xs:6px;    /* 角标、kbd */
+  --r-sm:10px;   /* 行、输入框、按钮 */
+  --r-md:14px;   /* 卡片 */
+  --r-lg:20px;   /* 底部弹层、气泡 */
+  --r-pill:999px;/* 标签、语音按钮 */
+
+  /* ---- 阴影：克制，只给浮层 ---- */
+  --shadow-1:0 1px 2px rgba(28,27,25,.06);
+  --shadow-2:0 6px 20px rgba(28,27,25,.08);
+  --shadow-3:0 18px 48px rgba(28,27,25,.16);
+
+  /* ---- 尺寸 ---- */
+  --touch:44px;        /* 最小触控 */
+  --row-h:48px;        /* 列表行 */
+  --topbar-h:52px;
+  --tabbar-h:56px;
+  --rail-w:72px;
+  --pane-w:300px;      /* 展开态中栏 */
+  --read-max:720px;    /* 阅读最大宽度 */
+
+  /* ---- 动效 ---- */
+  --ease:cubic-bezier(.2,.8,.2,1);
+  --dur-1:120ms;  /* 按下、hover */
+  --dur-2:200ms;  /* 展开/收起、切换 */
+  --dur-3:280ms;  /* 抽屉、底部弹层 */
+
+  color-scheme:light;
+}
+
+/* ---- 深色：墨色做底，奶白做字，陶土橙稍提亮 ---- */
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#171614; --surface:#1F1D1A; --surface-raised:#262420; --fill:#2E2B27;
+    --fill-hover:rgba(243,239,231,.06); --scrim:rgba(0,0,0,.5);
+    --text-1:#EDE8DF; --text-2:#ABA498; --text-3:#9A9386; --text-on-ink:#171614;
+    --accent:#E58A5E; --accent-ink:#E58A5E; --accent-soft:rgba(229,138,94,.16);
+    --btn-primary-bg:#EDE8DF; --btn-primary-fg:#171614;
+    --line:#34312C; --line-strong:#45413A;
+    --shadow-1:0 1px 2px rgba(0,0,0,.3); --shadow-2:0 6px 20px rgba(0,0,0,.35); --shadow-3:0 18px 48px rgba(0,0,0,.5);
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#171614; --surface:#1F1D1A; --surface-raised:#262420; --fill:#2E2B27;
+  --fill-hover:rgba(243,239,231,.06); --scrim:rgba(0,0,0,.5);
+  --text-1:#EDE8DF; --text-2:#ABA498; --text-3:#9A9386; --text-on-ink:#171614;
+  --accent:#E58A5E; --accent-ink:#E58A5E; --accent-soft:rgba(229,138,94,.16);
+  --btn-primary-bg:#EDE8DF; --btn-primary-fg:#171614;
+  --line:#34312C; --line-strong:#45413A;
+  --shadow-1:0 1px 2px rgba(0,0,0,.3); --shadow-2:0 6px 20px rgba(0,0,0,.35); --shadow-3:0 18px 48px rgba(0,0,0,.5);
+  color-scheme:dark;
+}
+@media (prefers-reduced-motion:reduce){:root{--dur-1:0ms;--dur-2:0ms;--dur-3:0ms}}
