@@ -1,0 +1,107 @@
+{
+  "generated_at": "2026-01-09T08:00:00+08:00",
+  "counts": { "digest": 1, "english": 1, "study": 2, "file": 1 },
+  "notes": [
+    "Public synthetic fixture for the feed UI. It is not a published feed.",
+    "The real study lesson video is not in this repository and is not referenced here."
+  ],
+  "cards": [
+    {
+      "id": "digest-sample",
+      "bot": "Info Bot",
+      "type": "digest",
+      "time": "2026-01-05T08:24:00+08:00",
+      "title": "示例日报",
+      "summary": "",
+      "media": { "kind": "none" },
+      "open_url": "page.html",
+      "private": false,
+      "data": {
+        "date": "2026-01-05",
+        "highlights": [
+          { "title": "第一条公开示例", "category": "sample" },
+          { "title": "第二条公开示例", "category": "sample" }
+        ]
+      }
+    },
+    {
+      "id": "english-sample",
+      "bot": "English Bot",
+      "type": "english",
+      "time": "2026-01-06T07:57:00+08:00",
+      "title": "a public example",
+      "summary": "",
+      "media": { "kind": "audio", "url": "synthetic-tone.wav" },
+      "open_url": "",
+      "private": false,
+      "data": {
+        "date": "2026-01-06",
+        "expression": "a public example",
+        "meaning": "一条合成例句",
+        "example": "This sentence is synthetic.",
+        "example_zh": "这句话是合成的。"
+      }
+    },
+    {
+      "id": "study-sample",
+      "bot": "Study Bot",
+      "type": "study",
+      "time": "2026-01-07T10:49:00+08:00",
+      "title": "示例课程 第 3 天",
+      "summary": "",
+      "media": { "kind": "video", "url": "synthetic-lesson.mp4", "width": 320, "height": 180 },
+      "open_url": "page.html",
+      "private": false,
+      "data": { "course": "示例课程", "day": 3, "total": 30, "brief": "讲义已就绪", "has_video": true }
+    },
+    {
+      "id": "study-omitted",
+      "bot": "Study Bot",
+      "type": "study",
+      "time": "2026-01-08T11:00:00+08:00",
+      "title": "示例课程 第 4 天",
+      "summary": "",
+      "media": { "kind": "video" },
+      "open_url": "",
+      "private": false,
+      "data": {
+        "course": "示例课程",
+        "day": 4,
+        "total": 30,
+        "brief": "讲解视频没有放进这条卡片。",
+        "has_video": true
+      }
+    },
+    {
+      "id": "study-missing",
+      "bot": "Study Bot",
+      "type": "study",
+      "time": "2026-01-08T12:00:00+08:00",
+      "title": "示例课程 第 5 天",
+      "summary": "",
+      "media": { "kind": "video", "url": "missing-lesson.mp4", "width": 320, "height": 180 },
+      "open_url": "",
+      "private": false,
+      "data": { "course": "示例课程", "day": 5, "total": 30, "brief": "地址存在但文件不在。", "has_video": true }
+    },
+    {
+      "id": "file-new-batch",
+      "bot": "QBot",
+      "type": "file",
+      "time": "2026-01-09T04:42:00+08:00",
+      "title": "2 个示例文件",
+      "summary": "",
+      "media": { "kind": "none" },
+      "open_url": "",
+      "private": false,
+      "data": {
+        "subtype": "new-batch",
+        "count": 2,
+        "files": [
+          { "name": "示例笔记.md", "dir": "示例目录", "key": "samples/note.md", "kind": "md", "time": "2026-01-09T04:42:00+08:00" },
+          { "name": "示例图片.png", "dir": "示例目录", "key": "samples/picture.png", "kind": "image", "time": "2026-01-08T04:00:00+08:00" }
+        ]
+      }
+    }
+  ]
+}

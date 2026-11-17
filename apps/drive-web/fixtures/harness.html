@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Feed harness</title>
+<link rel="stylesheet" href="../tokens.css">
+<link rel="stylesheet" href="../layout.css">
+<link rel="stylesheet" href="../components.css">
+<link rel="stylesheet" href="../feed.css">
+<style>
+  html, body { height: 100%; margin: 0; }
+  #tab-feed { height: 100%; }
+</style>
+</head>
+<body>
+<div id="tab-feed"></div>
+<script src="../feed.js"></script>
+<script>
+  QbotFeed.mount(document.getElementById("tab-feed"), { feedUrl: "feed.json" });
+</script>
+</body>
+</html>
