@@ -47,7 +47,17 @@
 .feed-root .av-info{background:var(--brand-ink);color:var(--brand-cream)}
 .feed-root .av-en{background:#3E7B57;color:var(--brand-cream)}
 .feed-root .av-st{background:#4A6886;color:var(--brand-cream)}
-.feed-root .av-file{background:var(--accent-ink);color:var(--brand-cream)}
+.feed-root .q-who .q-av.av-file,
+.feed-list .q-av.av-file,
+.feed-root .file-row .q-av.av-file{
+  background:var(--fill);color:var(--text-2);
+}
+.feed-root .q-who .av-file .q-fi,
+.feed-list .av-file .q-fi{width:20px;height:20px}
+.feed-root .file-row .file-ico,
+.feed-root .file-row .q-fi{width:36px;height:36px;flex:none}
+.feed-root .file-row .file-ico{display:inline-grid;place-items:center}
+
 /* 深色：Info 头像的墨色块在 #171614 上几乎看不见，改成反白 */
 :root[data-theme="dark"] .feed-root .av-info{background:#EDE8DF;color:#171614}
 @media (prefers-color-scheme:dark){
@@ -213,6 +223,34 @@
   background:var(--fill);color:var(--text-2);
   font-size:var(--fs-caption);line-height:var(--lh-caption);
 }
+
+/* 文件卡：390 也从顶部排，不垂直居中 */
+.feed-root .q-fcard.is-file .q-stage{
+  justify-content:flex-start;padding-top:var(--sp-4);
+}
+@media (min-width:600px){
+  .feed-root .q-fcard.is-file .q-stage{padding-top:var(--sp-8)}
+}
+.feed-root .file-list{display:block;margin:var(--sp-5) 0 0;padding:0;width:100%}
+.feed-root .file-more{
+  font-size:var(--fs-meta);line-height:var(--lh-meta);color:var(--text-3);
+  padding:var(--sp-3) 0;border-top:1px solid var(--line);
+}
+.feed-root .file-row{
+  display:flex;align-items:center;gap:var(--sp-3);
+  width:100%;text-align:left;
+  min-height:var(--touch);
+  padding:var(--sp-3) 0;
+  border:0;border-top:1px solid var(--line);
+  background:none;color:inherit;font:inherit;cursor:pointer;
+  border-radius:var(--r-sm);
+}
+.feed-root .file-row .q-t{flex:1;min-width:0}
+.feed-root .file-row .q-n{
+  font-weight:var(--fw-bold);
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+}
+.feed-root .file-row .q-m{font-size:var(--fs-meta);line-height:var(--lh-meta);color:var(--text-3)}
 /* 卡片舞台：窄屏垂直居中；≥600px 从顶部排，避免展开时标题上方大块空白 */
 .feed-root .q-fcard{
   scroll-snap-align:start;height:100%;display:flex;flex-direction:column;position:relative;

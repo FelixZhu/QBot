@@ -12,7 +12,7 @@
     "Study Bot": { av: "S", cls: "av-st" },
     QBot: { av: "F", cls: "av-file" }
   };
-  var PRIMARY = { digest: "打开日报", english: "播放", study: "打开讲义", file: "打开文件" };
+  var PRIMARY = { digest: "打开日报", english: "播放", study: "打开讲义", file: "打开知识库" };
   var DEFAULT_FEED_URL = "https://qian-grokbot.oss-cn-beijing.aliyuncs.com/feed/feed.json";
   var LOCAL_FEED_FALLBACK = "out/feed.json";
   var MUTE_KEY = "qbot-feed-muted-types";
@@ -28,6 +28,34 @@
     mark: '<svg class="mark" viewBox="0 0 32 32" width="40" height="40" aria-hidden="true"><rect x="4" y="6.5" width="17" height="19" rx="6.5" fill="currentColor"/><circle class="dot" cx="25.5" cy="21.5" r="3.2" fill="currentColor"/></svg>'
   };
 
+  var FT_LABEL = { pdf: "PDF", md: "MD", image: "IMG", video: "MP4", audio: "MP3", code: "</>", doc: "DOC", sheet: "XLS", other: "···" };
+
+  function fileIcon(kind, size) {
+    var t = kind || "other";
+    if (!FT_LABEL[t]) t = "other";
+    var lab = FT_LABEL[t];
+    var fs = lab.length >= 3 ? 5.6 : 6.4;
+    return '<span class="q-fi" data-t="' + t + '" style="width:' + size + 'px;height:' + size + 'px">' +
+      '<svg viewBox="0 0 24 24" aria-hidden="true">' +
+      '<path d="M6.5 2.75h7.25l4.5 4.5V19.5a1.75 1.75 0 0 1-1.75 1.75h-10A1.75 1.75 0 0 1 4.75 19.5v-15A1.75 1.75 0 0 1 6.5 2.75z" fill="var(--surface-raised)" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>' +
+      '<path d="M13.5 3v4.5H18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>' +
+      '<text x="11.5" y="17.6" text-anchor="middle" font-size="' + fs + '" font-weight="700" font-family="Arial,sans-serif" fill="currentColor">' + lab + "</text></svg></span>";
+  }
+
+  function batchKind(c) {
+    var files = (c.data && c.data.files) || [];
+    if (files.length === 1) return files[0].kind || "other";
+    return "other";
+  }
+
+  function avatarEl(c) {
+    if (c.type === "file") {
+      return el("span", { class: "q-av av-file", html: fileIcon(batchKind(c), 20) });
+    }
+    var meta = botMeta(c.bot);
+    return el("span", { class: "q-av " + (meta.cls || "av-info"), text: meta.av });
+  }
+
   var state = {
     root: null,
     opts: null,
@@ -40,7 +68,8 @@
     observer: null,
     toastTimer: 0,
     lastAction: null,
-    wide: false
+    wide: false,
+    fileExpanded: false
   };
 
   function $(sel, el) { return (el || state.root).querySelector(sel); }
@@ -314,10 +343,10 @@
         dataset: { i: String(i) },
         onClick: function () { goTo(i); }
       },
-        el("span", { class: "q-av " + (meta.cls || "av-info"), text: meta.av }),
+        avatarEl(c),
         el("div", { class: "q-t" },
           el("div", { class: "meta" },
-            el("b", { class: "k", text: typeLabel(c) }),
+            el("b", { class: "k", text: listKind(c) }),
             el("span", { class: "when", text: formatTime(c.time) })
           ),
           el("div", { class: "q-n", text: listTitle(c) })
@@ -330,8 +359,18 @@
   }
 
   function typeLabel(c) {
-    if (c.type === "file" && c.data && c.data.subtype === "due") return "文件提醒 · 到期";
-    if (c.type === "file" && c.data && c.data.subtype === "new") return "文件提醒 · 新入库";
+    return kindLabel(c);
+  }
+
+  function kindLabel(c) {
+    if (c.type === "file" && c.data && c.data.subtype === "due") return "到期";
+    if (c.type === "file") return "新入库";
+    return TYPE_LABEL[c.type] || c.type;
+  }
+
+  function listKind(c) {
+    if (c.type === "file" && c.data && c.data.subtype === "due") return "文件提醒";
+    if (c.type === "file") return "文件提醒";
     return TYPE_LABEL[c.type] || c.type;
   }
 
@@ -364,15 +403,15 @@
     var meta = botMeta(c.bot);
     var data = c.data || {};
     var card = el("section", {
-      class: "q-fcard" + (c.private ? " is-private" : "") + (data.subtype === "due" ? " urgent" : ""),
+      class: "q-fcard" + (c.type === "file" ? " is-file" : "") + (c.private ? " is-private" : "") + (data.subtype === "due" ? " urgent" : "") + (state.fileExpanded && c.type === "file" ? " is-open" : ""),
       dataset: { id: c.id, type: c.type, i: String(i) },
       "aria-label": typeLabel(c)
     });
     var who = el("div", { class: "q-who" },
-      el("span", { class: "q-av " + (meta.cls || "av-info"), text: meta.av }),
+      avatarEl(c),
       el("span", { class: "q-nm", text: c.bot }),
       el("span", { text: " · " + formatTime(c.time) }),
-      el("span", { class: "q-kind", text: typeLabel(c) })
+      el("span", { class: "q-kind", text: kindLabel(c) })
     );
     var stage = el("div", { class: "q-stage" });
     fillStage(stage, c);
@@ -448,9 +487,33 @@
         ));
         return;
       }
-      if (data.dir) stage.appendChild(el("div", { class: "mini", text: data.dir, style: { marginBottom: "8px", fontSize: "12px", color: "var(--text-3)" } }));
       stage.appendChild(el("h2", { text: c.title }));
-      stage.appendChild(el("span", { class: "q-tag", text: data.tag || "新入库" }));
+      var files = data.files || [];
+      if (files.length) {
+        var list = el("div", { class: "file-list is-open" });
+        var shown = files.slice(0, 5);
+        shown.forEach(function (f) {
+          var row = el("button", {
+            class: "file-row",
+            type: "button",
+            onClick: function (e) {
+              e.stopPropagation();
+              openFileItem(f);
+            }
+          },
+            el("span", { class: "file-ico", html: fileIcon(f.kind || "other", 36) }),
+            el("div", { class: "q-t" },
+              el("div", { class: "q-n", text: f.name || "未命名" }),
+              f.dir ? el("div", { class: "q-m", text: f.dir }) : null
+            )
+          );
+          list.appendChild(row);
+        });
+        if (files.length > 5) {
+          list.appendChild(el("div", { class: "file-more", text: "还有 " + (files.length - 5) + " 个" }));
+        }
+        stage.appendChild(list);
+      }
       return;
     }
     stage.appendChild(el("h2", { text: c.title }));
@@ -480,7 +543,7 @@
   }
 
   function actionBar(c) {
-    var primaryLabel = c.private ? "解锁查看" : (PRIMARY[c.type] || "打开");
+    var primaryLabel = c.private ? "解锁查看" : primaryText(c);
     var primary = el("button", { class: "q-btn q-primary", type: "button", onClick: function () { onPrimary(c); } });
     primary.innerHTML = c.private ? ICO.lock : ICO.chev;
     primary.appendChild(document.createTextNode(primaryLabel));
@@ -608,18 +671,34 @@
     syncChrome();
   }
 
+  function primaryText(c) {
+    if (c.type === "file") return "打开知识库";
+    return PRIMARY[c.type] || "打开";
+  }
+
+  function openFileItem(f) {
+    var url = resolveUrl((f && f.open_url) || "");
+    if (!url) return;
+    try { window.open(url, "_blank", "noopener"); } catch (e) { location.href = url; }
+  }
+
+  function openKnowledgeBase(c) {
+    var url = (c && c.open_url) || "https://felixzhu.github.io/qian-drive/";
+    url = resolveUrl(url);
+    try { window.open(url, "_blank", "noopener"); } catch (e) { location.href = url; }
+  }
+
   function onPrimary(c) {
     if (c.private) { openSheet(); return; }
-    if (c.type === "english" && c.media && c.media.kind === "audio") {
-      toggleAudio(c);
+    if (c.type === "file") {
+      openKnowledgeBase(c);
       return;
     }
+    if (c.type === "english") { toggleAudio(c); return; }
     var url = resolveUrl(c.open_url);
     if (url) {
-      global.open(url, "_blank", "noopener");
-      return;
+      try { window.open(url, "_blank", "noopener"); } catch (e) { location.href = url; }
     }
-    toast("还没有可打开的链接");
   }
 
   function ensureAudio(c) {

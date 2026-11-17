@@ -113,6 +113,8 @@
     --btn-primary-bg:#EDE8DF; --btn-primary-fg:#171614;
     --line:#34312C; --line-strong:#45413A;
     --shadow-1:0 1px 2px rgba(0,0,0,.3); --shadow-2:0 6px 20px rgba(0,0,0,.35); --shadow-3:0 18px 48px rgba(0,0,0,.5);
+    /* 文件类型色深色版：在 #171614 上对比都 ≥6:1 */
+    --ft-folder:#ABA498; --ft-pdf:#E2806B; --ft-doc:#8EAACB; --ft-md:#ECE7DD; --ft-image:#7FBA96; --ft-video:#AE99CF; --ft-audio:#D6A050; --ft-code:#A3ABB7; --ft-sheet:#7FBA96; --ft-other:#9A9488;
     color-scheme:dark;
   }
 }
@@ -124,6 +126,7 @@
   --btn-primary-bg:#EDE8DF; --btn-primary-fg:#171614;
   --line:#34312C; --line-strong:#45413A;
   --shadow-1:0 1px 2px rgba(0,0,0,.3); --shadow-2:0 6px 20px rgba(0,0,0,.35); --shadow-3:0 18px 48px rgba(0,0,0,.5);
+  --ft-folder:#ABA498; --ft-pdf:#E2806B; --ft-doc:#8EAACB; --ft-md:#ECE7DD; --ft-image:#7FBA96; --ft-video:#AE99CF; --ft-audio:#D6A050; --ft-code:#A3ABB7; --ft-sheet:#7FBA96; --ft-other:#9A9488;
   color-scheme:dark;
 }
 @media (prefers-reduced-motion:reduce){:root{--dur-1:0ms;--dur-2:0ms;--dur-3:0ms}}
