@@ -13,6 +13,11 @@
   };
   var LOCK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>';
   var SEARCH = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>';
+  var CHEV = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>';
+  var DIR_LABEL = {feishu:"飞书",intake:"资料整理",reports:"报告",videos:"视频",xhs:"小红书",docs:"文档"};
+  function dirTitle(name) {
+    return DIR_LABEL[name] ? (name + " · " + DIR_LABEL[name]) : name;
+  }
 
   function esc(s) {
     return String(s == null ? "" : s)
@@ -115,6 +120,7 @@
     this.chips = [];
     this.folder = "";
     this.selected = null;
+    this.openFolders = {};
     this.render();
   }
 
@@ -132,13 +138,14 @@
     el.innerHTML =
       '<div class="kb-pane">' +
         '<div class="kb-search' + (this.q ? " has-q" : "") + '">' + SEARCH +
-          '<input type="search" id="kb-q" placeholder="搜索文件名或摘要" value="' + esc(this.q) + '" autocomplete="off" enterkeyhint="search">' +
+          '<input type="search" id="kb-q" placeholder="搜文件名和摘要" value="' + esc(this.q) + '" autocomplete="off" enterkeyhint="search">' +
           '<button type="button" class="kb-clear" id="kb-clear" aria-label="清除">×</button>' +
         '</div>' +
         '<div class="kb-chips" id="kb-chips"></div>' +
         '<button type="button" class="kb-vault" id="kb-vault">' +
           '<span class="kb-ic">' + LOCK + '</span>' +
-          '<span class="kb-t"><span class="kb-n">私密区</span><span class="kb-m">需本地密钥解锁</span></span>' +
+          '<span class="kb-t"><span class="kb-n">私密区</span><span class="kb-m">待开通 · 需本地密钥解锁</span></span>' +
+          '<span class="kb-cnt" id="kb-vault-cnt"></span>' + CHEV.replace("<svg", '<svg class="kb-chev"') +
         '</button>' +
         '<div class="kb-scroll" id="kb-pane-scroll"></div>' +
       '</div>' +
@@ -171,16 +178,21 @@
     this.el.addEventListener("click", function (e) {
       var chip = e.target.closest(".kb-chip");
       if (chip) {
-        var t = chip.getAttribute("data-tag");
-        var i = self.chips.indexOf(t);
-        if (i >= 0) self.chips.splice(i, 1); else self.chips.push(t);
+        var tag = chip.getAttribute("data-tag");
+        if (!tag) { self.chips = []; }
+        else {
+          var i = self.chips.indexOf(tag);
+          if (i >= 0) self.chips.splice(i, 1); else self.chips.push(tag);
+        }
         self.drawChips(); self.drawLists();
         return;
       }
       var ti = e.target.closest("[data-folder]");
       if (ti) {
         var p = ti.getAttribute("data-folder") || "";
+        if (p) self.openFolders[p] = true;
         self.folder = self.folder === p ? "" : p;
+        if (!self.folder) { /* keep open state */ }
         self.selected = null;
         self.drawLists();
         return;
@@ -213,10 +225,12 @@
 
   KB.prototype.drawChips = function () {
     var tags = uniqueTags(this.files);
-    var html = tags.map(function (t) {
-      var on = this.chips.indexOf(t) >= 0;
-      return '<button type="button" class="kb-chip' + (on ? " on" : "") + '" data-tag="' + esc(t) + '">' + esc(t) + "</button>";
-    }, this).join("");
+    var allOn = !this.chips.length;
+    var html = '<button type="button" class="kb-chip' + (allOn ? " on" : "") + '" data-tag="">全部</button>' +
+      tags.map(function (t) {
+        var on = this.chips.indexOf(t) >= 0;
+        return '<button type="button" class="kb-chip' + (on ? " on" : "") + '" data-tag="' + esc(t) + '">' + esc(t) + "</button>";
+      }, this).join("");
     this.el.querySelector("#kb-chips").innerHTML = html;
   };
 
@@ -234,16 +248,27 @@
     function walk(nodes, depth) {
       return nodes.map(function (n) {
         var on = self.folder === n.path;
+        var expanded = !!self.openFolders[n.path] || on || (self.folder && (self.folder.indexOf(n.path + "/") === 0 || n.path.indexOf(self.folder + "/") === 0));
         var pad = 8 + depth * 20;
-        var kids = (!self.folder || n.path === self.folder || self.folder.indexOf(n.path + "/") === 0 || n.path.indexOf(self.folder + "/") === 0) ? walk(n.kids, depth + 1) : "";
-        return '<button type="button" class="kb-ti' + (on ? " on" : "") + '" data-folder="' + esc(n.path) + '" style="padding-left:' + pad + 'px">' +
-          icon("folder") + '<span class="kb-lbl">' + esc(n.name) + '</span><span class="kb-cnt">' + n.count + "</span></button>" + kids;
+        var row = '<button type="button" class="kb-ti' + (on && !self.selected ? " on" : "") + '" data-folder="' + esc(n.path) + '" style="padding-left:' + pad + 'px">' +
+          '<span class="kb-tw' + (expanded ? " open" : "") + '">' + CHEV + "</span>" +
+          icon("folder") + '<span class="kb-lbl">' + esc(dirTitle(n.name)) + '</span><span class="kb-cnt">' + n.count + "</span></button>";
+        var kids = "";
+        if (expanded) {
+          self.files.filter(function (f) { return !f.private && f.dir === n.path; }).forEach(function (f) {
+            var sel = self.selected === f.key;
+            kids += '<button type="button" class="kb-ti' + (sel ? " on" : "") + '" data-key="' + esc(f.key) + '" style="padding-left:' + (pad + 20) + 'px">' +
+              icon(f.kind) + '<span class="kb-lbl">' + esc(f.name) + "</span></button>";
+          });
+          kids += walk(n.kids, depth + 1);
+        }
+        return row + kids;
       }).join("");
     }
-    var body = '<div class="kb-sec">文件夹</div><div class="kb-tree">' +
-      '<button type="button" class="kb-ti' + (!this.folder ? " on" : "") + '" data-folder="" style="padding-left:8px">' +
+    var body = '<div class="kb-tree">' +
+      '<button type="button" class="kb-ti' + (!this.folder && !this.selected ? " on" : "") + '" data-folder="" style="padding-left:8px">' +
       icon("folder") + '<span class="kb-lbl">全部文件</span><span class="kb-cnt">' + this.files.filter(function (f) { return !f.private; }).length + "</span></button>" +
-      walk(tree, 1) + "</div>";
+      walk(tree, 0) + "</div>";
     pane.innerHTML = body;
   };
 
@@ -279,14 +304,14 @@
       return;
     }
     var recent = files.slice().sort(function (a, b) { return b.mtime - a.mtime; });
-    var title = this.folder ? basename(this.folder) : "最近更新";
+    var title = this.folder ? dirTitle(basename(this.folder)) : "最近更新";
     var back = "";
     if (this.folder && window.matchMedia && window.matchMedia("(max-width:599px)").matches) {
       back = '<button type="button" class="kb-row" data-folder="">' + icon("folder") +
         '<span class="kb-t"><span class="kb-n">全部文件</span><span class="kb-m">返回知识库首页</span></span></button>';
     }
     var body = back + (recent.length
-      ? '<div class="kb-sec">' + esc(title) + " · " + recent.length + " 个</div>" + recent.map(function (f) { return this.fileRow(f, false); }, this).join("")
+      ? '<div class="kb-sec">' + esc(title) + (this.folder ? " · " + recent.length + " 个" : "") + "</div>" + recent.map(function (f) { return this.fileRow(f, false); }, this).join("")
       : '<div class="kb-empty">这个文件夹是空的</div>');
     /* Folded home also lists folders in the main column when no folder is chosen */
     var folders = "";
@@ -301,7 +326,8 @@
       folders = '<div class="kb-sec">文件夹</div>' + Object.keys(tops).sort().map(function (k) {
         var d = tops[k];
         return '<button type="button" class="kb-row" data-folder="' + esc(d.path) + '">' + icon("folder") +
-          '<span class="kb-t"><span class="kb-n">' + esc(d.name) + '</span><span class="kb-m">' + d.count + " 个文件 · " + human(d.size) + "</span></span></button>";
+          '<span class="kb-t"><span class="kb-n">' + esc(dirTitle(d.name)) + "</span></span>" +
+          '<span class="kb-cnt">' + d.count + "</span>" + CHEV.replace("<svg", '<svg class="kb-chev"') + "</button>";
       }).join("");
     }
     main.innerHTML = folders + body;
