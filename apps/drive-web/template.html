@@ -222,6 +222,9 @@ html,body{height:100%;overflow:hidden;overscroll-behavior:none}
 #panel-kb.kb-mode #btnRefresh,#panel-kb.kb-mode #btnQsM,#panel-kb.kb-mode #btnNewTab{display:none!important}
 @media (min-width:600px){#panel-kb.kb-mode .tabbar{display:none}}
 .qbs-nav{grid-area:nav;display:flex;background:var(--bg);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom);z-index:20;font-family:var(--font)}
+/* Soft keyboard: hide the tab bar so the composer can use the 56px (folded) / 72px (unfolded). */
+.qbs.is-kbd{grid-template-rows:minmax(0,1fr);grid-template-columns:minmax(0,1fr);grid-template-areas:"main"}
+.qbs.is-kbd .qbs-nav{display:none}
 .qbs-brand{display:none}
 .qbs-item{flex:1;position:relative;height:56px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
   font-size:11px;line-height:16px;color:var(--text-3);-webkit-tap-highlight-color:transparent}
@@ -719,13 +722,16 @@ armAway();
   function fitViewport(){
     var el=document.getElementById("qbs"),vv=window.visualViewport;
     if(!el)return;
-    if(!vv){el.style.top=el.style.left=el.style.width=el.style.height="";return}
+    if(!vv){el.style.top=el.style.left=el.style.width=el.style.height="";el.classList.remove("is-kbd");return}
     el.style.top=vv.offsetTop+"px";
     el.style.left=vv.offsetLeft+"px";
     el.style.width=vv.width+"px";
     el.style.height=vv.height+"px";
     el.style.right="auto";
     el.style.bottom="auto";
+    /* Hide the bottom tab bar (and the unfolded rail) when the soft keyboard is open. */
+    if(vv.height<window.innerHeight*0.75)el.classList.add("is-kbd");
+    else el.classList.remove("is-kbd");
   }
   if(window.visualViewport){
     visualViewport.addEventListener("resize",fitViewport);
@@ -764,6 +770,14 @@ armAway();
   window.qbotTab=setTab;
   window.qbotCurrentTab=function(){return cur};
   window.qbotSetFeedUnread=function(on){document.getElementById("qbsFeedDot").hidden=!on};
+  /* Old Android shells only inspect .scroller for pull-to-refresh; mark tab scrollers so down-swipes are not stolen. */
+  function markScrollers(){
+    document.querySelectorAll(".q-feed,.qc-viewport,#kb-main-scroll").forEach(function(el){el.classList.add("scroller")});
+  }
+  window.addEventListener("qbot:tab",markScrollers);
+  var qbsHost=document.getElementById("qbs");
+  if(qbsHost&&window.MutationObserver)new MutationObserver(markScrollers).observe(qbsHost,{childList:true,subtree:true});
+  markScrollers();
   function restoreShellHistory(){
     try{history.pushState({qbot:"shell"},"",location.pathname+location.search+location.hash)}catch(e){}
   }
@@ -804,6 +818,7 @@ armAway();
   /* 主动服务: feed.js exposes QbotFeed.mount(el,{feedUrl}); reads the site copy out/feed.json (feed.js only falls back from OSS on localhost); switch to OSS once feed/feed.json is uploaded. */
   exists("feed.js").then(function(ok){if(ok)js("feed.js",function(){
     if(window.QbotFeed&&QbotFeed.mount)QbotFeed.mount(document.getElementById("tab-feed"),{feedUrl:"out/feed.json"});
+    markScrollers();
   })});
   Promise.all([exists("kb.js"),exists("kb.css")]).then(function(r){
     if(!r[0]){kbPanel.classList.remove("kb-pending");return}  /* fallback: the existing drive UI stays as the 知识库 tab */
@@ -814,6 +829,7 @@ armAway();
       var vh=app.querySelector(".viewhead"),bb=document.getElementById("btnKbBack");vh.insertBefore(bb,vh.firstChild);
       var h=window.__qbHash||"";
       showViewer(h.indexOf("#/")===0&&h!=="#/"&&h.indexOf("#/~home")!==0);
+      markScrollers();
     });
   });
 })();

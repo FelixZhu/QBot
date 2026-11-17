@@ -395,7 +395,7 @@
   }
 
   function feedTrack() {
-    var track = el("div", { class: "q-feed", tabindex: "0", "aria-label": "主动服务卡片" });
+    var track = el("div", { class: "q-feed scroller", tabindex: "0", "aria-label": "主动服务卡片" });
     state.visible.forEach(function (c, i) {
       track.appendChild(cardEl(c, i));
     });
@@ -403,6 +403,10 @@
     track.addEventListener("scrollend", snapToNearest, { passive: true });
     track.addEventListener("keydown", onKey);
     track.addEventListener("wheel", onWheel, { passive: false });
+    /* Measure only — never preventDefault on vertical touch. */
+    track.addEventListener("touchstart", onTouchStart, { passive: true });
+    track.addEventListener("touchend", onTouchEnd, { passive: true });
+    track.addEventListener("touchcancel", onTouchCancel, { passive: true });
     return track;
   }
 
@@ -636,6 +640,55 @@
     state._snapTimer = setTimeout(snapToNearest, 80);
   }
 
+  function touchFrom(e, id) {
+    var list = e.changedTouches || e.touches;
+    if (!list || !list.length) return null;
+    if (id == null) return list[0];
+    for (var i = 0; i < list.length; i++) {
+      if (list[i].identifier === id) return list[i];
+    }
+    return null;
+  }
+
+  function isTouchControl(el) {
+    return !!(el && el.closest && el.closest("button, a, input, textarea, select, .q-player, .rail, .feed-pager, .feed-list"));
+  }
+
+  function onTouchStart(e) {
+    var t = touchFrom(e);
+    if (!t) return;
+    state._touch = {
+      id: t.identifier,
+      y: t.clientY,
+      at: Date.now(),
+      ignore: isTouchControl(e.target)
+    };
+  }
+
+  function onTouchCancel() {
+    state._touch = null;
+  }
+
+  function onTouchEnd(e) {
+    var start = state._touch;
+    state._touch = null;
+    if (!start || start.ignore) return;
+    var t = touchFrom(e, start.id) || touchFrom(e);
+    if (!t) return;
+    var track = $(".feed-stage .q-feed");
+    var h = (track && track.clientHeight) || window.innerHeight || 1;
+    var dy = t.clientY - start.y;
+    var dt = Math.max(1, Date.now() - start.at);
+    var speed = Math.abs(dy) / dt;
+    var flick = Math.abs(dy) > h * 0.15 || speed > 0.3;
+    if (flick) {
+      /* Finger up → next card; finger down → previous. */
+      goTo(state.index + (dy < 0 ? 1 : -1));
+    } else {
+      snapToNearest();
+    }
+  }
+
   function onWheel(e) {
     if (Math.abs(e.deltaY) < 8) return;
     e.preventDefault();
@@ -760,28 +813,46 @@
     return PRIMARY[c.type] || "打开";
   }
 
-  function openFileItem(f) {
-    var url = resolveUrl((f && f.open_url) || "");
-    if (!url) return;
-    try { window.open(url, "_blank", "noopener"); } catch (e) { location.href = url; }
+  function isPrivateKey(key) {
+    var k = String(key || "").replace(/\\/g, "/").replace(/^\/+/, "");
+    return !k || k === "private" || k.indexOf("private/") === 0;
   }
 
-  function openKnowledgeBase(c) {
-    var url = (c && c.open_url) || "https://felixzhu.github.io/qian-drive/";
-    url = resolveUrl(url);
-    try { window.open(url, "_blank", "noopener"); } catch (e) { location.href = url; }
+  function isExternalWeb(url) {
+    if (!url) return false;
+    try {
+      var u = new URL(url, location.href);
+      if (u.protocol !== "http:" && u.protocol !== "https:") return false;
+      if (u.origin === location.origin) return false;
+      if (u.hostname === "felixzhu.github.io" && (u.pathname || "").indexOf("/qian-drive") === 0) return false;
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /* Stay inside the App. qbotKb.open(key) already switches tab via qbotTab("kb"). */
+  function openFileItem(f) {
+    var key = (f && f.key) || "";
+    if (key && isPrivateKey(key)) return;
+    if (key && global.qbotKb && typeof global.qbotKb.open === "function") {
+      var ok = global.qbotKb.open(key);
+      if (ok !== false) return;
+    }
+    if (typeof global.qbotTab === "function") global.qbotTab("kb");
+  }
+
+  function openKnowledgeBase() {
+    if (typeof global.qbotTab === "function") global.qbotTab("kb");
   }
 
   function onPrimary(c) {
     if (c.private) { openSheet(); return; }
-    if (c.type === "file") {
-      openKnowledgeBase(c);
-      return;
-    }
+    if (c.type === "file") { openKnowledgeBase(); return; }
     if (c.type === "english") { toggleAudio(c); return; }
     var url = resolveUrl(c.open_url);
-    if (url) {
-      try { window.open(url, "_blank", "noopener"); } catch (e) { location.href = url; }
+    if (isExternalWeb(url)) {
+      try { window.open(url, "_blank", "noopener"); } catch (e) { /* keep the App in place */ }
     }
   }
 

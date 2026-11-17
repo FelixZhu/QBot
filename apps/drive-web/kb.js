@@ -167,9 +167,9 @@
           '<span class="kb-t"><span class="kb-n">私密区</span><span class="kb-m">尚未配置</span></span>' +
           '<span class="kb-cnt" id="kb-vault-cnt"></span>' + CHEV.replace("<svg", '<svg class="kb-chev"') +
         '</button>' +
-        '<div class="kb-scroll" id="kb-pane-scroll"></div>' +
+        '<div class="kb-scroll scroller" id="kb-pane-scroll"></div>' +
       '</div>' +
-      '<div class="kb-main"><div class="kb-scroll" id="kb-main-scroll"></div></div>' +
+      '<div class="kb-main"><div class="kb-scroll scroller" id="kb-main-scroll"></div></div>' +
       '<div class="kb-scrim" id="kb-scrim"></div>' +
       '<div class="kb-sheet" id="kb-sheet" role="dialog" aria-labelledby="kb-sheet-title" hidden>' +
         '<h3 id="kb-sheet-title">私密区</h3>' +
@@ -205,6 +205,18 @@
     }
     this.el.querySelector("#kb-scrim").addEventListener("click", function () { self.closeSheet(); });
     this.el.querySelector("#kb-sheet-ok").addEventListener("click", function () { self.closeSheet(); });
+    var sheetEl = this.el.querySelector("#kb-sheet"), y0 = null, dy = 0;
+    sheetEl.addEventListener("touchstart", function (e) { y0 = e.touches[0].clientY; dy = 0; sheetEl.style.transition = "none"; }, {passive: true});
+    sheetEl.addEventListener("touchmove", function (e) {
+      if (y0 == null) return;
+      dy = Math.max(0, e.touches[0].clientY - y0);
+      if (window.matchMedia("(max-width:599px)").matches) sheetEl.style.transform = "translateY(" + dy + "px)";
+    }, {passive: true});
+    sheetEl.addEventListener("touchend", function () {
+      sheetEl.style.transition = ""; sheetEl.style.transform = "";
+      if (y0 != null && dy > 60) self.closeSheet();
+      y0 = null;
+    });
     this.el.addEventListener("click", function (e) {
       var tw = e.target.closest(".kb-tw");
       if (tw) {
@@ -277,6 +289,14 @@
       this.drawLists(true);
       return true;
     }
+    if (this.q) {
+      this.q = "";
+      var qi = this.el.querySelector("#kb-q");
+      if (qi) { qi.value = ""; qi.blur(); }
+      this.el.querySelector(".kb-search").classList.remove("has-q");
+      this.drawLists(true);
+      return true;
+    }
     if (this.folder) {
       var slash = this.folder.lastIndexOf("/");
       this.folder = slash >= 0 ? this.folder.slice(0, slash) : "";
@@ -293,6 +313,21 @@
     this.drawPane(this.filtered(), !!this.q);
     this.drawMain(this.filtered(), !!this.q);
     this.topMain();
+  };
+
+  /* Open a file by OSS key from outside (e.g. a Feed card). Returns false if unknown or private. */
+  KB.prototype.openKey = function (key) {
+    var f = this.files.filter(function (x) { return x.key === key && !x.private; })[0];
+    if (!f) return false;
+    this.closeSheet();
+    this.q = ""; this.chips = [];
+    var qi = this.el.querySelector("#kb-q"); if (qi) qi.value = "";
+    this.el.querySelector(".kb-search").classList.remove("has-q");
+    this.folder = visiblePath(f.dir);
+    if (this.folder) this.openFolders[this.folder] = true;
+    this.drawChips();
+    this.openFile(f);
+    return true;
   };
 
   KB.prototype.topMain = function () {
@@ -467,6 +502,11 @@
       }).observe(el);
     }
     document.addEventListener("visibilitychange", function () { if (document.hidden) pauseMedia(el); });
+    /* Shell hides tabs with visibility+inert, which IntersectionObserver can't see */
+    window.addEventListener("qbot:tab", function (e) {
+      var t = e.detail && e.detail.tab;
+      if (t && t !== "kb") pauseMedia(el);
+    });
     return inst;
   }
 
@@ -488,7 +528,13 @@
   window.KB = { mount: mount, boot: boot };
   /* chat-demo shell: if (window.qbotKb.back()) return true; else leave the tab. */
   window.qbotKb = {
-    back: function () { return !!(inst && inst.back()); }
+    back: function () { return !!(inst && inst.back()); },
+    /* Switch to the 知识库 tab and show this file's detail. */
+    open: function (key) {
+      if (!inst) return false;
+      if (typeof window.qbotTab === "function") window.qbotTab("kb");
+      return inst.openKey(key);
+    }
   };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);
   else boot();

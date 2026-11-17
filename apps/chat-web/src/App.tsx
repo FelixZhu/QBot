@@ -143,8 +143,7 @@ function Composer({ toast }: { toast: (m: string) => void }) {
     const c = aui.composer();
     if (!c.getState().text.trim()) return;
     c.send({ steer: false });
-    // Voice-first: after a typed message, fall back to the big mic. Typing only via the Aa button.
-    setKeyboard(false);
+    // Stay in the current composer mode (text stays text until the user taps the mic).
   }, [aui]);
 
   useEffect(() => {
