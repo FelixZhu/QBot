@@ -1,0 +1,342 @@
+/* Knowledge-base tab. Mounts into #tab-kb when present.
+   Reads ./index.json (or window.KB_INDEX). Dispatches "kb:open" on file click. */
+(function () {
+  "use strict";
+
+  var INDEX_URL = "index.json";
+  var KIND_ICON = {
+    folder: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h6l2 2h10v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V7z"/><path d="M3 7V6a1 1 0 0 1 1-1h5l2 2"/></svg>',
+    pdf: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h8l6 6v12a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M14 3v6h6"/><text x="12" y="18" text-anchor="middle" font-size="6" stroke="none" fill="currentColor" font-weight="700">PDF</text></svg>',
+    video: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h8l6 6v12a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M14 3v6h6"/><path d="M10 13.5v4l3.5-2z"/></svg>',
+    audio: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h8l6 6v12a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M14 3v6h6"/><path d="M9 17a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z"/><path d="M10.5 15.5V12l4-1v2.5"/></svg>',
+    file: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h8l6 6v12a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M14 3v6h6"/></svg>'
+  };
+  var LOCK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>';
+  var SEARCH = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>';
+
+  function esc(s) {
+    return String(s == null ? "" : s)
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+  }
+  function icon(kind) {
+    return '<span class="kb-fi" data-t="' + esc(kind || "file") + '">' + (KIND_ICON[kind] || KIND_ICON.file) + "</span>";
+  }
+  function human(n) {
+    n = Number(n) || 0;
+    if (n < 1024) return n + " B";
+    if (n < 1048576) return (n / 1024).toFixed(n < 10240 ? 1 : 0) + " KB";
+    if (n < 1073741824) return (n / 1048576).toFixed(n < 10485760 ? 1 : 0) + " MB";
+    return (n / 1073741824).toFixed(1) + " GB";
+  }
+  function fmtDate(ts) {
+    if (!ts) return "";
+    var d = new Date(ts * 1000), now = new Date();
+    var start = function (x) { return new Date(x.getFullYear(), x.getMonth(), x.getDate()); };
+    var diff = (start(now) - start(d)) / 86400000;
+    if (diff === 0) return "今天";
+    if (diff === 1) return "昨天";
+    var mm = String(d.getMonth() + 1).padStart(2, "0");
+    var dd = String(d.getDate()).padStart(2, "0");
+    if (d.getFullYear() === now.getFullYear()) return mm + "-" + dd;
+    return d.getFullYear() + "-" + mm + "-" + dd;
+  }
+  function basename(key) { return (key || "").split("/").pop(); }
+  function topDir(f) { return (f.dir || "").split("/")[0] || "其他"; }
+  function mark(text, q) {
+    var s = esc(text || "");
+    if (!q) return s;
+    var parts = q.trim().split(/\s+/).filter(Boolean).map(function (w) {
+      return w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    });
+    if (!parts.length) return s;
+    var re = new RegExp("(" + parts.join("|") + ")", "ig");
+    return s.replace(re, "<mark>$1</mark>");
+  }
+
+  function buildTree(files) {
+    var root = {};
+    files.forEach(function (f) {
+      if (f.private) return;
+      var parts = (f.dir || "").split("/").filter(Boolean);
+      var node = root;
+      var path = "";
+      parts.forEach(function (p) {
+        path = path ? path + "/" + p : p;
+        if (!node[p]) node[p] = { name: p, path: path, count: 0, children: {}, files: [] };
+        node[p].count += 1;
+        node = node[p].children;
+      });
+    });
+    function toList(map) {
+      return Object.keys(map).sort().map(function (k) {
+        var n = map[k];
+        n.kids = toList(n.children);
+        return n;
+      });
+    }
+    return toList(root);
+  }
+
+  function uniqueTags(files) {
+    var kinds = [], topics = [], seenK = {}, seenT = {};
+    files.forEach(function (f) {
+      if (f.private) return;
+      if (f.doc_type && !seenK[f.doc_type]) { seenK[f.doc_type] = 1; kinds.push(f.doc_type); }
+      (f.tags || []).forEach(function (t) {
+        if (t && !seenK[t] && !seenT[t]) { seenT[t] = 1; topics.push(t); }
+      });
+    });
+    var order = { "PDF": 1, "视频": 2, "音频": 3, "图片": 4, "文档": 5 };
+    kinds.sort(function (a, b) { return (order[a] || 9) - (order[b] || 9) || a.localeCompare(b, "zh"); });
+    topics.sort(function (a, b) { return a.localeCompare(b, "zh"); });
+    return kinds.concat(topics);
+  }
+
+  function matchFile(f, q, chips) {
+    if (f.private) return false;
+    if (chips && chips.length) {
+      var ok = chips.every(function (c) {
+        if (f.doc_type === c) return true;
+        return (f.tags || []).indexOf(c) >= 0;
+      });
+      if (!ok) return false;
+    }
+    if (!q) return true;
+    var hay = ((f.name || "") + " " + (f.summary || "") + " " + (f.key || "") + " " + (f.tags || []).join(" ")).toLowerCase();
+    return q.toLowerCase().split(/\s+/).filter(Boolean).every(function (w) { return hay.indexOf(w.toLowerCase()) >= 0; });
+  }
+
+  function KB(el, data) {
+    this.el = el;
+    this.data = data;
+    this.files = (data.files || []).slice();
+    this.q = "";
+    this.chips = [];
+    this.folder = "";
+    this.selected = null;
+    this.render();
+  }
+
+  KB.prototype.filtered = function () {
+    var self = this;
+    return this.files.filter(function (f) {
+      if (self.folder && !(f.dir === self.folder || (f.dir || "").indexOf(self.folder + "/") === 0)) return false;
+      return matchFile(f, self.q, self.chips);
+    });
+  };
+
+  KB.prototype.render = function () {
+    var el = this.el;
+    el.classList.add("kb");
+    el.innerHTML =
+      '<div class="kb-pane">' +
+        '<div class="kb-search' + (this.q ? " has-q" : "") + '">' + SEARCH +
+          '<input type="search" id="kb-q" placeholder="搜索文件名或摘要" value="' + esc(this.q) + '" autocomplete="off" enterkeyhint="search">' +
+          '<button type="button" class="kb-clear" id="kb-clear" aria-label="清除">×</button>' +
+        '</div>' +
+        '<div class="kb-chips" id="kb-chips"></div>' +
+        '<button type="button" class="kb-vault" id="kb-vault">' +
+          '<span class="kb-ic">' + LOCK + '</span>' +
+          '<span class="kb-t"><span class="kb-n">私密区</span><span class="kb-m">需本地密钥解锁</span></span>' +
+        '</button>' +
+        '<div class="kb-scroll" id="kb-pane-scroll"></div>' +
+      '</div>' +
+      '<div class="kb-main"><div class="kb-scroll" id="kb-main-scroll"></div></div>' +
+      '<div class="kb-scrim" id="kb-scrim"></div>' +
+      '<div class="kb-sheet" id="kb-sheet" role="dialog" aria-labelledby="kb-sheet-title" hidden>' +
+        '<h3 id="kb-sheet-title">私密区</h3>' +
+        '<p>待开通。体检报告和证件将放在这里；开通后需用本机密钥解锁，密钥不会离开这台设备。</p>' +
+        '<button type="button" class="kb-ok" id="kb-sheet-ok">知道了</button>' +
+      '</div>';
+    this.bind();
+    this.drawChips();
+    this.drawLists();
+  };
+
+  KB.prototype.bind = function () {
+    var self = this;
+    var input = this.el.querySelector("#kb-q");
+    input.addEventListener("input", function () {
+      self.q = input.value;
+      self.el.querySelector(".kb-search").classList.toggle("has-q", !!self.q);
+      self.drawLists();
+    });
+    this.el.querySelector("#kb-clear").addEventListener("click", function () {
+      self.q = ""; input.value = ""; self.el.querySelector(".kb-search").classList.remove("has-q"); self.drawLists(); input.focus();
+    });
+    this.el.querySelector("#kb-vault").addEventListener("click", function () { self.openSheet(); });
+    this.el.querySelector("#kb-scrim").addEventListener("click", function () { self.closeSheet(); });
+    this.el.querySelector("#kb-sheet-ok").addEventListener("click", function () { self.closeSheet(); });
+    this.el.addEventListener("click", function (e) {
+      var chip = e.target.closest(".kb-chip");
+      if (chip) {
+        var t = chip.getAttribute("data-tag");
+        var i = self.chips.indexOf(t);
+        if (i >= 0) self.chips.splice(i, 1); else self.chips.push(t);
+        self.drawChips(); self.drawLists();
+        return;
+      }
+      var ti = e.target.closest("[data-folder]");
+      if (ti) {
+        var p = ti.getAttribute("data-folder") || "";
+        self.folder = self.folder === p ? "" : p;
+        self.selected = null;
+        self.drawLists();
+        return;
+      }
+      var row = e.target.closest("[data-key]");
+      if (row) {
+        var key = row.getAttribute("data-key");
+        var file = self.files.filter(function (f) { return f.key === key; })[0];
+        if (file) self.openFile(file);
+      }
+    });
+  };
+
+  KB.prototype.openSheet = function () {
+    var sheet = this.el.querySelector("#kb-sheet");
+    sheet.hidden = false;
+    this.el.classList.add("is-sheet");
+  };
+  KB.prototype.closeSheet = function () {
+    this.el.classList.remove("is-sheet");
+    var sheet = this.el.querySelector("#kb-sheet");
+    setTimeout(function () { sheet.hidden = true; }, 280);
+  };
+
+  KB.prototype.openFile = function (file) {
+    this.selected = file.key;
+    this.el.dispatchEvent(new CustomEvent("kb:open", { bubbles: true, detail: file }));
+    this.drawMain(this.filtered(), true);
+  };
+
+  KB.prototype.drawChips = function () {
+    var tags = uniqueTags(this.files);
+    var html = tags.map(function (t) {
+      var on = this.chips.indexOf(t) >= 0;
+      return '<button type="button" class="kb-chip' + (on ? " on" : "") + '" data-tag="' + esc(t) + '">' + esc(t) + "</button>";
+    }, this).join("");
+    this.el.querySelector("#kb-chips").innerHTML = html;
+  };
+
+  KB.prototype.drawLists = function () {
+    var files = this.filtered();
+    var searching = !!this.q;
+    this.drawPane(files, searching);
+    this.drawMain(files, searching);
+  };
+
+  KB.prototype.drawPane = function (files, searching) {
+    var pane = this.el.querySelector("#kb-pane-scroll");
+    var tree = buildTree(this.files);
+    var self = this;
+    function walk(nodes, depth) {
+      return nodes.map(function (n) {
+        var on = self.folder === n.path;
+        var pad = 8 + depth * 20;
+        var kids = (!self.folder || n.path === self.folder || self.folder.indexOf(n.path + "/") === 0 || n.path.indexOf(self.folder + "/") === 0) ? walk(n.kids, depth + 1) : "";
+        return '<button type="button" class="kb-ti' + (on ? " on" : "") + '" data-folder="' + esc(n.path) + '" style="padding-left:' + pad + 'px">' +
+          icon("folder") + '<span class="kb-lbl">' + esc(n.name) + '</span><span class="kb-cnt">' + n.count + "</span></button>" + kids;
+      }).join("");
+    }
+    var body = '<div class="kb-sec">文件夹</div><div class="kb-tree">' +
+      '<button type="button" class="kb-ti' + (!this.folder ? " on" : "") + '" data-folder="" style="padding-left:8px">' +
+      icon("folder") + '<span class="kb-lbl">全部文件</span><span class="kb-cnt">' + this.files.filter(function (f) { return !f.private; }).length + "</span></button>" +
+      walk(tree, 1) + "</div>";
+    pane.innerHTML = body;
+  };
+
+  KB.prototype.fileRow = function (f, asSearch) {
+    var meta = [f.dir || "根目录", human(f.size), fmtDate(f.mtime)].filter(Boolean).join(" · ");
+    if (asSearch) {
+      return '<button type="button" class="kb-sr" data-key="' + esc(f.key) + '">' + icon(f.kind) +
+        '<span class="kb-t"><span class="kb-n">' + mark(f.name, this.q) + '</span>' +
+        '<span class="kb-p">' + esc(f.dir || "") + "</span>" +
+        (f.summary ? '<span class="kb-s">' + mark(f.summary, this.q) + "</span>" : "") +
+        ((f.tags || []).length ? '<span class="kb-tags">' + f.tags.map(function (t) { return '<span class="kb-tag">' + esc(t) + "</span>"; }).join("") + "</span>" : "") +
+        "</span></button>";
+    }
+    return '<button type="button" class="kb-row" data-key="' + esc(f.key) + '">' + icon(f.kind) +
+      '<span class="kb-t"><span class="kb-n">' + esc(f.name) + "</span>" +
+      (f.summary ? '<span class="kb-s">' + esc(f.summary) + "</span>" : "") +
+      '<span class="kb-m">' + esc(meta) + "</span></span></button>";
+  };
+
+  KB.prototype.drawMain = function (files, searching) {
+    var main = this.el.querySelector("#kb-main-scroll");
+    if (this.selected && !searching) {
+      var f = this.files.filter(function (x) { return x.key === this.selected; }, this)[0];
+      if (f) { main.innerHTML = this.detailHtml(f); return; }
+    }
+    if (searching) {
+      var nPriv = 0;
+      var html = files.map(function (f) { return this.fileRow(f, true); }, this).join("");
+      if (!files.length) html = '<div class="kb-empty">没有找到相关文件</div>';
+      else html = '<div class="kb-sec">搜索结果 · ' + files.length + " 个</div>" + html;
+      if (nPriv) html += '<div class="kb-empty">私密文件 ' + nPriv + " 个匹配</div>";
+      main.innerHTML = html;
+      return;
+    }
+    var recent = files.slice().sort(function (a, b) { return b.mtime - a.mtime; });
+    var title = this.folder ? basename(this.folder) : "最近更新";
+    var back = "";
+    if (this.folder && window.matchMedia && window.matchMedia("(max-width:599px)").matches) {
+      back = '<button type="button" class="kb-row" data-folder="">' + icon("folder") +
+        '<span class="kb-t"><span class="kb-n">全部文件</span><span class="kb-m">返回知识库首页</span></span></button>';
+    }
+    var body = back + (recent.length
+      ? '<div class="kb-sec">' + esc(title) + " · " + recent.length + " 个</div>" + recent.map(function (f) { return this.fileRow(f, false); }, this).join("")
+      : '<div class="kb-empty">这个文件夹是空的</div>');
+    /* Folded home also lists folders in the main column when no folder is chosen */
+    var folders = "";
+    if (!this.folder && window.matchMedia && window.matchMedia("(max-width:599px)").matches) {
+      var tops = {};
+      this.files.forEach(function (f) {
+        if (f.private) return;
+        var t = topDir(f);
+        if (!tops[t]) tops[t] = { name: t, path: t, count: 0, size: 0 };
+        tops[t].count += 1; tops[t].size += f.size || 0;
+      });
+      folders = '<div class="kb-sec">文件夹</div>' + Object.keys(tops).sort().map(function (k) {
+        var d = tops[k];
+        return '<button type="button" class="kb-row" data-folder="' + esc(d.path) + '">' + icon("folder") +
+          '<span class="kb-t"><span class="kb-n">' + esc(d.name) + '</span><span class="kb-m">' + d.count + " 个文件 · " + human(d.size) + "</span></span></button>";
+      }).join("");
+    }
+    main.innerHTML = folders + body;
+  };
+
+  KB.prototype.detailHtml = function (f) {
+    var meta = [f.dir || "根目录", human(f.size), fmtDate(f.mtime), f.doc_type].filter(Boolean).join(" · ");
+    var url = (this.data.base ? this.data.base.replace(/\/$/, "") + "/" + encodeURI(f.key) : "");
+    return '<div class="kb-detail">' + icon(f.kind) +
+      "<h2>" + esc(f.name) + "</h2>" +
+      (f.summary ? '<p class="kb-s">' + esc(f.summary) + "</p>" : "") +
+      '<p class="kb-m">' + esc(meta) + "</p>" +
+      ((f.tags || []).length ? '<div class="kb-tags">' + f.tags.map(function (t) { return '<span class="kb-tag">' + esc(t) + "</span>"; }).join("") + "</div>" : "") +
+      (url ? '<a class="kb-open" href="' + esc(url) + '" target="_blank" rel="noopener">打开文件</a>' : "") +
+      "</div>";
+  };
+
+  function mount(el, data) { return new KB(el, data || { files: [] }); }
+
+  function boot() {
+    var el = document.getElementById("tab-kb");
+    if (!el || el.getAttribute("data-kb-ready")) return;
+    el.setAttribute("data-kb-ready", "1");
+    if (window.KB_INDEX) { mount(el, window.KB_INDEX); return; }
+    fetch(INDEX_URL, { cache: "no-store" }).then(function (r) {
+      if (!r.ok) throw new Error("index " + r.status);
+      return r.json();
+    }).then(function (data) { mount(el, data); }).catch(function () {
+      mount(el, { files: [] });
+      var main = el.querySelector("#kb-main-scroll");
+      if (main) main.innerHTML = '<div class="kb-empty">打不开索引，检查网络后重试</div>';
+    });
+  }
+
+  window.KB = { mount: mount, boot: boot };
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);
+  else boot();
+})();
