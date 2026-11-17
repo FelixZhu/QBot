@@ -217,6 +217,29 @@
     setTimeout(function () { sheet.hidden = true; }, 280);
   };
 
+  /* Hook used by the tab shell: window.qbotKb.back() — no args.
+     Return true if this call consumed the back gesture, false if already
+     at the knowledge-base home (the shell then switches to the 对话 tab). */
+  KB.prototype.back = function () {
+    if (this.el && this.el.classList.contains("is-sheet")) {
+      this.closeSheet();
+      return true;
+    }
+    if (this.selected) {
+      this.selected = null;
+      this.drawLists();
+      return true;
+    }
+    if (this.folder) {
+      var slash = this.folder.lastIndexOf("/");
+      this.folder = slash >= 0 ? this.folder.slice(0, slash) : "";
+      this.selected = null;
+      this.drawLists();
+      return true;
+    }
+    return false;
+  };
+
   KB.prototype.openFile = function (file) {
     this.selected = file.key;
     this.el.dispatchEvent(new CustomEvent("kb:open", { bubbles: true, detail: file }));
@@ -345,7 +368,11 @@
       "</div>";
   };
 
-  function mount(el, data) { return new KB(el, data || { files: [] }); }
+  var inst = null;
+  function mount(el, data) {
+    inst = new KB(el, data || { files: [] });
+    return inst;
+  }
 
   function boot() {
     var el = document.getElementById("tab-kb");
@@ -363,6 +390,10 @@
   }
 
   window.KB = { mount: mount, boot: boot };
+  /* chat-demo shell: if (window.qbotKb.back()) return true; else leave the tab. */
+  window.qbotKb = {
+    back: function () { return !!(inst && inst.back()); }
+  };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);
   else boot();
 })();
