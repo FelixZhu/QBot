@@ -39,7 +39,7 @@ const SAMPLE: ThreadMessageLike[] = [
     role: "assistant",
     createdAt: at(8, 10),
     content:
-      "**护照 2026-12-24 到期**，还有 37 天。续签要准备：\n\n1. 旧护照原件\n2. 身份证正反面\n3. 近 6 个月的白底证件照\n\n来源：`证件/护照扫描.pdf` 第 2 页。",
+      "**护照 2026-12-24 到期**，还有 37 天。续签要准备：\n\n1. 旧护照原件\n2. 身份证正反面\n3. 近 6 个月的白底证件照\n\n来源：`知识库 · 护照扫描件` 第 2 页。",
   },
   { role: "user", content: "好的，周五下午提醒我约一下", createdAt: at(8, 12) },
   {
@@ -143,6 +143,8 @@ function Composer({ toast }: { toast: (m: string) => void }) {
     const c = aui.composer();
     if (!c.getState().text.trim()) return;
     c.send({ steer: false });
+    // Voice-first: after a typed message, fall back to the big mic. Typing only via the Aa button.
+    setKeyboard(false);
   }, [aui]);
 
   useEffect(() => {

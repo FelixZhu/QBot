@@ -141,10 +141,10 @@
           '<input type="search" id="kb-q" placeholder="搜文件名和摘要" value="' + esc(this.q) + '" autocomplete="off" enterkeyhint="search">' +
           '<button type="button" class="kb-clear" id="kb-clear" aria-label="清除">×</button>' +
         '</div>' +
-        '<div class="kb-chips" id="kb-chips"></div>' +
+        '<div class="kb-chips-wrap" id="kb-chips-wrap"><div class="kb-chips" id="kb-chips"></div></div>' +
         '<button type="button" class="kb-vault" id="kb-vault">' +
           '<span class="kb-ic">' + LOCK + '</span>' +
-          '<span class="kb-t"><span class="kb-n">私密区</span><span class="kb-m">待开通 · 需本地密钥解锁</span></span>' +
+          '<span class="kb-t"><span class="kb-n">私密区</span><span class="kb-m">尚未配置</span></span>' +
           '<span class="kb-cnt" id="kb-vault-cnt"></span>' + CHEV.replace("<svg", '<svg class="kb-chev"') +
         '</button>' +
         '<div class="kb-scroll" id="kb-pane-scroll"></div>' +
@@ -153,12 +153,13 @@
       '<div class="kb-scrim" id="kb-scrim"></div>' +
       '<div class="kb-sheet" id="kb-sheet" role="dialog" aria-labelledby="kb-sheet-title" hidden>' +
         '<h3 id="kb-sheet-title">私密区</h3>' +
-        '<p>待开通。体检报告和证件将放在这里；开通后需用本机密钥解锁，密钥不会离开这台设备。</p>' +
+        '<p>尚未配置。开通后，私密文件会放在这里，不会出现在公开列表里。</p>' +
         '<button type="button" class="kb-ok" id="kb-sheet-ok">知道了</button>' +
       '</div>';
     this.bind();
     this.drawChips();
     this.drawLists();
+    this.updateChipFade();
   };
 
   KB.prototype.bind = function () {
@@ -173,6 +174,14 @@
       self.q = ""; input.value = ""; self.el.querySelector(".kb-search").classList.remove("has-q"); self.drawLists(); input.focus();
     });
     this.el.querySelector("#kb-vault").addEventListener("click", function () { self.openSheet(); });
+    var chips = this.el.querySelector("#kb-chips");
+    if (chips) chips.addEventListener("scroll", function () { self.updateChipFade(); }, {passive: true});
+    if (!KB._resizeBound) {
+      KB._resizeBound = true;
+      window.addEventListener("resize", function () {
+        if (inst) inst.updateChipFade();
+      });
+    }
     this.el.querySelector("#kb-scrim").addEventListener("click", function () { self.closeSheet(); });
     this.el.querySelector("#kb-sheet-ok").addEventListener("click", function () { self.closeSheet(); });
     this.el.addEventListener("click", function (e) {
@@ -255,6 +264,17 @@
         return '<button type="button" class="kb-chip' + (on ? " on" : "") + '" data-tag="' + esc(t) + '">' + esc(t) + "</button>";
       }, this).join("");
     this.el.querySelector("#kb-chips").innerHTML = html;
+    var self = this;
+    requestAnimationFrame(function () { self.updateChipFade(); });
+  };
+
+  KB.prototype.updateChipFade = function () {
+    var wrap = this.el && this.el.querySelector("#kb-chips-wrap");
+    var el = this.el && this.el.querySelector("#kb-chips");
+    if (!wrap || !el) return;
+    var can = el.scrollWidth > el.clientWidth + 1;
+    var atEnd = el.scrollLeft + el.clientWidth >= el.scrollWidth - 2;
+    wrap.classList.toggle("is-overflow", can && !atEnd);
   };
 
   KB.prototype.drawLists = function () {
@@ -262,6 +282,7 @@
     var searching = !!this.q;
     this.drawPane(files, searching);
     this.drawMain(files, searching);
+    this.updateChipFade();
   };
 
   KB.prototype.drawPane = function (files, searching) {

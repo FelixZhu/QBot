@@ -212,11 +212,18 @@ html,body{height:100%;overflow:hidden}
 #tab-kb[hidden],#panel-kb>.app[hidden]{display:none}
 #btnKbBack{display:none}
 #panel-kb.kb-viewing #btnKbBack{display:inline-grid}
+/* With the kb module, the old drive is only the file previewer behind kb:open: no sidebar, no tab strip. */
+#panel-kb.kb-pending>.app{visibility:hidden}
+#panel-kb.kb-mode .side,#panel-kb.kb-mode .scrim,#panel-kb.kb-mode #tabs,#panel-kb.kb-mode #btnSide,
+#panel-kb.kb-mode #btnRefresh,#panel-kb.kb-mode #btnQsM,#panel-kb.kb-mode #btnNewTab{display:none!important}
+@media (min-width:600px){#panel-kb.kb-mode .tabbar{display:none}}
 .qbs-nav{grid-area:nav;display:flex;background:var(--bg);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom);z-index:20;font-family:var(--font)}
 .qbs-brand{display:none}
 .qbs-item{flex:1;position:relative;height:56px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
   font-size:12px;line-height:16px;color:var(--text-3);-webkit-tap-highlight-color:transparent}
 .qbs-item svg{width:24px;height:24px}
+.qbs-item>span{white-space:nowrap;overflow:hidden;text-overflow:clip;max-width:100%;line-height:16px}
+.qbs-item>*{flex:none}
 .qbs-item[aria-current="page"]{color:var(--text-1);font-weight:700}
 .qbs-item .dot{position:absolute;top:8px;left:calc(50% + 8px);width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 2px var(--bg)}
 .qbs-item .dot[hidden]{display:none}
@@ -267,7 +274,7 @@ html,body{height:100%;overflow:hidden}
   <button class="qbs-item" data-qbs-tab="kb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 5.5A1.5 1.5 0 0 1 6 4h4.5L12 6h6a1.5 1.5 0 0 1 1.5 1.5v11A1.5 1.5 0 0 1 18 20H6a1.5 1.5 0 0 1-1.5-1.5z"/><path d="M8.5 11.5h7M8.5 15h4.5"/></svg><span>知识库</span></button>
 </nav>
 <section class="qbs-panel" id="panel-chat"><div id="chat-root"></div></section>
-<section class="qbs-panel" id="panel-feed" hidden><div id="tab-feed"><div class="qbs-empty"><svg viewBox="0 0 32 32" aria-hidden="true"><rect x="4" y="6.5" width="17" height="19" rx="6.5" fill="var(--text-1)"/><circle cx="25.5" cy="21.5" r="3.2" fill="var(--accent)"/></svg><b>主动服务即将上线</b><span>QBot 会在这里主动提醒你：证件到期、日程冲突、每日简报。</span></div></div></section>
+<section class="qbs-panel" id="panel-feed" hidden><div id="tab-feed"><div class="qbs-empty"><svg viewBox="0 0 32 32" aria-hidden="true"><rect x="4" y="6.5" width="17" height="19" rx="6.5" fill="var(--text-1)"/><circle cx="25.5" cy="21.5" r="3.2" fill="var(--accent)"/></svg><b>主动服务即将上线</b><span>QBot 会在这里主动推送：AI 日报、每日英语、学习进度。</span></div></div></section>
 <script>
 /* Pick the starting tab before the drive script renders, so the drive never lays out hidden. */
 (function(){var t=null;try{t=sessionStorage.getItem("qbs_tab")}catch(e){}
@@ -277,7 +284,7 @@ html,body{height:100%;overflow:hidden}
   document.querySelectorAll(".qbs-item").forEach(function(b){if(b.dataset.qbsTab===t)b.setAttribute("aria-current","page");else b.removeAttribute("aria-current")});
 })();
 </script>
-<section class="qbs-panel" id="panel-kb">
+<section class="qbs-panel kb-pending" id="panel-kb">
 <div id="tab-kb" hidden></div>
 <div class="app" id="app">
   <aside class="side" id="side">
@@ -358,7 +365,7 @@ var KIND={image:"jpg jpeg png gif webp bmp svg avif",video:"mp4 mov webm m4v",au
 function kind(f){var e=ext(f.name);for(var k in KIND)if((" "+KIND[k]+" ").indexOf(" "+e+" ")>=0)return k;var ct=f.type||"";if(/^image\//.test(ct))return"image";if(/^video\//.test(ct))return"video";if(/^audio\//.test(ct))return"audio";if(ct==="application/pdf")return"pdf";if(/^text\//.test(ct))return"code";return"file"}
 var KL={image:"图片",video:"视频",audio:"音频",pdf:"PDF 文档",md:"Markdown",code:"文本",file:"文件",folder:"文件夹"};
 var KC={image:"#22a06b",video:"#e5484d",audio:"#f08c00",pdf:"#e03131",md:"#5b6bd6",code:"#64748b",file:"#8a8f98"};
-var ALIAS={xhs:"小红书",videos:"视频",feishu:"飞书",export:"导出文档",docs:"文档",reports:"报告",intake:"资料整理",bilibili:"B 站",xiaoyuzhou:"小宇宙"};
+var ALIAS={xhs:"小红书",videos:"视频",export:"导出文档",docs:"文档",reports:"报告",bilibili:"B 站",xiaoyuzhou:"小宇宙"};
 function fic(k,open){
   if(k==="folder")return open?'<svg class="fic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 8a2 2 0 0 1 2-2h4l2 2h7a2 2 0 0 1 2 2v1H7.5a2 2 0 0 0-1.9 1.4L3.5 19"/><path d="M5.6 12.4A2 2 0 0 1 7.5 11H21l-2.4 7.2a2 2 0 0 1-1.9 1.3H5a1.5 1.5 0 0 1-1.5-1.5"/></svg>':'<svg class="fic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 7.5A2 2 0 0 1 5 5.5h4l2 2h8a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>';
   var c=KC[k]||KC.file,g="";
@@ -751,10 +758,12 @@ armAway();
     if(window.QbotFeed&&QbotFeed.mount)QbotFeed.mount(document.getElementById("tab-feed"),{feedUrl:"feed.json"});
   })});
   Promise.all([exists("kb.js"),exists("kb.css")]).then(function(r){
-    if(!r[0])return;            /* fallback: the existing drive UI stays as the 知识库 tab */
+    if(!r[0]){kbPanel.classList.remove("kb-pending");return}  /* fallback: the existing drive UI stays as the 知识库 tab */
     if(r[1])css("kb.css");
     js("kb.js",function(){
       kbMode=true;
+      kbPanel.classList.add("kb-mode");kbPanel.classList.remove("kb-pending");
+      var vh=app.querySelector(".viewhead"),bb=document.getElementById("btnKbBack");vh.insertBefore(bb,vh.firstChild);
       var h=window.__qbHash||"";
       showViewer(h.indexOf("#/")===0&&h!=="#/"&&h.indexOf("#/~home")!==0);
     });

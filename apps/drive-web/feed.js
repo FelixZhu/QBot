@@ -7,12 +7,14 @@
 
   var TYPE_LABEL = { digest: "AI 日报", english: "每日英语", study: "接着学", file: "文件提醒" };
   var BOT_CLS = {
-    "Info Bot": { av: "Info", cls: "av-info" },
-    "English Bot": { av: "En", cls: "av-en" },
-    "Study Bot": { av: "St", cls: "av-st" },
+    "Info Bot": { av: "I", cls: "av-info" },
+    "English Bot": { av: "E", cls: "av-en" },
+    "Study Bot": { av: "S", cls: "av-st" },
     QBot: { av: "F", cls: "av-file" }
   };
   var PRIMARY = { digest: "打开日报", english: "播放", study: "打开讲义", file: "打开文件" };
+  var DEFAULT_FEED_URL = "https://qian-grokbot.oss-cn-beijing.aliyuncs.com/feed/feed.json";
+  var LOCAL_FEED_FALLBACK = "out/feed.json";
   var MUTE_KEY = "qbot-feed-muted-types";
   var SNOOZE_KEY = "qbot-feed-snoozed";
   var TZ = "Asia/Shanghai";
@@ -130,7 +132,7 @@
   }
 
   function botMeta(name) {
-    return BOT_CLS[name] || { av: (name || "?").slice(0, 2), cls: "av-info" };
+    return BOT_CLS[name] || { av: (name || "?").slice(0, 1), cls: "av-info" };
   }
 
   function resolveUrl(u) {
@@ -160,27 +162,43 @@
     unmount();
     state.root = root;
     state.opts = opts || {};
-    state.feedUrl = new URL(state.opts.feedUrl || "out/feed.json", location.href).href;
+    var requested = state.opts.feedUrl || DEFAULT_FEED_URL;
+    state.feedUrl = new URL(requested, location.href).href;
     state.index = 0;
     state.wide = window.matchMedia("(min-width: 600px)").matches;
     root.innerHTML = "";
     root.classList.add("qb-feed-host");
     var shell = el("div", { class: "feed-root", html: '<div class="skel" style="height:100%;margin:0"></div>' });
     root.appendChild(shell);
-    fetch(state.feedUrl, { cache: "no-store" })
-      .then(function (r) {
-        if (!r.ok) throw new Error("feed.json " + r.status);
-        return r.json();
-      })
-      .then(function (data) {
-        state.all = (data && data.cards) || [];
-        render();
-        bindResize();
-      })
-      .catch(function (err) {
-        renderError(String(err && err.message ? err.message : err));
-      });
+    loadFeed(state.feedUrl).then(function (data) {
+      state.all = (data && data.cards) || [];
+      render();
+      bindResize();
+    }).catch(function (err) {
+      renderError(String(err && err.message ? err.message : err));
+    });
     return { unmount: unmount };
+  }
+
+  function isLocalPreview() {
+    var h = location.hostname;
+    return location.protocol === "file:" || h === "localhost" || h === "127.0.0.1";
+  }
+
+  function loadFeed(url) {
+    return fetch(url, { cache: "no-store" }).then(function (r) {
+      if (!r.ok) throw new Error("feed.json " + r.status);
+      return r.json();
+    }).catch(function (err) {
+      if (!isLocalPreview()) throw err;
+      var fallback = new URL(LOCAL_FEED_FALLBACK, location.href).href;
+      if (fallback === url) throw err;
+      return fetch(fallback, { cache: "no-store" }).then(function (r) {
+        if (!r.ok) throw err;
+        state.feedUrl = fallback;
+        return r.json();
+      });
+    });
   }
 
   function renderError(msg) {
@@ -189,7 +207,7 @@
     var root = el("div", { class: "feed-root" },
       el("div", { class: "feed-error" },
         el("p", { text: "打不开，" + msg + "。" }),
-        el("button", { class: "btn primary", type: "button", onClick: function () { mount(state.root, state.opts); } }, "重试")
+        el("button", { class: "q-btn q-primary", type: "button", onClick: function () { mount(state.root, state.opts); } }, "重试")
       )
     );
     state.root.appendChild(root);
@@ -218,7 +236,7 @@
     body.appendChild(stage);
     wrap.appendChild(body);
 
-    wrap.appendChild(el("div", { class: "toast feed-toast", hidden: true }));
+    wrap.appendChild(el("div", { class: "q-toast feed-toast", hidden: true }));
     wrap.appendChild(el("div", { class: "feed-scrim", onClick: closeSheet }));
     wrap.appendChild(sheet());
 
@@ -256,18 +274,18 @@
     state.visible.forEach(function (c, i) {
       var meta = botMeta(c.bot);
       var row = el("button", {
-        class: "row" + (i === state.index ? " active" : ""),
+        class: "q-row" + (i === state.index ? " active" : ""),
         type: "button",
         dataset: { i: String(i) },
         onClick: function () { goTo(i); }
       },
-        el("span", { class: "av " + (meta.cls || "av-info"), text: meta.av }),
-        el("div", { class: "t" },
+        el("span", { class: "q-av " + (meta.cls || "av-info"), text: meta.av }),
+        el("div", { class: "q-t" },
           el("div", { class: "meta" },
             el("b", { class: "k", text: typeLabel(c) }),
             el("span", { class: "when", text: formatTime(c.time) })
           ),
-          el("div", { class: "n", text: listTitle(c) })
+          el("div", { class: "q-n", text: listTitle(c) })
         )
       );
       rows.appendChild(row);
@@ -298,7 +316,7 @@
   }
 
   function feedTrack() {
-    var track = el("div", { class: "feed", tabindex: "0", "aria-label": "主动服务卡片" });
+    var track = el("div", { class: "q-feed", tabindex: "0", "aria-label": "主动服务卡片" });
     state.visible.forEach(function (c, i) {
       track.appendChild(cardEl(c, i));
     });
@@ -311,17 +329,17 @@
     var meta = botMeta(c.bot);
     var data = c.data || {};
     var card = el("section", {
-      class: "fcard" + (c.private ? " is-private" : "") + (data.subtype === "due" ? " urgent" : ""),
+      class: "q-fcard" + (c.private ? " is-private" : "") + (data.subtype === "due" ? " urgent" : ""),
       dataset: { id: c.id, type: c.type, i: String(i) },
       "aria-label": typeLabel(c)
     });
-    var who = el("div", { class: "who" },
-      el("span", { class: "av " + (meta.cls || "av-info"), text: meta.av }),
-      el("span", { class: "nm", text: c.bot }),
+    var who = el("div", { class: "q-who" },
+      el("span", { class: "q-av " + (meta.cls || "av-info"), text: meta.av }),
+      el("span", { class: "q-nm", text: c.bot }),
       el("span", { text: " · " + formatTime(c.time) }),
-      el("span", { class: "kind", text: typeLabel(c) })
+      el("span", { class: "q-kind", text: typeLabel(c) })
     );
-    var stage = el("div", { class: "stage" });
+    var stage = el("div", { class: "q-stage" });
     fillStage(stage, c);
     card.appendChild(who);
     card.appendChild(stage);
@@ -345,8 +363,8 @@
       if (data.date_label) stage.appendChild(el("div", { class: "mini", text: data.date_label, style: { marginBottom: "8px", fontSize: "12px", color: "var(--text-3)" } }));
       stage.appendChild(el("h2", { text: c.title }));
       var n = (data.highlights || []).length || 3;
-      stage.appendChild(el("div", { class: "sum", text: "今天 " + n + " 条值得看。" }));
-      var ol = el("ol", { class: "hl" });
+      stage.appendChild(el("div", { class: "q-sum", text: "今天 " + n + " 条值得看。" }));
+      var ol = el("ol", { class: "q-hl" });
       (data.highlights || []).forEach(function (h) {
         ol.appendChild(el("li", null, el("span", { text: h.title || h })));
       });
@@ -355,10 +373,10 @@
     }
     if (c.type === "english") {
       stage.appendChild(el("div", { class: "mini", text: "今天的表达", style: { marginBottom: "12px", fontSize: "12px", color: "var(--text-3)" } }));
-      stage.appendChild(el("div", { class: "phrase", text: data.expression || c.title }));
+      stage.appendChild(el("div", { class: "q-phrase", text: data.expression || c.title }));
       if (data.meaning) stage.appendChild(el("div", { class: "meaning", text: data.meaning }));
       if (data.example) {
-        var ex = el("div", { class: "example sum" });
+        var ex = el("div", { class: "example q-sum" });
         ex.appendChild(el("div", { class: "en", text: "“" + data.example + "”" }));
         if (data.example_zh) ex.appendChild(el("div", { class: "zh", text: data.example_zh }));
         stage.appendChild(ex);
@@ -380,7 +398,7 @@
       var bits = [];
       if (data.brief) bits.push("讲义已就绪");
       if (data.has_video) bits.push("有讲解视频");
-      stage.appendChild(el("div", { class: "sum", text: bits.join(" · ") || (c.summary || ""), style: { marginTop: "12px" } }));
+      stage.appendChild(el("div", { class: "q-sum", text: bits.join(" · ") || (c.summary || ""), style: { marginTop: "12px" } }));
       return;
     }
     if (c.type === "file") {
@@ -391,10 +409,10 @@
           el("span", { class: "big", text: label }),
           el("h2", { text: c.title })
         ));
-        if (c.summary) stage.appendChild(el("div", { class: "sum", text: c.summary, style: { marginTop: "8px" } }));
+        if (c.summary) stage.appendChild(el("div", { class: "q-sum", text: c.summary, style: { marginTop: "8px" } }));
       } else {
         stage.appendChild(el("h2", { text: c.title }));
-        if (c.summary) stage.appendChild(el("div", { class: "sum", text: c.summary }));
+        if (c.summary) stage.appendChild(el("div", { class: "q-sum", text: c.summary }));
       }
       if (data.source) {
         stage.appendChild(el("div", { class: "src", text: data.source, style: { marginTop: "16px" } }));
@@ -402,16 +420,16 @@
       return;
     }
     stage.appendChild(el("h2", { text: c.title }));
-    if (c.summary) stage.appendChild(el("div", { class: "sum", text: c.summary }));
+    if (c.summary) stage.appendChild(el("div", { class: "q-sum", text: c.summary }));
   }
 
   function playerEl(c) {
-    var box = el("div", { class: "player", dataset: { id: c.id } });
-    var pp = el("button", { class: "pp", type: "button", "aria-label": "播放", onClick: function (e) { e.stopPropagation(); toggleAudio(c); } });
+    var box = el("div", { class: "q-player", dataset: { id: c.id } });
+    var pp = el("button", { class: "q-pp", type: "button", "aria-label": "播放", onClick: function (e) { e.stopPropagation(); toggleAudio(c); } });
     pp.innerHTML = ICO.play;
     var rail = el("div", { class: "rail" }, el("i"));
-    var track = el("div", { class: "track", onClick: function (e) { seekAudio(c, e); } }, rail);
-    var tm = el("span", { class: "tm", text: "0:00 / --:--" });
+    var track = el("div", { class: "q-track", onClick: function (e) { seekAudio(c, e); } }, rail);
+    var tm = el("span", { class: "q-tm", text: "0:00 / --:--" });
     box.appendChild(pp);
     box.appendChild(track);
     box.appendChild(tm);
@@ -419,7 +437,7 @@
   }
 
   function videoSlot(c) {
-    var frame = el("div", { class: "vframe" });
+    var frame = el("div", { class: "q-vframe" });
     var v = el("video", { src: resolveUrl(c.media.url), playsinline: true, controls: true, preload: "metadata" });
     frame.appendChild(v);
     frame.appendChild(el("div", { class: "subs", hidden: true }));
@@ -429,13 +447,13 @@
 
   function actionBar(c) {
     var primaryLabel = c.private ? "解锁查看" : (PRIMARY[c.type] || "打开");
-    var primary = el("button", { class: "btn primary", type: "button", onClick: function () { onPrimary(c); } });
+    var primary = el("button", { class: "q-btn q-primary", type: "button", onClick: function () { onPrimary(c); } });
     primary.innerHTML = c.private ? ICO.lock : ICO.chev;
     primary.appendChild(document.createTextNode(primaryLabel));
-    return el("div", { class: "bar" },
+    return el("div", { class: "q-bar" },
       primary,
-      el("button", { class: "btn snooze", type: "button", onClick: function () { snooze(c); } }, "稍后"),
-      el("button", { class: "btn ghost", type: "button", onClick: function () { muteType(c); } }, "不再提醒")
+      el("button", { class: "q-btn q-snooze", type: "button", onClick: function () { snooze(c); } }, "稍后"),
+      el("button", { class: "q-btn q-ghost", type: "button", onClick: function () { muteType(c); } }, "不再提醒")
     );
   }
 
@@ -457,20 +475,20 @@
   function sheet() {
     var s = el("div", { class: "feed-sheet", role: "dialog", "aria-label": "输入本地密钥" });
     s.appendChild(el("div", { style: { fontWeight: "700", marginBottom: "8px" }, text: "输入本地密钥" }));
-    var field = el("div", { class: "keyfield" });
+    var field = el("div", { class: "q-keyfield" });
     var input = el("input", { type: "password", autocomplete: "off", "aria-label": "本地密钥", style: { flex: "1", border: "0", background: "none", font: "inherit", color: "inherit", letterSpacing: "3px", minWidth: "0" } });
     field.appendChild(input);
     s.appendChild(field);
-    s.appendChild(el("p", { class: "note", style: { margin: "8px 0 20px" }, text: "文件在手机上解密，密钥不离开这台手机。与对话页用同一套。" }));
-    s.appendChild(el("button", { class: "btn primary block", type: "button", onClick: function () { toast("解锁还没有接上，等知识库的方案就绪。"); closeSheet(); } }, "解锁并打开"));
+    s.appendChild(el("p", { class: "q-note", style: { margin: "8px 0 20px" }, text: "文件在手机上解密，密钥不离开这台手机。与对话页用同一套。" }));
+    s.appendChild(el("button", { class: "q-btn q-primary q-block", type: "button", onClick: function () { toast("解锁还没有接上，等知识库的方案就绪。"); closeSheet(); } }, "解锁并打开"));
     return s;
   }
 
   function attachObserver() {
     if (state.observer) { state.observer.disconnect(); state.observer = null; }
-    var track = $(".feed-stage .feed");
+    var track = $(".feed-stage .q-feed");
     if (!track || state.wide) return;
-    var cards = $all(".fcard", track);
+    var cards = $all(".q-fcard", track);
     state.observer = new IntersectionObserver(function (entries) {
       var best = null, ratio = 0;
       entries.forEach(function (en) {
@@ -503,7 +521,7 @@
     state.index = i;
     syncChrome();
     if (updateList !== false) {
-      $all(".feed-list .row").forEach(function (row, idx) {
+      $all(".feed-list .q-row").forEach(function (row, idx) {
         row.classList.toggle("active", idx === i);
       });
     }
@@ -517,14 +535,14 @@
       if (idx === state.index) b.setAttribute("aria-current", "true");
       else b.removeAttribute("aria-current");
     });
-    $all(".feed-list .row").forEach(function (row, idx) {
+    $all(".feed-list .q-row").forEach(function (row, idx) {
       row.classList.toggle("active", idx === state.index);
     });
   }
 
   function scrollToIndex(i, behavior) {
-    var track = $(".feed-stage .feed");
-    var card = $all(".fcard", track)[i];
+    var track = $(".feed-stage .q-feed");
+    var card = $all(".q-fcard", track)[i];
     if (!track || !card) return;
     var top = card.offsetTop;
     /* Only scroll the feed itself — scrollIntoView would also drag the window
@@ -534,7 +552,7 @@
   }
 
   function showOnly(i) {
-    $all(".feed-stage .fcard").forEach(function (card, idx) {
+    $all(".feed-stage .q-fcard").forEach(function (card, idx) {
       card.style.display = idx === i ? "flex" : "none";
     });
   }
@@ -606,12 +624,12 @@
   }
 
   function paintPlayer(c, ended) {
-    var box = state.root && state.root.querySelector('.player[data-id="' + cssEscape(c.id) + '"]');
+    var box = state.root && state.root.querySelector('.q-player[data-id="' + cssEscape(c.id) + '"]');
     if (!box) return;
     var a = state.audio && state.playingId === c.id ? state.audio : null;
-    var pp = box.querySelector(".pp");
+    var pp = box.querySelector(".q-pp");
     var fill = box.querySelector(".rail i");
-    var tm = box.querySelector(".tm");
+    var tm = box.querySelector(".q-tm");
     var playing = a && !a.paused && !ended;
     if (pp) {
       pp.innerHTML = playing ? ICO.pause : ICO.play;
@@ -640,7 +658,7 @@
       probe.src = resolveUrl(c.media.url);
       probe.addEventListener("loadedmetadata", function () {
         if (!state.root) return;
-        var tm = state.root.querySelector('.player[data-id="' + cssEscape(c.id) + '"] .tm');
+        var tm = state.root.querySelector('.q-player[data-id="' + cssEscape(c.id) + '"] .q-tm');
         if (tm && state.playingId !== c.id) tm.textContent = "0:00 / " + fmtDur(probe.duration);
       });
     });
