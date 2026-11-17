@@ -1,0 +1,126 @@
+/* QBot layout v0 — 荣耀折叠屏
+ * 折叠（外屏，约 360–420px）：单栏 + 底部 Tab；目录是左侧抽屉，详情/操作用底部弹层。
+ * 展开（内屏，约 700–900px，近方形）：左侧窄图标栏 + 中栏（对话列表/今日/目录）+ 右侧内容。
+ * ≥1024px（电脑）：同展开，中栏加宽，可显示文档标签页。
+ * 断点沿用现有 599/600，避免改动 template.html 里的 mqNarrow 逻辑。
+ *
+ * 结构：
+ * <div class="qb-app" data-tab="chat|kb">
+ *   <nav class="qb-nav">…Tab/图标栏…</nav>
+ *   <aside class="qb-pane">…中栏…</aside>
+ *   <main class="qb-main"><header class="qb-topbar">…</header><div class="qb-scroll">…</div></main>
+ * </div>
+ */
+*,*::before,*::after{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{
+  font-family:var(--font);font-size:var(--fs-body);line-height:var(--lh-body);
+  color:var(--text-1);background:var(--bg);
+  -webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent;
+  text-rendering:optimizeLegibility;
+}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+:focus-visible{outline:none;box-shadow:var(--focus-ring);border-radius:var(--r-sm)}
+
+/* ---------- 外框 ---------- */
+.qb-app{
+  height:100vh;height:100dvh;display:grid;
+  grid-template-columns:1fr;
+  grid-template-rows:1fr auto;
+  grid-template-areas:"main" "nav";
+  background:var(--bg);
+  padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right);
+}
+.qb-main{grid-area:main;min-width:0;min-height:0;display:flex;flex-direction:column;background:var(--surface)}
+.qb-scroll{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+
+/* 中栏：折叠态隐藏，作为抽屉 */
+.qb-pane{
+  position:fixed;inset:0 auto 0 0;z-index:50;width:min(86vw,320px);
+  background:var(--bg);border-right:1px solid var(--line);
+  transform:translateX(-102%);transition:transform var(--dur-3) var(--ease);
+  display:flex;flex-direction:column;
+  padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom);
+}
+.qb-app.is-drawer .qb-pane{transform:none;box-shadow:var(--shadow-3)}
+.qb-scrim{position:fixed;inset:0;z-index:40;background:var(--scrim);opacity:0;pointer-events:none;transition:opacity var(--dur-3) var(--ease)}
+.qb-app.is-drawer .qb-scrim,.qb-app.is-sheet .qb-scrim{opacity:1;pointer-events:auto}
+
+/* ---------- 顶栏：一行，52px；标题左对齐 ---------- */
+.qb-topbar{
+  flex:none;display:flex;align-items:center;gap:var(--sp-1);
+  min-height:calc(var(--topbar-h) + env(safe-area-inset-top));
+  padding:env(safe-area-inset-top) var(--sp-2) 0 var(--sp-2);
+  background:var(--surface);border-bottom:1px solid transparent;
+}
+.qb-topbar.is-scrolled{border-bottom-color:var(--line)}   /* 内容滚动后才出现分隔线 */
+.qb-topbar .q-title{flex:1;min-width:0;font-size:var(--fs-title-s);line-height:var(--lh-title-s);font-weight:var(--fw-bold);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:0 var(--sp-2)}
+.qb-iconbtn{width:var(--touch);height:var(--touch);display:inline-grid;place-items:center;border-radius:var(--r-sm);color:var(--text-2);flex:none}
+.qb-iconbtn:active{background:var(--fill)}
+@media (hover:hover){.qb-iconbtn:hover{background:var(--fill-hover);color:var(--text-1)}}
+
+/* ---------- 底部 Tab（折叠态） ---------- */
+.qb-nav{
+  grid-area:nav;display:flex;justify-content:space-around;align-items:stretch;
+  height:calc(var(--tabbar-h) + env(safe-area-inset-bottom));
+  padding-bottom:env(safe-area-inset-bottom);
+  background:var(--bg);border-top:1px solid var(--line);
+}
+.qb-nav .q-item{flex:1;max-width:160px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+  color:var(--text-3);font-size:var(--fs-caption);line-height:16px;position:relative;min-height:var(--touch)}
+.qb-nav .q-item svg{width:24px;height:24px}
+.qb-nav .q-item[aria-current="page"]{color:var(--text-1);font-weight:var(--fw-bold)}
+.qb-nav .q-item .q-dot{position:absolute;top:8px;left:calc(50% + 10px);width:8px;height:8px;border-radius:50%;background:var(--accent)} /* 未读=陶土点 */
+.qb-nav .q-brand{display:none}
+
+/* ---------- 展开态 ≥600px：左图标栏 + 中栏 + 内容 ---------- */
+@media (min-width:600px){
+  .qb-app{
+    grid-template-columns:var(--rail-w) var(--pane-w) 1fr;
+    grid-template-rows:1fr;
+    grid-template-areas:"nav pane main";
+  }
+  .qb-nav{
+    flex-direction:column;justify-content:flex-start;gap:var(--sp-1);height:auto;
+    padding:calc(var(--sp-3) + env(safe-area-inset-top)) 0 calc(var(--sp-3) + env(safe-area-inset-bottom));
+    border-top:0;border-right:1px solid var(--line);align-items:center;
+  }
+  .qb-nav .q-brand{display:block;width:32px;height:32px;margin-bottom:var(--sp-4)}
+  .qb-nav .q-item{flex:none;width:56px;height:56px;border-radius:var(--r-md)}
+  .qb-nav .q-item[aria-current="page"]{background:var(--fill)}
+  .qb-nav .q-item .q-dot{top:10px;left:auto;right:12px}
+  .qb-nav .q-spacer{flex:1}
+  .qb-pane{position:static;transform:none;width:auto;box-shadow:none;z-index:auto;padding-top:env(safe-area-inset-top)}
+  .qb-scrim{display:none}
+  .qb-only-folded{display:none!important}
+}
+@media (max-width:599px){.qb-only-unfolded{display:none!important}}
+/* 电脑宽屏 */
+@media (min-width:1024px){
+  .qb-app{--pane-w:320px}
+}
+/* 展开态但窗口偏窄（分屏 600–719px）：中栏收窄 */
+@media (min-width:600px) and (max-width:719px){
+  .qb-app{--pane-w:240px}
+}
+
+/* ---------- 阅读区 ---------- */
+.qb-read{max-width:var(--read-max);margin:0 auto;padding:var(--sp-6) var(--sp-5) calc(var(--sp-12) + env(safe-area-inset-bottom))}
+@media (min-width:600px){.qb-read{padding:var(--sp-8) var(--sp-8) var(--sp-12)}}
+
+/* ---------- 底部弹层（折叠态） / 居中对话框（展开态） ---------- */
+.qb-sheet{
+  position:fixed;left:0;right:0;bottom:0;z-index:60;max-height:85dvh;overflow:auto;
+  background:var(--surface-raised);border-radius:var(--r-lg) var(--r-lg) 0 0;box-shadow:var(--shadow-3);
+  padding:var(--sp-2) var(--sp-5) calc(var(--sp-5) + env(safe-area-inset-bottom));
+  transform:translateY(100%);transition:transform var(--dur-3) var(--ease);
+}
+.qb-app.is-sheet .qb-sheet{transform:none}
+.qb-sheet::before{content:"";display:block;width:36px;height:4px;border-radius:2px;background:var(--line-strong);margin:0 auto var(--sp-4)}
+@media (min-width:600px){
+  .qb-sheet{left:50%;right:auto;bottom:auto;top:50%;width:min(440px,calc(100% - 48px));border-radius:var(--r-lg);
+    transform:translate(-50%,-46%);opacity:0;pointer-events:none;transition:all var(--dur-2) var(--ease);padding-bottom:var(--sp-5)}
+  .qb-app.is-sheet .qb-sheet{transform:translate(-50%,-50%);opacity:1;pointer-events:auto}
+  .qb-sheet::before{display:none}
+}

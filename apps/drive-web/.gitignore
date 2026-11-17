@@ -7,3 +7,5 @@ assets/fonts/
 *.woff2
 *.ttc
 *.ttf
+feed.json
+media/

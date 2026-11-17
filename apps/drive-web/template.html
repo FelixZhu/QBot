@@ -21,6 +21,8 @@
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <link id="hlcss" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css" disabled>
 <link rel="stylesheet" href="tokens.css?v=__VERSION__">
+<link rel="stylesheet" href="layout.css?v=__VERSION__">
+<link rel="stylesheet" href="components.css?v=__VERSION__">
 <style>
 @font-face{font-family:"Microsoft YaHei";src:url("fonts/msyh-subset.woff2") format("woff2");font-weight:400;font-style:normal;font-display:swap}
 @font-face{font-family:"Microsoft YaHei";src:url("fonts/msyhbd-subset.woff2") format("woff2");font-weight:700;font-style:normal;font-display:swap}
@@ -744,7 +746,10 @@ armAway();
   function css(u){var l=document.createElement("link");l.rel="stylesheet";l.href=u+"?v="+V;document.head.appendChild(l)}
   function js(u,cb){var s=document.createElement("script");s.src=u+"?v="+V;if(cb)s.onload=cb;document.body.appendChild(s)}
   exists("feed.css").then(function(ok){if(ok)css("feed.css")});
-  exists("feed.js").then(function(ok){if(ok)js("feed.js")});
+  /* 主动服务: feed.js exposes QbotFeed.mount(el,{feedUrl}); media URLs resolve next to feed.json. */
+  exists("feed.js").then(function(ok){if(ok)js("feed.js",function(){
+    if(window.QbotFeed&&QbotFeed.mount)QbotFeed.mount(document.getElementById("tab-feed"),{feedUrl:"feed.json"});
+  })});
   Promise.all([exists("kb.js"),exists("kb.css")]).then(function(r){
     if(!r[0])return;            /* fallback: the existing drive UI stays as the 知识库 tab */
     if(r[1])css("kb.css");
@@ -754,15 +759,6 @@ armAway();
       showViewer(h.indexOf("#/")===0&&h!=="#/"&&h.indexOf("#/~home")!==0);
     });
   });
-  /* components.css uses generic class names (.toast/.md/.card/.bot… also exist in the drive and
-   * the chat app), so it is applied only inside the 主动服务 panel via @scope (browsers without
-   * @scope just ignore it). The chat app implements the same specs with qc-* classes on tokens.css. */
-  fetch("components.css?v="+V).then(function(r){return r.ok?r.text():""}).then(function(t){
-    if(!t)return;var kf="";
-    t=t.replace(/@keyframes[^{]*\{(?:[^{}]*\{[^{}]*\})*[^{}]*\}/g,function(m){kf+=m+"\n";return""});
-    var st=document.createElement("style");st.id="qbs-components";
-    st.textContent=kf+"@scope (#panel-feed) {\n"+t+"\n}";document.head.appendChild(st);
-  }).catch(function(){});
 })();
 </script>
 <script type="module" src="chat/chat.js?v=__VERSION__"></script>
