@@ -24,6 +24,25 @@
 .kb-pane{background:var(--bg);--kb-chips-fade:var(--bg)}
 .kb-main{background:var(--surface);flex:1}
 
+/* Mid-column title, unfolded only. Aligns with .qb-topbar in SPEC/layout.css. */
+.kb-topbar{display:none}
+@media (min-width:600px){
+  .kb-topbar{
+    display:flex;align-items:center;flex:none;
+    min-height:var(--topbar-h);
+    padding:0 var(--sp-2);
+    background:var(--bg);color:var(--text-1);
+    border-bottom:1px solid transparent;
+  }
+  .kb-topbar .kb-title{
+    flex:1;min-width:0;
+    font-size:var(--fs-title-s);line-height:var(--lh-title-s);
+    font-weight:var(--fw-bold);
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+    padding:0 var(--sp-2);
+  }
+}
+
 /* Search */
 .kb-search{
   display:flex;align-items:center;gap:var(--sp-2);
@@ -72,7 +91,8 @@
   border-color:transparent;font-weight:var(--fw-bold);
 }
 
-/* Private vault entry */
+/* Private vault entry — ink bar, same as .q-vault in the design spec */
+.kb button.kb-vault,
 .kb-vault{
   display:flex;align-items:center;gap:var(--sp-3);
   margin:var(--sp-2) var(--sp-3);
@@ -241,8 +261,9 @@
 .kb-tw svg{width:14px;height:14px}
 .kb-tw.open{transform:rotate(90deg)}
 @media (min-width:600px){
-  .kb-vault{min-height:48px;padding:8px 12px;width:calc(100% - 24px)}
-  .kb-vault .kb-chev{display:none}
+  /* Keep the ink bar at full 56px; do not shrink it into a plain row. */
+  .kb button.kb-vault,
+  .kb-vault{min-height:56px;padding:var(--sp-3) var(--sp-4);width:calc(100% - 24px)}
 }
 @media (prefers-reduced-motion:reduce){
   .kb-scrim,.kb-sheet{transition:none}
@@ -252,6 +273,15 @@
 @media (max-width:599px){
   .kb-pane{flex:none;background:transparent;--kb-chips-fade:var(--surface)}
   .kb-pane .kb-scroll{display:none}
+}
+
+/* Unfolded: wider gutters on the recent-file column, matching .qb-read */
+@media (min-width:600px){
+  .kb .kb-main .kb-sec{padding-left:var(--sp-8);padding-right:var(--sp-8)}
+  .kb .kb-main .kb-row,
+  .kb .kb-main .kb-sr{padding-left:var(--sp-8);padding-right:var(--sp-8)}
+  .kb .kb-main .kb-empty{padding-left:var(--sp-8);padding-right:var(--sp-8)}
+  .kb-detail{padding:var(--sp-8)}
 }
 
 /* Unfolded ≥600px: pane + content */

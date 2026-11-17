@@ -1,8 +1,8 @@
 {
   "bucket": "sample",
   "base": "",
-  "generated": 1794935144,
-  "count": 8,
+  "generated": 1794935643,
+  "count": 10,
   "files": [
     {
       "key": "笔记/本周小结.md",
@@ -131,6 +131,38 @@
       "tags": [
         "文档",
         "公开"
+      ],
+      "private": false
+    },
+    {
+      "key": "xhs/c0ffee12abad0011/日常记录短片.mp4",
+      "name": "日常记录短片.mp4",
+      "type": "video/mp4",
+      "kind": "video",
+      "doc_type": "视频",
+      "size": 12400000,
+      "mtime": 1794928443,
+      "dir": "xhs/c0ffee12abad0011",
+      "summary": "一段用助手记录日常的短片示例。",
+      "tags": [
+        "视频",
+        "教程"
+      ],
+      "private": false
+    },
+    {
+      "key": "xhs/d00d8badcafe2345/整理笔记的三个方法.mp4",
+      "name": "整理笔记的三个方法.mp4",
+      "type": "video/mp4",
+      "kind": "video",
+      "doc_type": "视频",
+      "size": 15800000,
+      "mtime": 1794762843,
+      "dir": "xhs/d00d8badcafe2345",
+      "summary": "介绍整理笔记的三个常用方法。",
+      "tags": [
+        "视频",
+        "笔记"
       ],
       "private": false
     }
