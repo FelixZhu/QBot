@@ -821,6 +821,18 @@ armAway();
   function restoreShellHistory(){
     try{history.pushState({qbot:"shell"},"",location.pathname+location.search+location.hash)}catch(e){}
   }
+  /* Close the article overlay without using qbotFeed.back(). That method also
+     scrolls to the first card when no detail is open, so one back would both
+     close the overlay and change cards. closeDetail(), when Feed provides it,
+     clears only the open page and restores that card's index and scroll. */
+  function closeShellOverlay(){
+    var feed=window.qbotFeed, shell=window.qbotShell;
+    if(feed&&typeof feed.closeDetail==="function"){
+      try{feed.closeDetail()}catch(e){}
+    }
+    if(shell&&typeof shell.isOpen==="function"&&shell.isOpen())shell.close();
+    return true;
+  }
   window.qbotBack=function(opts){
     opts=opts||{};
     if(window.QbotShellTheme&&QbotShellTheme.isOpen&&QbotShellTheme.isOpen()){
@@ -830,7 +842,7 @@ armAway();
     }
     /* Article / video overlay sits above the feed. Closing it must not move the card. */
     if(window.qbotShell&&qbotShell.isOpen()){
-      qbotShell.close();
+      closeShellOverlay();
       if(opts.fromPop)restoreShellHistory();
       return true;
     }
