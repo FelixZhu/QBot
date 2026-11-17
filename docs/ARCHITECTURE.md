@@ -41,10 +41,11 @@ Feed 和知识库是可选模块：站点上有 `feed.js` / `kb.js` 才加载。
 
 返回由 `window.qbotBack` 统一处理。安卓返回键由外壳注入脚本调用它。顺序是：
 
-1. 先关掉当前页的弹层、抽屉，以及知识库里已打开的旧预览器。
-2. 再交给当前模块：`window.qbotKb.back()`、`window.qbotFeed.back()`、`window.qbotChat.back()`。返回 `true` 表示已经处理（例如退出详情、滑回第一张卡、关掉会话列表）。
-3. 模块已经在自己的首页、返回 `false` 时，切回「对话」。
-4. 已经在「对话」，并且聊天也没有可退的一步时，`qbotBack` 返回 `false`，外壳弹出「再滑一次退出」。
+1. 若文章或视频浮层开着（`window.qbotShell.isOpen()`），先关掉浮层并返回 `true`。Feed 的卡片序号和滚动位置不动。
+2. 再关掉当前页的弹层、抽屉，以及知识库里已打开的旧预览器。
+3. 再交给当前模块：`window.qbotKb.back()`、`window.qbotFeed.back()`、`window.qbotChat.back()`。返回 `true` 表示已经处理（例如退出详情、滑回第一张卡、关掉会话列表）。
+4. 模块已经在自己的首页、返回 `false` 时，切回「对话」。
+5. 已经在「对话」，并且聊天也没有可退的一步时，`qbotBack` 返回 `false`，外壳弹出「再滑一次退出」。
 
 软键盘弹出时，外壳用 `visualViewport` 把整页 `#qbs` 钉在可视区域内，避免底部的输入框被键盘挡住。
 
@@ -394,3 +395,60 @@ python3 apps/drive-web/refresh_site.py --push
 
 - 收到 `qbot:tab` 且目标不是 `kb` 时，暂停页面里的音视频。这里必须监听 `qbot:tab`（从 `kb-tab` 的 `3ac906c` 起），不能再用 IntersectionObserver 判断是否离开 Tab——隐藏 Tab 改成 `visibility` + `inert` 之后，那种写法不会生效。
 - 点击文件时派发 `kb:open` 事件（带上文件的 `key` / `path`），由外壳用原来的预览器打开。
+
+## 文章和视频（外壳）
+
+主动服务一节仍由该模块负责人维护，这次没有改 `feed.js` / `feed.css`。日报主按钮现在的 `window.open(url, "_blank", "noopener")` 保持原样，由网页外壳接住。
+
+安装包仍是 **1.0.4（versionCode 6）**。下面的行为在网页里，刷新即可，**不需要新 APK**。`apps/qbot-app` 没有改。
+
+### 原因
+
+`react-native-webview` 14.0.1 在安卓上处理新窗口时，会建一个没有挂到界面上的 WebView，并且只重写了已废弃的 `shouldOverrideUrlLoading(WebView, String)`。`window.open` 的第一次加载经常根本不进这个回调，所以 `onOpenWindow` 不触发，文章既不会出现在 App 里，也不会交给系统浏览器。Feed 里的音频走 `new Audio()`，不经过这条路径，所以音频是好的。
+
+同一份页面在无头 Chrome 里量过：`feed.js` 给视频槽的 class 是 `q-vframe`，`feed.css` 写的是 `.vframe`。没被样式命中的 `<video>` 是浏览器默认的 300×150；按 `.vframe` 画出来的框是 200×356（9:16）。这是 Feed 样式的事，外壳不去改那两个文件。
+
+跨域 iframe 也量过：允许嵌入的 example.com、带 `X-Frame-Options: deny` 的 github.com、以及 example.com 的 404，父页面都只看到 `load` 和 `SecurityError`，没有 `securitypolicyviolation`。成功和拒绝长得一样。外壳不会假装自己能分辨，也不会去代理或改写对方的响应。
+
+### 外壳负责
+
+`apps/drive-web/shell-media.js` 挂到 `window.qbotShell`：
+
+| 方法 | 作用 |
+|---|---|
+| `capabilities()` | 能力说明。`requiresNewApk` 为 `false`。 |
+| `openArticle(url)` | http(s) 文章用沙箱 iframe 打开（不允许顶层跳转，避免换掉 Feed）。直接媒体文件改走播放器。 |
+| `playVideo(url)` | 带控制条的内嵌播放器，`object-fit: contain`，按视频自身宽高比。全屏走元素的 `requestFullscreen` / `webkitEnterFullscreen`（当前 APK 已开 `allowsFullscreenVideo`）。 |
+| `openExternal(url)` | 系统浏览器。见下面的「浏览器」。 |
+| `close()` / `isOpen()` | 关掉浮层。返回键先走这里。 |
+
+只接受 `http:` 和 `https:`。`javascript:`、`data:`、`file:`、`content:`、`intent:`、`blob:`、`about:` 直接拒绝，不会交给 WebView。地址里的用户名和密码会去掉。
+
+浮层在 390 宽（小于 600）盖住整个壳，包括底栏；在 840 宽（≥ 600）左缘让出 72px 导航轨。顶栏高 44（`--touch`）。
+
+视频离开时暂停：切走 Feed / 知识库 Tab、页面隐藏、打开浮层，以及 Feed 里该 `<video>` 可见比例低于 0.5。这补的是 `<video>`。Feed 自己的 `Audio()` 仍由 `feed.js` 在切卡和 `qbot:tab` 时停。
+
+Feed 里的 `<video>` 如果布局高度小于 180 或宽度小于 160（默认 300×150 会命中），用户一点播放就改到外壳播放器，并暂停那个小元素。Feed 把槽画到大于这个尺寸之后，播放留在卡片里，外壳不接管。
+
+### 打不开时
+
+- 能确定的失败会换成说明，并给出「在浏览器中打开」：协议不对、加载超时、iframe 仍停在可读的 `about:blank` 或 `chrome-error:`、`<video>` 的 `error`、以及 `.m3u8` / `.mpd` / `.mkv`。
+- 跨域框架只是 `SecurityError` 时，留下真正的 iframe，并写明：如果是空白，就是对方不允许嵌入，请用浏览器。不注入文章正文。
+- 浏览器按钮在 App 里调用 `location.assign`。1.0.4 的 `onShouldStartLoadWithRequest` 会把非本站顶层导航交给系统浏览器并取消加载，Feed 页面还在。同时会 `postMessage({type:"open-external"})`，但 **1.0.4 不认识这条消息**。桌面浏览器则用原来的 `window.open`。
+
+### Feed 负责人要做的
+
+- 可以继续用现在的 `window.open`。更明确的接法是 `qbotShell.openArticle(url)` / `qbotShell.playVideo(url)`，返回 `{ok, mode, reason, url}`。
+- 内嵌视频请自己把 `q-vframe` 和 `.vframe` 对齐，并保持 `controls` 和 `playsinline`。槽有了真实尺寸后，外壳不会把播放拿走。
+- 切卡时停掉自己的 `Audio()`。`<video>` 的暂停外壳会做；若卡片逻辑还要同步按钮状态，仍由 Feed 自己停。
+- 讲义和知识库文件继续走 `qbotTab` / `qbotKb`，不要 `window.open`。
+- 不要期待外壳绕过 `X-Frame-Options` 或 CSP `frame-ancestors`。被拒绝时用浏览器按钮。
+
+### 安卓上仍然的限制
+
+- 内嵌视频走系统 WebView 的媒体栈，不是 ExoPlayer。H.264/AAC 的 MP4、VP8/VP9 的 WebM 一般能播。HEVC、HLS、DASH、DRM 经常不能，外壳只显示 `<video>` 的错误，不转码。
+- 页面是 https。APK 的 `mixedContentMode` 是 `MIXED_CONTENT_NEVER_ALLOW`，http 媒体会被 WebView 拦住。
+- `allowsInlineMediaPlayback` 只对 iOS 有效。安卓 WebView 默认内嵌播放。
+- 全屏依赖当前 APK 里已经打开的 `allowsFullscreenVideo`。没有为全屏发新包。
+- APK 为了下拉刷新把 WebView 放在 ScrollView 里（`nestedScrollEnabled` 已开）。这次没改原生。若某台机器上内嵌控制条仍然点不到，那才需要改外壳并提高 `versionCode`。
+- 切 Tab 时不能靠 IntersectionObserver 判断离开（隐藏用的是 `visibility` + `inert`）。外壳暂停视频听的是 `qbot:tab` 和 `visibilitychange`。
