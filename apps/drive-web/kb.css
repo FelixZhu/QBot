@@ -305,3 +305,21 @@
   .kb-pane{width:240px}
 }
 
+
+/* Detail view: back link and inline player */
+.kb-back{
+  display:inline-flex;align-items:center;gap:var(--sp-1);
+  margin:0 0 var(--sp-4) calc(-1 * var(--sp-2));padding:var(--sp-2);
+  min-height:44px;border:0;background:none;color:var(--text-2);
+  font:inherit;font-size:var(--fs-meta);cursor:pointer;border-radius:var(--r-sm);
+}
+.kb-back:active{background:var(--fill)}
+.kb-back-ic{width:16px;height:16px;transform:rotate(180deg)}
+.kb-media{display:block;width:100%;margin:0 0 var(--sp-4);border-radius:var(--r-md);background:#000}
+audio.kb-media{background:none}
+.kb-tw{width:28px;align-self:stretch;cursor:pointer}
+/* Folded: the detail view takes the whole tab; back returns to the list */
+@media (max-width:599px){
+  .kb.is-detail .kb-pane{display:none}
+  .kb-open{text-decoration:none}
+}

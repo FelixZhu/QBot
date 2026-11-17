@@ -187,6 +187,7 @@
     var input = this.el.querySelector("#kb-q");
     input.addEventListener("input", function () {
       self.q = input.value;
+      self.selected = null;
       self.el.querySelector(".kb-search").classList.toggle("has-q", !!self.q);
       self.drawLists();
     });
@@ -205,6 +206,21 @@
     this.el.querySelector("#kb-scrim").addEventListener("click", function () { self.closeSheet(); });
     this.el.querySelector("#kb-sheet-ok").addEventListener("click", function () { self.closeSheet(); });
     this.el.addEventListener("click", function (e) {
+      var tw = e.target.closest(".kb-tw");
+      if (tw) {
+        var tp = tw.parentNode.getAttribute("data-folder");
+        if (tp) {
+          e.stopPropagation();
+          self.openFolders[tp] = !self.isExpanded(tp);
+          if (!self.openFolders[tp] && self.folder && (self.folder === tp || self.folder.indexOf(tp + "/") === 0)) {
+            self.folder = tp.indexOf("/") >= 0 ? tp.slice(0, tp.lastIndexOf("/")) : "";
+            self.selected = null;
+          }
+          self.drawLists();
+          return;
+        }
+      }
+      if (e.target.closest("[data-kb-back]")) { self.back(); return; }
       var chip = e.target.closest(".kb-chip");
       if (chip) {
         var tag = chip.getAttribute("data-tag");
@@ -219,11 +235,11 @@
       var ti = e.target.closest("[data-folder]");
       if (ti) {
         var p = ti.getAttribute("data-folder") || "";
-        if (p) self.openFolders[p] = true;
+        if (p && self.folder !== p) self.openFolders[p] = true;
         self.folder = self.folder === p ? "" : p;
         if (!self.folder) { /* keep open state */ }
         self.selected = null;
-        self.drawLists();
+        self.drawLists(true);
         return;
       }
       var row = e.target.closest("[data-key]");
@@ -237,13 +253,15 @@
 
   KB.prototype.openSheet = function () {
     var sheet = this.el.querySelector("#kb-sheet");
+    clearTimeout(this._sheetT);
     sheet.hidden = false;
     this.el.classList.add("is-sheet");
   };
   KB.prototype.closeSheet = function () {
     this.el.classList.remove("is-sheet");
     var sheet = this.el.querySelector("#kb-sheet");
-    setTimeout(function () { sheet.hidden = true; }, 280);
+    clearTimeout(this._sheetT);
+    this._sheetT = setTimeout(function () { sheet.hidden = true; }, 280);
   };
 
   /* Hook used by the tab shell: window.qbotKb.back() — no args.
@@ -256,14 +274,14 @@
     }
     if (this.selected) {
       this.selected = null;
-      this.drawLists();
+      this.drawLists(true);
       return true;
     }
     if (this.folder) {
       var slash = this.folder.lastIndexOf("/");
       this.folder = slash >= 0 ? this.folder.slice(0, slash) : "";
       this.selected = null;
-      this.drawLists();
+      this.drawLists(true);
       return true;
     }
     return false;
@@ -272,7 +290,24 @@
   KB.prototype.openFile = function (file) {
     this.selected = file.key;
     this.el.dispatchEvent(new CustomEvent("kb:open", { bubbles: true, detail: file }));
-    this.drawMain(this.filtered(), true);
+    this.drawPane(this.filtered(), !!this.q);
+    this.drawMain(this.filtered(), !!this.q);
+    this.topMain();
+  };
+
+  KB.prototype.topMain = function () {
+    var m = this.el.querySelector("#kb-main-scroll");
+    if (m) m.scrollTop = 0;
+    if (window.matchMedia && window.matchMedia("(max-width:599px)").matches) {
+      var t = this.el.getBoundingClientRect().top;
+      if (t < 0) window.scrollBy(0, t);
+    }
+  };
+
+  KB.prototype.isExpanded = function (path) {
+    if (path in this.openFolders) return !!this.openFolders[path];
+    var f = this.folder;
+    return !!f && (f === path || f.indexOf(path + "/") === 0);
   };
 
   KB.prototype.drawChips = function () {
@@ -297,12 +332,13 @@
     wrap.classList.toggle("is-overflow", can && !atEnd);
   };
 
-  KB.prototype.drawLists = function () {
+  KB.prototype.drawLists = function (toTop) {
     var files = this.filtered();
     var searching = !!this.q;
     this.drawPane(files, searching);
     this.drawMain(files, searching);
     this.updateChipFade();
+    if (toTop) this.topMain();
   };
 
   KB.prototype.drawPane = function (files, searching) {
@@ -312,7 +348,7 @@
     function walk(nodes, depth) {
       return nodes.map(function (n) {
         var on = self.folder === n.path;
-        var expanded = !!self.openFolders[n.path] || on || (self.folder && (self.folder.indexOf(n.path + "/") === 0 || n.path.indexOf(self.folder + "/") === 0));
+        var expanded = self.isExpanded(n.path);
         var pad = 8 + depth * 20;
         var row = '<button type="button" class="kb-ti' + (on && !self.selected ? " on" : "") + '" data-folder="' + esc(n.path) + '" style="padding-left:' + pad + 'px">' +
           '<span class="kb-tw' + (expanded ? " open" : "") + '">' + CHEV + "</span>" +
@@ -354,7 +390,10 @@
 
   KB.prototype.drawMain = function (files, searching) {
     var main = this.el.querySelector("#kb-main-scroll");
-    if (this.selected && !searching) {
+    var old = main.querySelector("video,audio");
+    if (old) { try { old.pause(); } catch (e) {} }
+    this.el.classList.toggle("is-detail", !!this.selected);
+    if (this.selected) {
       var f = this.files.filter(function (x) { return x.key === this.selected; }, this)[0];
       if (f) { main.innerHTML = this.detailHtml(f); return; }
     }
@@ -400,12 +439,18 @@
   KB.prototype.detailHtml = function (f) {
     var meta = [formatDir(f.dir), human(f.size), fmtDate(f.mtime), f.doc_type].filter(Boolean).join(" · ");
     var url = (this.data.base ? this.data.base.replace(/\/$/, "") + "/" + encodeURI(f.key) : "");
-    return '<div class="kb-detail">' + icon(f.kind) +
+    var player = "";
+    if (url && f.kind === "video") player = '<video class="kb-media" src="' + esc(url) + '" controls playsinline preload="metadata"></video>';
+    else if (url && f.kind === "audio") player = '<audio class="kb-media" src="' + esc(url) + '" controls preload="metadata"></audio>';
+    var backTo = this.q ? "返回搜索结果" : (this.folder ? "返回 " + (formatDir(this.folder) || "文件夹") : "返回知识库");
+    return '<div class="kb-detail">' +
+      '<button type="button" class="kb-back" data-kb-back="1">' + CHEV.replace("<svg", '<svg class="kb-back-ic"') + "<span>" + esc(backTo) + "</span></button>" +
+      (player || icon(f.kind)) +
       "<h2>" + esc(f.name) + "</h2>" +
       (f.summary ? '<p class="kb-s">' + esc(f.summary) + "</p>" : "") +
       '<p class="kb-m">' + esc(meta) + "</p>" +
       ((f.tags || []).length ? '<div class="kb-tags">' + f.tags.map(function (t) { return '<span class="kb-tag">' + esc(t) + "</span>"; }).join("") + "</div>" : "") +
-      (url ? '<a class="kb-open" href="' + esc(url) + '" target="_blank" rel="noopener">打开文件</a>' : "") +
+      (url ? '<a class="kb-open" href="' + esc(url) + '" target="_blank" rel="noopener">' + (player ? "用其他应用打开" : "打开文件") + "</a>" : "") +
       "</div>";
   };
 
