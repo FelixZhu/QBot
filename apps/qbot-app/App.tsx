@@ -111,8 +111,9 @@ function DriveScreen() {
   const [error, setError] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
   const dark = useColorScheme() === 'dark';
-  const bg = dark ? '#16151c' : '#f6f5fb';
-  const fg = dark ? '#ecebf5' : '#1f1d2b';
+  const bg = dark ? '#171614' : '#F3EFE7';
+  const fg = dark ? '#EDE8DF' : '#1C1B19';
+  const tint = dark ? '#EDE8DF' : '#1C1B19';
 
   const loadFresh = useCallback((opts?: { remount?: boolean }) => {
     setError(null);
@@ -258,7 +259,7 @@ function DriveScreen() {
           nestedScrollEnabled
           keyboardShouldPersistTaps="handled"
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} enabled={atTop} tintColor="#6d5ae6" colors={['#6d5ae6']} />
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} enabled={atTop} tintColor={tint} colors={[tint]} />
           }
         >
           {webView}
@@ -268,7 +269,7 @@ function DriveScreen() {
       )}
       {loading && !error && !refreshing && (
         <View pointerEvents="none" style={styles.loading}>
-          <ActivityIndicator size="large" color="#6d5ae6" />
+          <ActivityIndicator size="large" color={tint} />
         </View>
       )}
     </SafeAreaView>
@@ -286,9 +287,9 @@ export default function App() {
 const styles = StyleSheet.create({
   fill: { flex: 1 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 },
-  title: { fontSize: 20, fontWeight: '600', marginBottom: 8 },
+  title: { fontSize: 20, fontWeight: '700', marginBottom: 8 },
   msg: { fontSize: 14, opacity: 0.7, textAlign: 'center', marginBottom: 24 },
-  button: { backgroundColor: '#6d5ae6', paddingHorizontal: 28, paddingVertical: 12, borderRadius: 10 },
-  buttonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
+  button: { backgroundColor: '#1C1B19', paddingHorizontal: 28, paddingVertical: 12, borderRadius: 10 },
+  buttonText: { color: '#F3EFE7', fontSize: 16, fontWeight: '700' },
   loading: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center' },
 });

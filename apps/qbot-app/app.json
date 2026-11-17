@@ -19,7 +19,7 @@
       },
       "predictiveBackGestureEnabled": false,
       "label": "QBot",
-      "versionCode": 4
+      "versionCode": 5
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -35,7 +35,7 @@
           "backgroundColor": "#F3EFE7",
           "dark": {
             "image": "./assets/splash-icon.png",
-            "backgroundColor": "#F3EFE7"
+            "backgroundColor": "#171614"
           }
         }
       ]
