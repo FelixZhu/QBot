@@ -45,8 +45,8 @@
     videoAspect: "contain",
     pauseOnLeave: true,
     protocols: ["http:", "https:"],
-    requiresNewApk: false,
-    apk: { version: "1.0.4", versionCode: 6 }
+    requiresNewApk: true,
+    apk: { version: "1.0.5", versionCode: 7 }
   };
 
   var FAIL_COPY = {
@@ -62,7 +62,7 @@
     if (raw == null || String(raw).trim() === "") return { ok: false, reason: "empty" };
     var url;
     try {
-      url = new URL(String(raw), base || "https://felixzhu.github.io/qian-drive/");
+      url = new URL(String(raw), base || "https://felixzhu.github.io/QBot/");
     } catch (e) {
       return { ok: false, reason: "invalid" };
     }
@@ -85,7 +85,7 @@
       var u = new URL(url);
       if (u.protocol !== "https:" || u.host !== "felixzhu.github.io") return false;
       var path = (u.pathname || "").replace(/\/+$/, "");
-      return path === "/qian-drive" || path === "/qian-drive/index.html";
+      return path === "/QBot" || path === "/QBot/index.html";
     } catch (e) {
       return false;
     }

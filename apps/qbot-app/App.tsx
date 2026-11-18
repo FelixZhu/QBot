@@ -26,9 +26,9 @@ type WebViewHandle = { goBack(): void; reload(): void; injectJavaScript(js: stri
 type Ev = { nativeEvent: any };
 const WebView = RNWebView as unknown as ComponentType<Record<string, unknown> & { ref?: Ref<WebViewHandle> }>;
 
-const HOME_URL = 'https://felixzhu.github.io/qian-drive/';
+const HOME_URL = 'https://felixzhu.github.io/QBot/';
 const HOME_ORIGIN = 'https://felixzhu.github.io';
-const HOME_PATH = '/qian-drive';
+const HOME_PATH = '/QBot';
 const RESUME_RELOAD_MS = 5 * 60 * 1000;
 const EXIT_CONFIRM_MS = 2000;
 
