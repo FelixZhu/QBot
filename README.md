@@ -2,9 +2,9 @@
 
 Qian 的个人体验原型。界面和结构随时可以大改，基本功能能用即可。这份说明给 Qian 自己用 Codex 或 Claude Code 接着改。
 
-源码仓库只有 [FelixZhu/QBot](https://github.com/FelixZhu/QBot)。网页发布在 [https://felixzhu.github.io/QBot/](https://felixzhu.github.io/QBot/)。安卓壳是一个 WebView，打开这个地址。
+源码仓库只有 [FelixZhu/QBot](https://github.com/FelixZhu/QBot)。网页发布在 [https://felixzhu.github.io/QBot/](https://felixzhu.github.io/QBot/)。安卓壳是一个 WebView，打开这个地址。钉死构建的默认来源也是这个网站。
 
-`FelixZhu/qian-drive` 已经手动删除。开发、预览、发布都不要再克隆它，也不要把它当成前置步骤。`apps/drive-web/README.md`、`apps/qbot-app/README.md` 和 `docs/ARCHITECTURE.md` 仍写着旧站和 1.0.4，那些发布步骤已经过时。以本文件和下面点名的配置为准。视觉规范仍看 [docs/DESIGN.md](docs/DESIGN.md)。
+`FelixZhu/qian-drive` 已由 Qian 手动删除。`build_pinned.py` 和 `accept_site.py` 不再向它取文件。开发、预览、发布都不要再克隆它。`apps/drive-web/README.md`、`apps/qbot-app/README.md` 和 `docs/ARCHITECTURE.md` 仍写着旧站和 1.0.4，那些发布步骤已经过时。以本文件和下面点名的配置为准。视觉规范仍看 [docs/DESIGN.md](docs/DESIGN.md)。
 
 ## 现在能用
 
@@ -12,7 +12,7 @@ Qian 的个人体验原型。界面和结构随时可以大改，基本功能能
 
 - **对话**在 [`apps/chat-web`](apps/chat-web)。界面可以预览。回复来自 `MockBackend`，只有本地模拟的整段或流式文本。
 - **主动服务**是 [`apps/drive-web/feed.js`](apps/drive-web/feed.js) 和 `feed.css`。页面挂载时读站点里的 `out/feed.json`。外部文章交给系统浏览器，不放进 iframe。mp4 / webm 这类文件可以内嵌播放。
-- **知识库**是 [`apps/drive-web/kb.js`](apps/drive-web/kb.js) 和 `kb.css`，读站点上的 `index.json`。索引打不开时只显示错误和「重试」。`private/` 不会进清单。
+- **知识库**是 [`apps/drive-web/kb.js`](apps/drive-web/kb.js) 和 `kb.css`，读站点上的 `index.json`。索引打不开时只显示错误和「重试」。从文件查看器点返回，或用浏览器后退，会回到打开前的列表。`private/` 不会进清单。
 - 浅色、深色、跟随系统已经接上。
 - 安卓返回键调用网页里的 `qbotBack`。网页处理不了时，壳会提示「再滑一次退出」。
 
@@ -43,7 +43,7 @@ skills/            与本应用构建无关
 版本看配置，不要抄旧文档里的 1.0.4 / 6：
 
 - 安装包：`apps/qbot-app/app.json` 的 `expo.version` 与 `expo.android.versionCode`。`eas.json` 的 `appVersionSource` 是 `local`。`apps/qbot-app/package.json` 的 `version`（`1.0.0`）不是安装包版本。
-- 网页：打开 [version.json](https://felixzhu.github.io/QBot/version.json) 的 `version` 字段，或跑下面的 `preflight_home.py`。这个戳每次构建都会变。
+- 网页：打开 [version.json](https://felixzhu.github.io/QBot/version.json) 的 `version` 字段，或跑下面的 `preflight_home.py`。这个戳由 `refresh_site.py` 按页面和 `SHARED_FILES` 里的前端文件计算。只改 `kb.js` / `kb.css` 时它可以不变。
 
 壳的地址写在 [`apps/qbot-app/App.tsx`](apps/qbot-app/App.tsx) 的 `HOME_URL`。
 
@@ -99,7 +99,7 @@ npx eas-cli@latest build -p android --profile preview --non-interactive
 
 ## 最小测试
 
-不需要浏览器，也不需要旧站。在仓库根目录执行。`shell-history.test.mjs` 会 `git show` 提交 `0dc920ac`，浅克隆会失败：
+不需要浏览器，也不下载线上站点。在仓库根目录执行。`shell-history.test.mjs` 会 `git show` 提交 `0dc920ac`，浅克隆会失败：
 
 ```bash
 node --test apps/drive-web/shell-history.test.mjs apps/drive-web/shell-media.test.mjs apps/drive-web/shell-back.test.mjs apps/drive-web/shell-theme.test.mjs
@@ -125,17 +125,18 @@ node apps/drive-web/shell-contract.test.mjs
 
 [`.github/workflows/site-build.yml`](.github/workflows/site-build.yml) 在 PR 上做同样的构建和测试，不部署。
 
-不要用 `python3 apps/drive-web/refresh_site.py --push` 发布。它默认写到 `/workspace/qian-drive-repo`，并打印旧站地址。
+不要用 `python3 apps/drive-web/refresh_site.py --push` 发布。Pages 不走这条命令。不带 `--repo` 时它写到 `/workspace/qian-drive-repo`，`--push` 会在那个目录里提交并推送。`build_pinned.py` 调用它时传入 `--repo`，并且自己拒绝 `--push`。
 
-字体、Feed 媒体、已发布的 chat 包、`manifest.json` 和 `index.json` 不在 git 里，由钉死构建按 [`apps/drive-web/pins/inputs.sha256`](apps/drive-web/pins/inputs.sha256) 下载。`build_pinned.py` 和 `accept_site.py` 的默认 origin 仍是 `https://felixzhu.github.io/qian-drive/`。2026-11-18 核对时，这个地址和 `FelixZhu/qian-drive` 仓库都是 404。当时这条命令在下载清单里的第一个文件时失败：
+字体、Feed 媒体、已发布的 chat 包、`manifest.json` 和 `index.json` 不在 git 里。钉死构建从 [https://felixzhu.github.io/QBot/](https://felixzhu.github.io/QBot/) 按 [`apps/drive-web/pins/inputs.sha256`](apps/drive-web/pins/inputs.sha256) 下载并校验 SHA256。`build_pinned.py` 和 `accept_site.py` 的默认 origin 都是这个地址。`--strict` 再按 [`apps/drive-web/pins/live-qbot.sha256`](apps/drive-web/pins/live-qbot.sha256) 从同一地址拉页面树做对比。`--from-dir` 只替换构建输入，严格对比仍然读 origin。
+
+本地只构建、不发布：
 
 ```bash
 python3 apps/drive-web/build_pinned.py --repo /tmp/qbot-site
+python3 apps/drive-web/build_pinned.py --repo /tmp/qbot-site --strict
 ```
 
-`--from-dir` 只能替换构建输入。`--strict` 仍会按 origin 再拉一整棵树做对比。不要为了让构建通过去恢复或克隆已删除的仓库。已经在线上的页面来自更早一次成功的 `pages` 运行，刷新仍可打开；在脚本改到新的字节来源之前，推 `main` 触发的新部署会在同一步失败。
-
-对话源码若与 `apps/drive-web/pins/chat-web.sha256` 不一致，钉死构建会改为本地 `npm run build`。这一步同样要先拿到其余钉死输入。
+对话源码若与 `apps/drive-web/pins/chat-web.sha256` 不一致，钉死构建会改为本地 `npm run build`。其余钉死输入仍从上面的 origin 下载。
 
 ## Codex 和 Claude Code
 
@@ -147,7 +148,4 @@ git worktree add ../QBot-codex -b codex/主题 origin/main
 git worktree add ../QBot-claude -b claude/主题 origin/main
 ```
 
-各自在自己的目录里提交，再开自己的 PR。不要检出对方正在用的分支。下面两份已经打开的 PR 不要改、不要合并、也不要在新分支里重做：
-
-- [#8](https://github.com/FelixZhu/QBot/pull/8) 知识库从查看器返回后回到列表
-- [#6](https://github.com/FelixZhu/QBot/pull/6) 独立的架构边界文档
+各自在自己的目录里提交，再开自己的 PR。不要检出对方正在用的分支。[#8](https://github.com/FelixZhu/QBot/pull/8)（知识库返回列表）和 [#10](https://github.com/FelixZhu/QBot/pull/10)（钉死输入改从 QBot Pages 下载）已经在 `main` 上，不要重做。[#6](https://github.com/FelixZhu/QBot/pull/6) 仍是独立的架构边界文档，不要改它，也不要合并。
