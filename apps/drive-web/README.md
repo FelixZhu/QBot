@@ -9,6 +9,9 @@
 python3 refresh_site.py            # 只生成到 Pages 仓库目录
 python3 refresh_site.py --push     # 有改动则提交并推送 Pages 仓库
 python3 refresh_site.py --repo DIR # 指定 Pages 仓库路径
+
+# 唯一的可复现构建入口。只构建，不推送。输入是钉死的公开文件，字体和媒体不进本仓库。
+python3 apps/drive-web/build_pinned.py --repo /tmp/qbot-site
 ```
 
 微软雅黑字体文件有版权，**不要**提交到本公共仓库。字体只保留在 Pages 仓库的 `fonts/` 目录中；模板里按相对路径 `fonts/msyh-subset.woff2` 引用。`refresh_site.py` 用 `copytree(..., dirs_exist_ok=True)` 复制 `assets/`，不会删掉 Pages 仓库里已有的 `fonts/`。

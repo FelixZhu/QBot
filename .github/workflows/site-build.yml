@@ -1,0 +1,60 @@
+name: site-build
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/chat-web/package-lock.json
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Pinned build only
+        run: python3 apps/drive-web/build_pinned.py --repo "$RUNNER_TEMP/site"
+
+      - name: Unit checks that do not need a browser
+        run: node --test apps/drive-web/shell-history.test.mjs apps/drive-web/shell-media.test.mjs apps/drive-web/shell-back.test.mjs apps/drive-web/shell-theme.test.mjs
+
+      - name: Source commit excludes fonts, generated feed output, and test clips
+        run: |
+          python3 - << 'PY'
+          import subprocess, sys
+          files = subprocess.check_output(["git", "ls-files", "-z"]).split(b"\0")
+          allowed_fixture = "apps/drive-web/fixtures/synthetic-lesson.mp4"
+          bad = []
+          for b in files:
+              if not b:
+                  continue
+              p = b.decode()
+              low = p.lower()
+              if low.endswith((".woff2", ".ttf", ".ttc")) or "/out/" in "/" + low:
+                  bad.append(p)
+              if ("harness-clip" in low or low.endswith("sample.mp4") or "synthetic-lesson" in low) and p != allowed_fixture:
+                  bad.append(p)
+          if bad:
+              print("\n".join(bad))
+              sys.exit(1)
+          print("source exclusion ok")
+          PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: qbot-site-build
+          if-no-files-found: error
+          path: |
+            ${{ runner.temp }}/site
+            ${{ runner.temp }}/site.provenance.json
