@@ -157,6 +157,20 @@
     return kinds.concat(topics);
   }
 
+  function copyFolders(src) {
+    var out = {};
+    if (!src) return out;
+    for (var k in src) {
+      if (Object.prototype.hasOwnProperty.call(src, k)) out[k] = !!src[k];
+    }
+    return out;
+  }
+  function sameChips(a, b) {
+    if (!a || !b || a.length !== b.length) return false;
+    for (var i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+    return true;
+  }
+
   function matchFile(f, q, chips) {
     if (f.private) return false;
     if (chips && chips.length) {
@@ -180,6 +194,12 @@
     this.folder = "";
     this.selected = null;
     this.openFolders = {};
+    /* List snapshot taken when a file is opened. Popstate and the viewer "<"
+       button share restoreList(). One open keeps the shell's single setHash push. */
+    this._listSnap = null;
+    this._viewerOrigin = null;
+    this._holdSnap = false;
+    this._listClosing = false;
     this.render();
   }
 
@@ -328,8 +348,21 @@
       return true;
     }
     if (this.selected) {
+      var snap = this._listSnap;
+      var same = !!(snap && snap.q === this.q && snap.folder === this.folder && sameChips(snap.chips, this.chips));
       this.selected = null;
-      this.drawLists(true);
+      this._viewerOrigin = null;
+      this._listClosing = false;
+      /* Same browse context as the open: put the list back where it was.
+         Keep the snapshot so a later popstate still restores it and does not
+         fall through to the drive home. */
+      if (same) {
+        this.openFolders = copyFolders(snap.openFolders);
+        this.drawLists(false);
+        this.applyScroll(snap);
+      } else {
+        this.drawLists(true);
+      }
       return true;
     }
     if (this.q) {
@@ -350,7 +383,101 @@
     return false;
   };
 
+  /* Scroll, expanded folders, directory, chips, and the search query. */
+  KB.prototype.captureList = function () {
+    var main = this.el.querySelector("#kb-main-scroll");
+    var pane = this.el.querySelector("#kb-pane-scroll");
+    this._listSnap = {
+      q: this.q,
+      chips: this.chips.slice(),
+      folder: this.folder,
+      openFolders: copyFolders(this.openFolders),
+      scrollMain: main ? main.scrollTop : 0,
+      scrollPane: pane ? pane.scrollTop : 0
+    };
+    this._listClosing = false;
+  };
+
+  KB.prototype.applyScroll = function (snap) {
+    var self = this;
+    var apply = function () {
+      if (!self.el || !snap) return;
+      var main = self.el.querySelector("#kb-main-scroll");
+      var pane = self.el.querySelector("#kb-pane-scroll");
+      if (main) main.scrollTop = snap.scrollMain || 0;
+      if (pane) pane.scrollTop = snap.scrollPane || 0;
+    };
+    apply();
+    if (typeof requestAnimationFrame === "function") {
+      requestAnimationFrame(function () {
+        apply();
+        requestAnimationFrame(apply);
+      });
+    }
+  };
+
+  /* Shared by the viewer "<" path (after history.back()) and the shell popstate
+     handler. Returns true only when a snapshot was applied. */
+  KB.prototype.restoreList = function () {
+    var snap = this._listSnap;
+    if (!snap) return false;
+    this._listSnap = null;
+    this._viewerOrigin = null;
+    this._holdSnap = false;
+    this._listClosing = false;
+    this.q = snap.q;
+    this.chips = snap.chips.slice();
+    this.folder = snap.folder;
+    this.openFolders = copyFolders(snap.openFolders);
+    this.selected = null;
+    var input = this.el.querySelector("#kb-q");
+    if (input) input.value = snap.q || "";
+    var search = this.el.querySelector(".kb-search");
+    if (search) search.classList.toggle("has-q", !!this.q);
+    this.drawChips();
+    this.drawLists(false);
+    this.applyScroll(snap);
+    return true;
+  };
+
+  /* "#btnKbBack". Does not push or pop history.
+     "list"   — file was opened from the list: shell closes the viewer and calls
+                history.back(). The popstate handler calls qbotKb.restore().
+     "detail" — detail was already open and the viewer was opened on top of it:
+                shell closes only the viewer.
+     false    — nothing open. */
+  KB.prototype.viewerBack = function () {
+    if (this._viewerOrigin === "detail" && this.selected) {
+      this._viewerOrigin = null;
+      return "detail";
+    }
+    if (this._listSnap && this._viewerOrigin === "list" && !this._listClosing) {
+      this._listClosing = true;
+      return "list";
+    }
+    return false;
+  };
+
   KB.prototype.openFile = function (file) {
+    if (!file) return;
+    var onSame = this.selected === file.key && this.el.classList.contains("is-detail");
+    if (onSame) {
+      /* Detail page first, then the viewer. "<" closes only the viewer. */
+      this._holdSnap = false;
+      this._viewerOrigin = "detail";
+      this._listClosing = false;
+      this.el.dispatchEvent(new CustomEvent("kb:open", { bubbles: true, detail: file }));
+      this.drawPane(this.filtered(), !!this.q);
+      this.drawMain(this.filtered(), !!this.q);
+      this.topMain();
+      return;
+    }
+    /* Leaving the list (or another file). Snapshot before the detail replaces it.
+       openKey sets _holdSnap after it has already snapshotted the pre-mutation list. */
+    if (!this._holdSnap) this.captureList();
+    this._holdSnap = false;
+    this._viewerOrigin = "list";
+    this._listClosing = false;
     this.selected = file.key;
     this.el.dispatchEvent(new CustomEvent("kb:open", { bubbles: true, detail: file }));
     this.drawPane(this.filtered(), !!this.q);
@@ -362,6 +489,10 @@
   KB.prototype.openKey = function (key) {
     var f = this.files.filter(function (x) { return x.key === key && !x.private; })[0];
     if (!f) return false;
+    var showingDetail = this.el.classList.contains("is-detail");
+    var onSame = showingDetail && this.selected === f.key;
+    if (!onSame && (!showingDetail || !this._listSnap)) this.captureList();
+    if (!onSame) this._holdSnap = true;
     this.closeSheet();
     this.q = ""; this.chips = [];
     var qi = this.el.querySelector("#kb-q"); if (qi) qi.value = "";
@@ -370,6 +501,7 @@
     if (this.folder) this.openFolders[this.folder] = true;
     this.drawChips();
     this.openFile(f);
+    this._holdSnap = false;
     return true;
   };
 
@@ -611,7 +743,11 @@
   }
 
   window.KB = { mount: mount, boot: boot };
-  /* chat-demo shell: if (window.qbotKb.back()) return true; else leave the tab. */
+  /* chat-demo shell: if (window.qbotKb.back()) return true; else leave the tab.
+     File open still dispatches kb:open with the file (key/path unchanged).
+     The shell's setHash remains the only history.pushState for that open.
+     These hooks are installed here, not in index.html: the published page may
+     differ from a build only by its version stamp. */
   window.qbotKb = {
     back: function () { return !!(inst && inst.back()); },
     /* Switch to the 知识库 tab and show this file's detail. */
@@ -619,8 +755,69 @@
       if (!inst) return false;
       if (typeof window.qbotTab === "function") window.qbotTab("kb");
       return inst.openKey(key);
-    }
+    },
+    /* Shared list restore for popstate and for the history.back() that the
+       viewer "<" button triggers. True: snapshot applied. Do not fall through
+       to the drive home (count / size / 最近打开) and do not pushState. */
+    restore: function () { return !!(inst && inst.restoreList()); },
+    /* Viewer "<" (#btnKbBack). "list" | "detail" | false. Does not touch history. */
+    viewerBack: function () { return inst ? inst.viewerBack() : false; }
   };
+
+  /* The published shell closes the viewer only, then a popstate falls through
+     to the drive home and replaceState overwrites the list URL. Attach the
+     missing steps without editing index.html. */
+  function listUrlHash(hash) {
+    return !hash || hash === "#/" || hash.indexOf("#/~home") === 0;
+  }
+  function fileHashOf(url) {
+    var next = url == null ? "" : String(url);
+    var at = next.indexOf("#");
+    var hash = at >= 0 ? next.slice(at) : (next.charAt(0) === "#" ? next : "");
+    if (hash.indexOf("#/") !== 0 || hash === "#/" || hash.indexOf("#/~home") === 0) return "";
+    return hash;
+  }
+  function hideViewer() {
+    var panel = document.getElementById("panel-kb");
+    var kbEl = document.getElementById("tab-kb");
+    var app = document.getElementById("app");
+    if (panel) panel.classList.remove("kb-viewing");
+    if (kbEl) kbEl.hidden = false;
+    if (app) app.hidden = true;
+  }
+  if (!window.__qbotKbHashGuard && history && history.replaceState) {
+    window.__qbotKbHashGuard = true;
+    var origReplace = history.replaceState.bind(history);
+    history.replaceState = function (state, title, url) {
+      if (listUrlHash(location.hash) && fileHashOf(url)) {
+        return history.pushState(state, title, url);
+      }
+      return origReplace(state, title, url);
+    };
+  }
+  var backBtn = document.getElementById("btnKbBack");
+  if (backBtn && !backBtn.__qbotKbWired) {
+    backBtn.__qbotKbWired = true;
+    backBtn.addEventListener("click", function () {
+      var which = window.qbotKb && typeof qbotKb.viewerBack === "function" && qbotKb.viewerBack();
+      if (which !== "list") return;
+      try { history.back(); } catch (e) {}
+    }, true);
+  }
+  if (window.qbotBack && !window.qbotBack.__qbotKbWrapped) {
+    var prevBack = window.qbotBack;
+    var wrappedBack = function (opts) {
+      opts = opts || {};
+      if (opts.fromPop && window.qbotKb && typeof qbotKb.restore === "function" && qbotKb.restore()) {
+        hideViewer();
+        return true;
+      }
+      return prevBack(opts);
+    };
+    wrappedBack.__qbotKbWrapped = true;
+    window.qbotBack = wrappedBack;
+  }
+
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);
   else boot();
 })();

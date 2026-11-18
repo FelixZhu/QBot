@@ -1,3 +1,6 @@
+# Strict baseline: hashes fetched from https://felixzhu.github.io/QBot/ and checked on 2026-11-18.
+# qian-drive is not a fetch source. Borrowed public inputs keep their previous SHA256.
+# index.html, version.json, and shell-media.js are the bytes QBot actually serves.
 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  .nojekyll
 5849a846cda866f27495296ab4c32dceae2aa43559f41ff9bac44b9f6a76d8ee  chat/chat.css
 f9355c72bb462616df1af75a214d55c16f6c83640bc72991487fa235a387ba23  chat/chat.js
@@ -11,7 +14,7 @@ e68c74dc5e9e63483f12dcb17330af0cbab26763c26b21b77470f6952e77da1d  icons/apple-to
 923cabe7dfa1491a7d03eaa2114393dd87b50137bc2e831ae4ec283ab688591c  icons/icon-192.png
 bd931d6d2aedb044476e51e01943d31de272bc5ce0f38d6823197e31658a92b3  icons/icon-512.png
 e787f7056e83af964bd19ced3ab8e90591275233148bb5af6d572682a783d616  icons/icon-maskable-512.png
-505c867d142022933afa0b5ee93da2c784f455d999b6934e9c364a2bbaa1d629  index.html
+8e83a106bd5035409249f39cd26a11c3994e5381fb6d31b321fb3dd60071d15a  index.html
 930d722657ee4f0ab7daae37eb15c16aee5734617b50fcfcb3517dc722b69880  index.json
 c5dd608dbbed1311768129ad5094427cb5dd4536b0d05c4c44709a256688b0ff  kb.css
 8d6e1d89ae09e053afa03ee580757786901613c2a61dcf3bd5876b38be464428  kb.js
@@ -21,7 +24,7 @@ ec286c8613932e5268c29b5b8430d37ab5ca6fb20b1c09df29f8554c5fa662fd  manifest.webma
 36533e487f5083162c88d2b65e4417e3c018373a46712ab846b4348bf35eed54  out/feed.json
 e941c734867a8bf6c48302fb949a74900f54f0f8a7b6c821ed515b5e79f9f413  out/media/2026-11-17_get-the-ball-rolling.mp3
 24e146a8a81f73426c7a55ba6e24932f0cedd8ac54d162411c35e489dceb170c  out/media/day-03-计算图与自回归账本-2N-prefill-vs-deco.md
-311bbe3bb3199ba26ef95c954b27813a558fb9f598016c970ef8aa6e50016fc7  shell-media.js
+f0bf0601233a8c29ef9ab7f1348e42659bbd4db793bbebf66e2a7fb0f7781693  shell-media.js
 fe71956f32a394820ccc3043b74bbfa894d51265050e36a3ab9434c2c5da8f1a  shell-theme.js
 febd6f29dad8c67c8589431b148db93ff79c09f92c5f862d5bf3eb097dc63306  tokens.css
-b834b6c6ba9dea6a747056998348e85e8426e93a356057ce09d667941282ece7  version.json
+778427e282bfbcce7bc08219b9f0abeeef7ba1b9fcca1270e204c1b850155043  version.json

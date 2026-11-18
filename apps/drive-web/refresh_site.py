@@ -280,7 +280,7 @@ def main():
             print("pushed:", git(repo, "rev-parse", "--short", "HEAD").strip())
         else:
             print("no changes to push")
-    print("page: https://felixzhu.github.io/qian-drive/")
+    print("page: https://felixzhu.github.io/QBot/")
 
 
 if __name__ == "__main__":
