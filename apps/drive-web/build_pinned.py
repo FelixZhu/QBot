@@ -52,6 +52,8 @@ def sha256(path):
 
 
 def fetch_inputs(staging, origin, from_dir):
+    sys.path.insert(0, HERE)
+    import accept_site
     inputs = read_sums(os.path.join(PINS, "inputs.sha256"))
     for digest, rel in inputs:
         dest = os.path.join(staging, rel)
@@ -60,8 +62,7 @@ def fetch_inputs(staging, origin, from_dir):
             shutil.copy2(os.path.join(from_dir, rel), dest)
         else:
             url = origin.rstrip("/") + "/" + quote(rel, safe="/")
-            with urllib.request.urlopen(url, timeout=60) as r:
-                open(dest, "wb").write(r.read())
+            open(dest, "wb").write(accept_site.read_url(url))
         got = sha256(dest)
         if got != digest:
             sys.exit("pin mismatch %s\n expected %s\n got      %s" % (rel, digest, got))

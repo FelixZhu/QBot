@@ -22,6 +22,23 @@ def arg_value(flag):
     return sys.argv[i + 1]
 
 
+def read_url(url, attempts=4):
+    """Borrow a public file. Retry only transient gateway failures."""
+    import time
+    import urllib.error
+    last = None
+    for i in range(attempts):
+        try:
+            with urllib.request.urlopen(url, timeout=60) as response:
+                return response.read()
+        except urllib.error.HTTPError as exc:
+            last = exc
+            if exc.code not in (429, 500, 502, 503, 504) or i == attempts - 1:
+                raise
+            time.sleep(2 * (i + 1))
+    raise last
+
+
 def sha256(path):
     h = hashlib.sha256()
     with open(path, "rb") as f:
@@ -111,8 +128,7 @@ def fetch_tree(dest, origin, pins):
         path = os.path.join(dest, rel)
         os.makedirs(os.path.dirname(path), exist_ok=True)
         url = origin.rstrip("/") + "/" + quote(rel, safe="/")
-        with urllib.request.urlopen(url, timeout=60) as r:
-            open(path, "wb").write(r.read())
+        open(path, "wb").write(read_url(url))
         got = sha256(path)
         if got != digest:
             sys.exit("borrowed file hash mismatch %s" % rel)
