@@ -1,5 +1,8 @@
 /* QBot 主动服务 tab
  * Mount: QbotFeed.mount(document.getElementById('tab-feed'), { feedUrl: 'out/feed.json' })
+ * A file:// preview can skip the network: pass { feedData: obj } or set window.QBOT_FEED
+ * to the feed object (same idea as window.KB_INDEX). Relative media then resolve
+ * against location.href. Fetch is unchanged when neither object is set.
  * Does not own the app tab bar. Stores mute/snooze in localStorage only.
  *
  * Shell contract (the shell already calls this; feed does not replace the shell):
@@ -219,7 +222,9 @@
     try { return new URL(u, state.feedUrl).href; } catch (e) { return u; }
   }
 
-  /* http(s) only. Rejects javascript:, data:, file:, and userinfo. Relative URLs resolve against the feed. */
+  /* http(s) only, plus a file:// URL when the preview page itself is file://.
+     Rejects javascript:, data:, and userinfo. Relative URLs use state.feedUrl
+     (the feed response when fetched, or location.href for inline data). */
   function safeHttpUrl(raw) {
     if (raw == null) return "";
     var s = String(raw).trim();
@@ -227,9 +232,11 @@
     var base = state.feedUrl || (typeof location !== "undefined" ? location.href : undefined);
     var u;
     try { u = new URL(s, base); } catch (e) { return ""; }
-    if (u.protocol !== "http:" && u.protocol !== "https:") return "";
     if (u.username || u.password) return "";
-    return u.href;
+    if (u.protocol === "http:" || u.protocol === "https:") return u.href;
+    /* A file:// preview may point at a clip next to the page. Hosted pages stay http(s) only. */
+    if (u.protocol === "file:" && typeof location !== "undefined" && location.protocol === "file:") return u.href;
+    return "";
   }
 
   function sameDocumentOrigin(url) {
@@ -263,17 +270,34 @@
     });
   }
 
+  function feedObject(value) {
+    return value && typeof value === "object" && !Array.isArray(value) ? value : null;
+  }
+
+  function inlineFeed(opts) {
+    return feedObject(opts && opts.feedData) || feedObject(global.QBOT_FEED);
+  }
+
   function mount(root, opts) {
     if (!root) throw new Error("QbotFeed.mount: root is required");
     unmount();
     state.root = root;
     state.opts = opts || {};
-    var requested = state.opts.feedUrl || DEFAULT_FEED_URL;
-    state.feedUrl = new URL(requested, location.href).href;
     state.index = 0;
     state.wide = window.matchMedia("(min-width: 600px)").matches;
     root.innerHTML = "";
     root.classList.add("qb-feed-host");
+    var inline = inlineFeed(state.opts);
+    if (inline) {
+      /* Preview page is the base. Do not fetch feed.json. */
+      state.feedUrl = location.href;
+      state.all = inline.cards || [];
+      render();
+      bindResize();
+      return { unmount: unmount };
+    }
+    var requested = state.opts.feedUrl || DEFAULT_FEED_URL;
+    state.feedUrl = new URL(requested, location.href).href;
     var shell = el("div", { class: "feed-root", html: '<div class="skel" style="height:100%;margin:0"></div>' });
     root.appendChild(shell);
     loadFeed(state.feedUrl).then(function (data) {

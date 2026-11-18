@@ -10,6 +10,8 @@
 import http from "node:http";
 import fs from "node:fs";
 import path from "node:path";
+import vm from "node:vm";
+import { pathToFileURL } from "node:url";
 import { spawn, execSync } from "node:child_process";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
@@ -146,6 +148,7 @@ const chrome = spawn("google-chrome", [
   "--disable-gpu",
   "--disable-dev-shm-usage",
   "--autoplay-policy=no-user-gesture-required",
+  "--allow-file-access-from-files",
   "--remote-debugging-port=9334",
   `--user-data-dir=${chromeDir}`,
   "about:blank"
@@ -702,6 +705,87 @@ try {
   await waitFor(`document.querySelector(".feed-detail") && document.body.innerText.includes("这个地址不能打开")`);
   const userinfo = await ev(`window.__opened.length`);
   check("urls with userinfo are refused", userinfo === 0);
+
+  const inlineOut = "/tmp/feed-data-preview.js";
+  execSync(`node ${JSON.stringify(path.join(ROOT, "scripts/inline-feed.mjs"))} ${JSON.stringify(path.join(ROOT, "fixtures/feed.json"))} ${JSON.stringify(inlineOut)}`, { stdio: "pipe" });
+  const inlineText = fs.readFileSync(inlineOut, "utf8");
+  check("inline-feed writes window.QBOT_FEED", inlineText.startsWith("window.QBOT_FEED = ") && inlineText.trimEnd().endsWith(";"));
+  const inlineCtx = { window: {} };
+  vm.createContext(inlineCtx);
+  vm.runInContext(inlineText, inlineCtx);
+  check("inline-feed json matches the input", inlineCtx.window.QBOT_FEED.cards[0].id === "digest-sample" && inlineCtx.window.QBOT_FEED.cards.length === 6);
+
+  const fileFeed = {
+    cards: [
+      { id: "file-a", bot: "Info Bot", type: "digest", time: "2026-01-05T08:24:00+08:00", title: "文件页第一张", media: { kind: "none" }, open_url: "", private: false, data: { highlights: [{ title: "甲" }] } },
+      { id: "file-b", bot: "English Bot", type: "english", time: "2026-01-06T07:57:00+08:00", title: "文件页第二张", media: { kind: "video", url: "clip.mp4", width: 320, height: 180 }, open_url: "", private: false, data: { expression: "file page" } }
+    ]
+  };
+  fs.copyFileSync(path.join(ROOT, "fixtures/synthetic-lesson.mp4"), "/tmp/clip.mp4");
+  const filePage = path.join("/tmp", "feed-file-preview.html");
+  const css = (name) => pathToFileURL(path.join(ROOT, name)).href;
+  fs.writeFileSync(filePage, `<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8">
+<link rel="stylesheet" href="${css("tokens.css")}">
+<link rel="stylesheet" href="${css("layout.css")}">
+<link rel="stylesheet" href="${css("components.css")}">
+<link rel="stylesheet" href="${css("feed.css")}">
+<style>html,body,#tab-feed{height:100%;margin:0}</style></head>
+<body><div id="tab-feed"></div>
+<script>window.__fetches=[];window.fetch=function(u){window.__fetches.push(String(u));return Promise.reject(new Error("no fetch"));};window.QBOT_FEED=${JSON.stringify(fileFeed)};</script>
+<script src="${css("feed.js")}"></script>
+<script>QbotFeed.mount(document.getElementById("tab-feed"),{});</script>
+</body></html>`);
+  await cdp("Page.navigate", { url: pathToFileURL(filePage).href });
+  await waitFor(`document.querySelector(".feed-brand") && document.querySelector(".feed-brand").textContent.includes("Info Bot")`);
+  await cdp("Emulation.setDeviceMetricsOverride", { width: 390, height: 844, deviceScaleFactor: 1, mobile: false, screenWidth: 390, screenHeight: 844 });
+  await ev(`window.dispatchEvent(new Event("resize"))`);
+  await sleep(120);
+  const file390 = await ev(`(() => {
+    const v = document.querySelector("video");
+    return {
+      title: document.querySelector("h2").textContent,
+      fetches: window.__fetches.slice(),
+      list: getComputedStyle(document.querySelector(".feed-list")).display,
+      bar: Math.round(document.querySelector(".feed-root > .feed-top").getBoundingClientRect().height),
+      view: window.innerWidth + "x" + window.innerHeight,
+      video: v ? v.src : ""
+    };
+  })()`);
+  check("file:// QBOT_FEED renders without fetching feed.json", file390.title === "文件页第一张" && file390.fetches.length === 0 && !file390.fetches.some((u) => /feed\\.json/.test(u)), JSON.stringify(file390));
+  check("file:// 390 hides the directory", file390.view === "390x844" && file390.list === "none" && file390.bar === 44, JSON.stringify(file390));
+  check("file:// relative media resolves against the page", file390.video === new URL("clip.mp4", pathToFileURL(filePage).href).href, file390.video);
+  const fileFlick = await ev(`(() => new Promise((resolve) => {
+    const el = document.querySelector('.q-fcard[data-i="0"] h2');
+    const y0 = 180;
+    const mk = (y) => new Touch({ identifier: 1, target: el, clientX: 40, clientY: y, pageX: 40, pageY: y });
+    const start = mk(y0);
+    el.dispatchEvent(new TouchEvent("touchstart", { bubbles: true, cancelable: true, touches: [start], targetTouches: [start], changedTouches: [start] }));
+    setTimeout(() => {
+      const end = mk(y0 - 200);
+      el.dispatchEvent(new TouchEvent("touchend", { bubbles: true, cancelable: true, touches: [], targetTouches: [], changedTouches: [end] }));
+      setTimeout(() => resolve(document.querySelector(".feed-brand").textContent), 120);
+    }, 0);
+  }))()`);
+  check("file:// flick moves to the next card", fileFlick.includes("English Bot"), fileFlick);
+  const fileBack = await ev(`window.qbotFeed.back()`);
+  const fileHome = await ev(`document.querySelector(".feed-brand").textContent`);
+  check("file:// back() returns to the first card", fileBack === true && fileHome.includes("Info Bot"), fileHome);
+  await cdp("Emulation.setDeviceMetricsOverride", { width: 840, height: 900, deviceScaleFactor: 1, mobile: false, screenWidth: 840, screenHeight: 900 });
+  await ev(`window.dispatchEvent(new Event("resize"))`);
+  await sleep(120);
+  const file840 = await ev(`({
+    list: getComputedStyle(document.querySelector(".feed-list")).display,
+    bar: Math.round(document.querySelector(".feed-root > .feed-top").getBoundingClientRect().height),
+    view: window.innerWidth + "x" + window.innerHeight,
+    fetches: window.__fetches.length
+  })`);
+  check("file:// 840 shows the directory", file840.view === "840x900" && file840.list === "flex" && file840.bar === 44 && file840.fetches === 0, JSON.stringify(file840));
+  await ev(`(() => { window.__fetches = []; QbotFeed.mount(document.getElementById("tab-feed"), { feedData: { cards: [{ id: "only", bot: "Study Bot", type: "study", time: "2026-01-07T10:00:00+08:00", title: "仅数据", media: { kind: "none" }, open_url: "", private: false, data: { day: 1, total: 2 } }] } }); return true; })()`);
+  await waitFor(`document.querySelector(".feed-brand") && document.querySelector(".feed-brand").textContent.includes("Study Bot")`);
+  const feedDataMount = await ev(`({ title: document.querySelector("h2").textContent, fetches: window.__fetches.length })`);
+  check("opts.feedData is used and still does not fetch", feedDataMount.title === "仅数据" && feedDataMount.fetches === 0, JSON.stringify(feedDataMount));
+
   const feedSource = fs.readFileSync(path.join(ROOT, "feed.js"), "utf8");
   check("feed source never builds an iframe", !/createElement\(\s*["']iframe["']\s*\)/.test(feedSource) && !/\biframe\.src\s*=/.test(feedSource));
 
