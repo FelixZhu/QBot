@@ -209,7 +209,8 @@ def main():
                 # The borrowed live tree is not an optional cache. --from-dir only
                 # supplies build inputs; acceptance still reads the public site.
                 accept_site.fetch_tree(expect, origin, os.path.join(PINS, "live-20916f6.sha256"))
-                problems = accept_site.accept_trees(repo, expect)
+                problems = accept_site.accept_trees(repo, expect, accept_site.SOURCE_COPIES)
+                problems += accept_site.copies_match_source(repo, HERE)
                 problems += accept_site.copied_inputs(repo, os.path.join(PINS, "inputs.sha256"))
             finally:
                 shutil.rmtree(expect, ignore_errors=True)

@@ -64,9 +64,20 @@ def main():
         write(whole, "index.html", "<html>entirely different</html>")
         write(whole, "version.json", '{"version":"bbbbbbbbbbbb","generated":1794940523}')
         check("whole html is not exempt", accept_site.accept_trees(whole, base), True)
+
+        sourced = tree()
+        write(sourced, "shell-media.js", "new-shell")
+        write(base, "shell-media.js", "old-shell")
+        check("source file is not judged against the old site", accept_site.accept_trees(sourced, base, ["shell-media.js"]), False)
+        src = tree()
+        write(src, "shell-media.js", "new-shell")
+        check("source copy must match the repo file", accept_site.copies_match_source(sourced, src, ["shell-media.js"]), False)
+        write(src, "shell-media.js", "tampered")
+        check("tampered source copy", accept_site.copies_match_source(sourced, src, ["shell-media.js"]), True)
     finally:
-        shutil.rmtree(base, ignore_errors=True)
-        shutil.rmtree(same, ignore_errors=True)
+        for path in (base, same, locals().get("sourced"), locals().get("src")):
+            if path:
+                shutil.rmtree(path, ignore_errors=True)
     print("accept negatives passed")
 
 

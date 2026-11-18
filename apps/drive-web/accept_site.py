@@ -100,9 +100,21 @@ def normalize(rel, built, expected, built_ver, expected_ver):
     return built, expected
 
 
-def accept_trees(built_root, expected_root):
-    """Problems are human-readable. Empty means the trees agree under the whitelist."""
+SOURCE_COPIES = (
+    "tokens.css", "layout.css", "components.css",
+    "feed.js", "feed.css", "kb.js", "kb.css",
+    "shell-media.js", "shell-theme.js",
+)
+
+
+def accept_trees(built_root, expected_root, source_checked=()):
+    """Problems are human-readable. Empty means the trees agree under the whitelist.
+
+    source_checked paths are copied from this repo, so they are not required to
+    match the previously published site. copies_match_source checks those.
+    """
     problems = []
+    source_checked = set(source_checked)
     built = files_in(built_root)
     expected = files_in(expected_root)
     built_ver = version_of(built_root)
@@ -112,6 +124,8 @@ def accept_trees(built_root, expected_root):
     for rel in sorted(set(built) - set(expected)):
         problems.append("extra %s" % rel)
     for rel in sorted(set(built) & set(expected)):
+        if rel in source_checked:
+            continue
         b = open(built[rel], "rb").read()
         e = open(expected[rel], "rb").read()
         nb, ne = normalize(rel, b, e, built_ver, expected_ver)
@@ -119,6 +133,18 @@ def accept_trees(built_root, expected_root):
             problems.append("unstampable %s" % rel)
         elif nb != ne:
             problems.append("differs %s" % rel)
+    return problems
+
+
+def copies_match_source(built_root, source_root, names=SOURCE_COPIES):
+    problems = []
+    for rel in names:
+        built = os.path.join(built_root, rel)
+        source = os.path.join(source_root, rel)
+        if not os.path.isfile(built) or not os.path.isfile(source):
+            problems.append("source copy missing %s" % rel)
+        elif open(built, "rb").read() != open(source, "rb").read():
+            problems.append("source copy differs %s" % rel)
     return problems
 
 
