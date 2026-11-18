@@ -511,6 +511,9 @@ function setHash(id){
   var h=!id||id==="~home"?"":id.indexOf("dir:")===0?"#/"+enc(id.slice(4))+"/":"#/"+enc(id);
   var url=h||(location.pathname+location.search);
   var onHome=!id||id==="~home";
+  /* Browser back returns to the list URL without calling setHash, so leftHome
+     stays true. The next file must push one entry, not replace the list URL. */
+  if(!onHome&&leftHome&&(location.hash===""||location.hash==="#/"||location.hash.indexOf("#/~home")===0))leftHome=false;
   if(onHome){
     if(leftHome||location.hash!==h)history.replaceState({qbot:"home"},"",url);
     leftHome=false;
@@ -873,7 +876,16 @@ armAway();
     if(!key||!window.qbotDriveOpen)return;
     showViewer(true);window.qbotDriveOpen(key);
   });
-  document.getElementById("btnKbBack").addEventListener("click",function(){showViewer(false)});
+  /* "<" shares one history entry with the browser back button.
+     viewerBack does not touch history. "list" pops that entry; popstate calls
+     qbotKb.restore(). "detail" only closes the viewer. Do not call restore()
+     here: it consumes the snapshot, and the following popstate would miss it. */
+  document.getElementById("btnKbBack").addEventListener("click",function(){
+    var which=window.qbotKb&&typeof qbotKb.viewerBack==="function"&&qbotKb.viewerBack();
+    if(which==="detail"){showViewer(false);return}
+    showViewer(false);
+    if(which==="list"){try{history.back()}catch(e){}}
+  });
   document.getElementById("qbsNav").addEventListener("click",function(e){var b=e.target.closest(".qbs-item");if(!b)return;if(b.dataset.qbsTab===cur&&cur==="kb"&&kbMode)showViewer(false);setTab(b.dataset.qbsTab)});
   window.qbotTab=setTab;
   window.qbotCurrentTab=function(){return cur};
@@ -922,6 +934,12 @@ armAway();
     }
     var handled=false;
     if(cur==="kb"){
+      /* popstate only. Returning true skips restoreShellHistory(), so one open
+         stays one history entry, and skips the drive home. */
+      if(kbMode&&opts.fromPop&&window.qbotKb&&typeof qbotKb.restore==="function"&&qbotKb.restore()){
+        showViewer(false);
+        return true;
+      }
       if(kbMode&&!kbPanel.classList.contains("kb-viewing")){
         if(window.qbotKb&&typeof window.qbotKb.back==="function"&&window.qbotKb.back())handled=true;
       }else if(kbMode){

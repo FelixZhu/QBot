@@ -178,6 +178,11 @@ async function withPage(width, height, fn, pageUrl) {
       screenHeight: height,
     }, sessionId);
     const loaded = waitEvent("Page.loadEventFired", sessionId);
+    if (pageUrl && pageUrl.includes("/template.html")) {
+      await send("Page.addScriptToEvaluateOnNewDocument", {
+        source: "try{localStorage.clear();sessionStorage.clear()}catch(e){}",
+      }, sessionId);
+    }
     await send("Page.navigate", { url: pageUrl || (origin + "/harness.html") }, sessionId);
     await loaded;
     await fn(sessionId);
@@ -216,6 +221,24 @@ describe("知识库行为", { concurrency: false, timeout: 120000 }, () => {
     server = createServer(async (req, res) => {
       try {
         const url = new URL(req.url, "http://127.0.0.1");
+        if (url.pathname === "/template.html") {
+          const raw = await readFile(path.join(driveWeb, "template.html"), "utf8");
+          const manifest = {
+            files: fixture.files.filter((f) => !f.private).map((f) => ({
+              key: f.key,
+              size: f.size || 0,
+              mtime: f.mtime || 0,
+              type: "text/plain",
+            })),
+          };
+          const html = raw
+            .replace("__MANIFEST__", JSON.stringify(manifest).replace(/</g, "\\u003c"))
+            .replaceAll("__BASE__", "https://files.example.test/pub")
+            .replaceAll("__VERSION__", "testversion00");
+          res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" });
+          res.end(html);
+          return;
+        }
         if (url.pathname === "/harness.html") {
           res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" });
           res.end(HARNESS);
@@ -1245,6 +1268,148 @@ describe("知识库行为", { concurrency: false, timeout: 120000 }, () => {
         }
       }
     });
+  });
+
+  test("真实外壳：列表返回同一位置，详情预览只关预览", async () => {
+    state.mode = "ok";
+    for (const [width, height] of [[390, 844], [840, 900]]) {
+      for (const mode of ["button", "history"]) {
+        await withPage(width, height, async (sessionId) => {
+          const view = await evalAsync(sessionId, `
+            const deadline = Date.now() + 8000;
+            while (!document.querySelector("#tab-kb .kb-row")) {
+              if (Date.now() > deadline) throw new Error("shell kb did not mount");
+              await new Promise((r) => setTimeout(r, 40));
+            }
+            const css = document.createElement("style");
+            css.textContent = "#kb-main-scroll{flex:none!important;height:150px!important}#kb-pane-scroll{flex:none!important;height:120px!important}.kb-row,.kb-ti{min-height:72px}";
+            document.head.appendChild(css);
+            document.querySelector('[data-qbs-tab="kb"]').click();
+            let pushes = 0, replaces = 0;
+            const origPush = history.pushState.bind(history);
+            const origReplace = history.replaceState.bind(history);
+            history.pushState = function () { pushes += 1; return origPush.apply(history, arguments); };
+            history.replaceState = function () { replaces += 1; return origReplace.apply(history, arguments); };
+            const tw = document.querySelector('#kb-pane-scroll .kb-ti[data-folder="docs"] .kb-tw');
+            if (!tw) throw new Error("docs folder missing");
+            tw.click();
+            const main = document.querySelector("#kb-main-scroll");
+            const pane = document.querySelector("#kb-pane-scroll");
+            main.scrollTop = 80;
+            pane.scrollTop = 36;
+            await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+            const before = {
+              scrollMain: main.scrollTop,
+              scrollPane: pane.scrollTop,
+              expanded: Array.from(document.querySelectorAll("#kb-pane-scroll .kb-tw.open")).map((el) => el.parentNode.getAttribute("data-folder")).sort(),
+              hash: location.hash,
+              length: history.length,
+              tab: document.querySelector("[data-qbs-tab][aria-current]").getAttribute("data-qbs-tab"),
+            };
+            if (before.scrollMain < 20) throw new Error("main did not scroll " + before.scrollMain);
+            if (!before.expanded.includes("docs")) throw new Error("docs not expanded");
+            const row = document.querySelector('#kb-main-scroll [data-key="docs/本周小结.md"]');
+            if (!row) throw new Error("public file missing");
+            const len0 = history.length;
+            const push0 = pushes;
+            row.click();
+            if (!document.getElementById("panel-kb").classList.contains("kb-viewing")) throw new Error("viewer did not open");
+            if (!document.querySelector("#tab-kb.kb").classList.contains("is-detail")) throw new Error("detail missing under viewer");
+            if (pushes !== push0 + 1) throw new Error("pushes " + pushes);
+            if (replaces !== 0) throw new Error("replaces " + replaces);
+            if (history.length !== len0 + 1) throw new Error("length " + history.length);
+            if (!location.hash) throw new Error("file address missing");
+            if (${JSON.stringify(mode)} === "button") document.getElementById("btnKbBack").click();
+            else history.back();
+            const backDeadline = Date.now() + 3000;
+            while (Date.now() < backDeadline) {
+              const viewing = document.getElementById("panel-kb").classList.contains("kb-viewing");
+              const detail = document.querySelector("#tab-kb.kb").classList.contains("is-detail");
+              if (!viewing && !detail && location.hash === before.hash) break;
+              await new Promise((r) => setTimeout(r, 30));
+            }
+            await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+            const tab = document.querySelector("[data-qbs-tab][aria-current]");
+            return {
+              mode: ${JSON.stringify(mode)},
+              scrollMain: document.querySelector("#kb-main-scroll").scrollTop,
+              scrollPane: document.querySelector("#kb-pane-scroll").scrollTop,
+              expanded: Array.from(document.querySelectorAll("#kb-pane-scroll .kb-tw.open")).map((el) => el.parentNode.getAttribute("data-folder")).sort(),
+              hash: location.hash,
+              length: history.length,
+              tab: tab ? tab.getAttribute("data-qbs-tab") : "",
+              viewing: document.getElementById("panel-kb").classList.contains("kb-viewing"),
+              detail: document.querySelector("#tab-kb.kb").classList.contains("is-detail"),
+              pushes,
+              replaces,
+              before,
+            };
+          `);
+          assert.equal(view.viewing, false, width + " " + mode);
+          assert.equal(view.detail, false, width + " " + mode);
+          assert.equal(view.tab, "kb", width + " " + mode);
+          assert.equal(view.hash, view.before.hash, width + " " + mode);
+          assert.deepEqual(view.expanded, view.before.expanded, width + " " + mode);
+          assert.ok(Math.abs(view.scrollMain - view.before.scrollMain) < 2, width + " " + mode + " main");
+          assert.ok(Math.abs(view.scrollPane - view.before.scrollPane) < 2, width + " " + mode + " pane");
+          assert.equal(view.pushes, 1, width + " " + mode);
+          assert.equal(view.replaces, 0, width + " " + mode);
+          assert.equal(view.length, view.before.length + 1, width + " " + mode + " length");
+        }, origin + "/template.html");
+      }
+      await withPage(width, height, async (sessionId) => {
+        const view = await evalAsync(sessionId, `
+          const deadline = Date.now() + 8000;
+          while (!document.querySelector("#tab-kb .kb-row")) {
+            if (Date.now() > deadline) throw new Error("shell kb did not mount");
+            await new Promise((r) => setTimeout(r, 40));
+          }
+          document.querySelector('[data-qbs-tab="kb"]').click();
+          const tw = document.querySelector('#kb-pane-scroll .kb-ti[data-folder="docs"] .kb-tw');
+          if (!tw) throw new Error("docs folder missing");
+          tw.click();
+          let pushes = 0, replaces = 0;
+          const origPush = history.pushState.bind(history);
+          const origReplace = history.replaceState.bind(history);
+          history.pushState = function () { pushes += 1; return origPush.apply(history, arguments); };
+          history.replaceState = function () { replaces += 1; return origReplace.apply(history, arguments); };
+          const row = document.querySelector('#kb-main-scroll [data-key="docs/本周小结.md"]');
+          if (!row) throw new Error("public file missing");
+          row.click();
+          const len = history.length;
+          const hash = location.hash;
+          const again = document.querySelector('#kb-pane-scroll [data-key="docs/本周小结.md"]');
+          if (!again) throw new Error("detail row missing");
+          again.click();
+          if (pushes !== 1 || replaces !== 0) throw new Error("second open mutated history " + pushes + "/" + replaces);
+          if (history.length !== len || location.hash !== hash) throw new Error("second open changed address");
+          document.getElementById("btnKbBack").click();
+          await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+          const h2 = document.querySelector("#tab-kb h2");
+          const tab = document.querySelector("[data-qbs-tab][aria-current]");
+          return {
+            h2: h2 ? h2.textContent : "",
+            detail: document.querySelector("#tab-kb.kb").classList.contains("is-detail"),
+            viewing: document.getElementById("panel-kb").classList.contains("kb-viewing"),
+            hash: location.hash,
+            hashBefore: hash,
+            length: history.length,
+            len,
+            pushes,
+            replaces,
+            tab: tab ? tab.getAttribute("data-qbs-tab") : "",
+          };
+        `);
+        assert.equal(view.h2, "本周小结.md", width);
+        assert.equal(view.detail, true, width);
+        assert.equal(view.viewing, false, width);
+        assert.equal(view.hash, view.hashBefore, width);
+        assert.equal(view.length, view.len, width);
+        assert.equal(view.pushes, 1, width);
+        assert.equal(view.replaces, 0, width);
+        assert.equal(view.tab, "kb", width);
+      }, origin + "/template.html");
+    }
   });
 
   test("完整外壳 390/840 深浅色：末尾筛选项可点", async () => {
