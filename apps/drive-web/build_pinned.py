@@ -17,7 +17,8 @@ from urllib.parse import quote
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(os.path.dirname(HERE))
 PINS = os.path.join(HERE, "pins")
-DEFAULT_ORIGIN = "https://felixzhu.github.io/qian-drive/"
+DEFAULT_ORIGIN = "https://felixzhu.github.io/QBot/"
+LIVE_PIN = "live-qbot.sha256"
 CHAT_DIST = os.path.join(REPO, "apps", "chat-web", "dist")
 FORBIDDEN_NAMES = ("synthetic-lesson", "harness-clip", "sample.mp4", "fixtures/")
 SECRET_MARKERS = ("OSS_ACCESS_KEY_SECRET=", "AWS_SECRET_ACCESS_KEY=", "-----BEGIN PRIVATE KEY-----", "AKIA")
@@ -109,7 +110,7 @@ def scan_output(dest):
 
 
 def compare_live(dest):
-    expected = {rel: digest for digest, rel in read_sums(os.path.join(PINS, "live-20916f6.sha256"))}
+    expected = {rel: digest for digest, rel in read_sums(os.path.join(PINS, LIVE_PIN))}
     same, different, extra = [], [], []
     seen = set()
     for dirpath, _, files in os.walk(dest):
@@ -164,7 +165,7 @@ def main():
         only_stamp = sorted(row["path"] for row in different) == ["index.html", "version.json"]
         stamp = {
             "built": version.get("version"),
-            "live": "0cb21751c930",
+            "live": "e647a1e0ac6a",
             "generatedMatchesLive": version.get("generated") == 1794940523,
             "onlyIndexAndVersionDiffer": only_stamp,
             "note": "The version is a SHA1 prefix of the HTML preimage plus frontend bytes in refresh_site order. It is not proof of behavior.",
@@ -173,8 +174,8 @@ def main():
             "entry": "apps/drive-web/build_pinned.py",
             "sourceCommit": source_commit(),
             "testedCandidate": "156687b25701cdd45661e1f70a17b5c19786ae22",
-            "liveCommit": "20916f6cd7913a058a30e893d5812932620ce92a",
-            "liveVersion": "0cb21751c930",
+            "liveCommit": "c6c39723b1af56243e220a955783268b7503169a",
+            "liveVersion": "e647a1e0ac6a",
             "inputOrigin": from_dir or origin,
             "inputCount": len(inputs),
             "chatMode": chat_mode,
@@ -208,7 +209,7 @@ def main():
             try:
                 # The borrowed live tree is not an optional cache. --from-dir only
                 # supplies build inputs; acceptance still reads the public site.
-                accept_site.fetch_tree(expect, origin, os.path.join(PINS, "live-20916f6.sha256"))
+                accept_site.fetch_tree(expect, origin, os.path.join(PINS, LIVE_PIN))
                 problems = accept_site.accept_trees(repo, expect, accept_site.SOURCE_COPIES)
                 problems += accept_site.copies_match_source(repo, HERE)
                 problems += accept_site.copied_inputs(repo, os.path.join(PINS, "inputs.sha256"))
