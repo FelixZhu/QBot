@@ -200,6 +200,23 @@ def main():
         if extra or missing:
             print("extra", extra, "missing", missing)
         print("provenance:", out_path)
+        if "--strict" in sys.argv:
+            sys.path.insert(0, HERE)
+            import accept_site
+            expect = tempfile.mkdtemp(prefix="qbot-expect-")
+            try:
+                # The borrowed live tree is not an optional cache. --from-dir only
+                # supplies build inputs; acceptance still reads the public site.
+                accept_site.fetch_tree(expect, origin, os.path.join(PINS, "live-20916f6.sha256"))
+                problems = accept_site.accept_trees(repo, expect)
+                problems += accept_site.copied_inputs(repo, os.path.join(PINS, "inputs.sha256"))
+            finally:
+                shutil.rmtree(expect, ignore_errors=True)
+            if problems:
+                print("strict acceptance failed:")
+                print("\n".join(problems))
+                sys.exit(1)
+            print("strict acceptance passed")
     finally:
         shutil.rmtree(staging, ignore_errors=True)
 

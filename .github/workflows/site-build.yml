@@ -26,11 +26,28 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Pinned build only
+      - name: Ordinary pinned build
         run: python3 apps/drive-web/build_pinned.py --repo "$RUNNER_TEMP/site"
+
+      - name: Strict acceptance against the borrowed public tree
+        run: python3 apps/drive-web/build_pinned.py --repo "$RUNNER_TEMP/site-strict" --strict
+
+      - name: Acceptance negatives
+        run: python3 apps/drive-web/test_accept_site.py
 
       - name: Unit checks that do not need a browser
         run: node --test apps/drive-web/shell-history.test.mjs apps/drive-web/shell-media.test.mjs apps/drive-web/shell-back.test.mjs apps/drive-web/shell-theme.test.mjs
+
+      - name: Install Chrome for the browser gates
+        run: |
+          wget -q https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+          sudo apt-get install -y ./google-chrome-stable_current_amd64.deb
+
+      - name: Knowledge base regression
+        run: node --test apps/drive-web/test/kb.test.mjs
+
+      - name: Real Feed and shell back contract
+        run: node apps/drive-web/shell-contract.test.mjs
 
       - name: Source commit excludes fonts, generated feed output, and test clips
         run: |
