@@ -934,6 +934,319 @@ describe("知识库行为", { concurrency: false, timeout: 120000 }, () => {
     });
   });
 
+  /* Mirrors the index.html contract: one setHash push per file open, viewer "<"
+     calls qbotKb.viewerBack(), popstate calls qbotKb.restore() and does not
+     push or fall through to the drive home. */
+  const SHELL_BOOT = `
+    window.__leftHome = false;
+    window.__viewer = false;
+    window.__driveHome = 0;
+    window.__opens = 0;
+    window.__pushes = 0;
+    window.__replaces = 0;
+    function fileHash(key) {
+      return "#/" + String(key || "").split("/").map(encodeURIComponent).join("/");
+    }
+    function onListUrl() {
+      const h = location.hash;
+      return !h || h === "#/" || h.indexOf("#/~home") === 0;
+    }
+    document.getElementById("tab-kb").addEventListener("kb:open", (e) => {
+      window.__viewer = true;
+      window.__opens += 1;
+      const h = fileHash(e.detail && e.detail.key);
+      if (window.__leftHome && onListUrl()) window.__leftHome = false;
+      if (!window.__leftHome) {
+        history.pushState({ qbot: "away" }, "", location.pathname + location.search + h);
+        window.__leftHome = true;
+        window.__pushes += 1;
+      } else if (location.hash !== h) {
+        history.replaceState({ qbot: "away" }, "", location.pathname + location.search + h);
+        window.__replaces += 1;
+      }
+    });
+    window.addEventListener("popstate", () => {
+      if (window.qbotKb.restore()) {
+        window.__viewer = false;
+        return;
+      }
+      window.__driveHome += 1;
+    });
+    window.__viewerChevron = () => {
+      const which = window.qbotKb.viewerBack();
+      if (which === "detail") {
+        window.__viewer = false;
+        return which;
+      }
+      if (which === "list") {
+        window.__viewer = false;
+        history.back();
+        return which;
+      }
+      window.__viewer = false;
+      return which;
+    };
+    window.__waitPop = () => new Promise((resolve) => {
+      const timer = setTimeout(() => resolve("timeout"), 2000);
+      window.addEventListener("popstate", function onp() {
+        window.removeEventListener("popstate", onp);
+        clearTimeout(timer);
+        resolve("pop");
+      });
+    });
+    window.__frames = () => new Promise((resolve) => {
+      requestAnimationFrame(() => requestAnimationFrame(resolve));
+    });
+    const css = document.createElement("style");
+    css.textContent = "#kb-main-scroll{flex:none!important;height:150px!important}#kb-pane-scroll{flex:none!important;height:120px!important}.kb-row,.kb-ti{min-height:72px}";
+    document.head.appendChild(css);
+  `;
+
+  function listProbeExpr() {
+    return `(() => {
+      const main = document.querySelector("#kb-main-scroll");
+      const pane = document.querySelector("#kb-pane-scroll");
+      const sec = Array.from(main.querySelectorAll(".kb-sec")).find((el) => el.textContent.includes("最近更新"));
+      return {
+        scrollMain: main.scrollTop,
+        scrollPane: pane.scrollTop,
+        expanded: Array.from(pane.querySelectorAll(".kb-tw.open")).map((el) => el.parentNode.getAttribute("data-folder")).sort(),
+        secTop: sec ? sec.offsetTop : -1,
+        query: document.querySelector("#kb-q").value,
+        chips: Array.from(document.querySelectorAll(".kb-chip.on")).map((el) => el.textContent),
+        detail: document.querySelector(".kb").classList.contains("is-detail"),
+        recent: main.textContent.includes("最近更新"),
+        h2: document.querySelector("h2") ? document.querySelector("h2").textContent : "",
+        hash: location.hash,
+        viewer: window.__viewer,
+        driveHome: window.__driveHome,
+        length: history.length,
+      };
+    })()`;
+  }
+
+  async function arrangeList(sessionId) {
+    return evalAsync(sessionId, `
+      ${SHELL_BOOT}
+      const chip = Array.from(document.querySelectorAll(".kb-chip")).find((el) => el.textContent === "文档");
+      if (!chip) throw new Error("missing 文档 chip");
+      chip.click();
+      const tw = document.querySelector('#kb-pane-scroll .kb-ti[data-folder="docs"] .kb-tw');
+      if (!tw) throw new Error("missing docs twistie");
+      tw.click();
+      const main = document.querySelector("#kb-main-scroll");
+      const pane = document.querySelector("#kb-pane-scroll");
+      main.scrollTop = 80;
+      pane.scrollTop = 36;
+      await window.__frames();
+      const before = (${listProbeExpr()});
+      if (before.scrollMain < 20) throw new Error("main list did not scroll " + before.scrollMain);
+      if (!before.expanded.includes("docs")) throw new Error("docs not expanded " + before.expanded.join(","));
+      if (before.expanded.includes("videos")) throw new Error("videos expanded early");
+      if (!before.recent) throw new Error("最近更新 missing before open");
+      if (before.chips.join(",") !== "文档") throw new Error("chip " + before.chips.join(","));
+      return before;
+    `);
+  }
+
+  test("从列表打开后，预览返回回到原来的滚动和展开", async () => {
+    for (const [width, height] of [[840, 900], [390, 844]]) {
+      await withPage(width, height, async (sessionId) => {
+        await loadKb(sessionId, fixture);
+        const before = await arrangeList(sessionId);
+        const after = await evalAsync(sessionId, `
+          const row = document.querySelector('#kb-main-scroll [data-key="reports/周报-示例.md"]');
+          if (!row) throw new Error("report row missing");
+          const len0 = history.length;
+          row.click();
+          if (!document.querySelector(".kb").classList.contains("is-detail")) throw new Error("detail did not open");
+          if (document.querySelector("h2").textContent !== "周报-示例.md") throw new Error("wrong file");
+          if (!window.__viewer) throw new Error("viewer did not open");
+          if (window.__pushes !== 1) throw new Error("pushes " + window.__pushes);
+          if (history.length !== len0 + 1) throw new Error("length " + history.length + " from " + len0);
+          const pending = window.__waitPop();
+          const which = window.__viewerChevron();
+          if (which !== "list") throw new Error("chevron " + which);
+          const popped = await pending;
+          if (popped !== "pop") throw new Error("pop " + popped);
+          await window.__frames();
+          const view = (${listProbeExpr()});
+          view.which = which;
+          view.pushes = window.__pushes;
+          view.replaces = window.__replaces;
+          return view;
+        `);
+        assert.equal(after.which, "list", width);
+        assert.equal(after.detail, false, width);
+        assert.equal(after.h2, "", width);
+        assert.equal(after.viewer, false, width);
+        assert.equal(after.driveHome, 0, width);
+        assert.equal(after.hash, "", width);
+        assert.equal(after.recent, true, width);
+        assert.equal(after.query, before.query, width);
+        assert.deepEqual(after.chips, before.chips, width);
+        assert.deepEqual(after.expanded, before.expanded, width);
+        assert.equal(after.secTop, before.secTop, width + " 最近更新 offset");
+        assert.ok(Math.abs(after.scrollMain - before.scrollMain) < 2, width + " main " + after.scrollMain + " vs " + before.scrollMain);
+        assert.ok(Math.abs(after.scrollPane - before.scrollPane) < 2, width + " pane " + after.scrollPane + " vs " + before.scrollPane);
+        assert.equal(after.pushes, 1, width);
+        assert.equal(after.replaces, 0, width);
+        assert.equal(after.length, before.length + 1, width);
+      });
+    }
+  });
+
+  test("从列表打开后，popstate 回到同一列表且不退回首页", async () => {
+    await withPage(840, 900, async (sessionId) => {
+      await loadKb(sessionId, fixture);
+      await arrangeList(sessionId);
+      const after = await evalAsync(sessionId, `
+        const input = document.querySelector("#kb-q");
+        input.value = "示例";
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+        const main = document.querySelector("#kb-main-scroll");
+        const pane = document.querySelector("#kb-pane-scroll");
+        main.scrollTop = 48;
+        pane.scrollTop = 24;
+        await window.__frames();
+        const snap = (${listProbeExpr()});
+        if (snap.query !== "示例") throw new Error("query " + snap.query);
+        if (snap.scrollMain < 10) throw new Error("search list did not scroll " + snap.scrollMain);
+        if (!snap.expanded.includes("docs")) throw new Error("docs collapsed");
+        if (snap.recent) throw new Error("search replaced 最近更新");
+        document.querySelector('#kb-main-scroll [data-key="reports/周报-示例.md"]').click();
+        if (!window.__viewer || !document.querySelector("h2")) throw new Error("file did not open");
+        if (document.querySelector("[data-kb-back]").textContent.indexOf("返回搜索结果") < 0) throw new Error("back label");
+        const pending = window.__waitPop();
+        history.back();
+        const popped = await pending;
+        if (popped !== "pop") throw new Error("pop " + popped);
+        await window.__frames();
+        const view = (${listProbeExpr()});
+        view.pushes = window.__pushes;
+        view.replaces = window.__replaces;
+        view.hit = !!document.querySelector('#kb-main-scroll .kb-sr[data-key="reports/周报-示例.md"]');
+        view.snap = snap;
+        return view;
+      `);
+      const snap = after.snap;
+      assert.equal(after.detail, false);
+      assert.equal(after.h2, "");
+      assert.equal(after.viewer, false);
+      assert.equal(after.driveHome, 0);
+      assert.equal(after.hash, "");
+      assert.equal(after.hit, true);
+      assert.equal(after.query, snap.query);
+      assert.deepEqual(after.chips, snap.chips);
+      assert.deepEqual(after.expanded, snap.expanded);
+      assert.equal(after.secTop, snap.secTop);
+      assert.ok(Math.abs(after.scrollMain - snap.scrollMain) < 2, after.scrollMain + " vs " + snap.scrollMain);
+      assert.ok(Math.abs(after.scrollPane - snap.scrollPane) < 2, after.scrollPane + " vs " + snap.scrollPane);
+      assert.equal(after.pushes, 1);
+      assert.equal(after.replaces, 0);
+      assert.equal(after.length, snap.length + 1);
+    });
+  });
+
+  test("先在详情页再打开预览时，返回只关闭预览", async () => {
+    await withPage(840, 900, async (sessionId) => {
+      await loadKb(sessionId, fixture);
+      const view = await evalAsync(sessionId, `
+        ${SHELL_BOOT}
+        const tw = document.querySelector('#kb-pane-scroll .kb-ti[data-folder="docs"] .kb-tw');
+        if (!tw) throw new Error("missing docs twistie");
+        tw.click();
+        const row = document.querySelector('#kb-main-scroll [data-key="docs/本周小结.md"]');
+        if (!row) throw new Error("note missing");
+        row.click();
+        if (document.querySelector("h2").textContent !== "本周小结.md") throw new Error("detail missing");
+        if (!window.__viewer) throw new Error("viewer missing");
+        const len = history.length;
+        const hash = location.hash;
+        const pushes = window.__pushes;
+        if (pushes !== 1) throw new Error("pushes " + pushes);
+        window.__viewer = false;
+        const again = document.querySelector('#kb-pane-scroll [data-key="docs/本周小结.md"]');
+        if (!again) throw new Error("detail tree row missing");
+        again.click();
+        if (window.__opens !== 2) throw new Error("opens " + window.__opens);
+        if (history.length !== len) throw new Error("length grew " + history.length);
+        if (location.hash !== hash) throw new Error("hash changed " + location.hash);
+        if (window.__pushes !== 1 || window.__replaces !== 0) throw new Error("history mutated");
+        if (!window.__viewer) throw new Error("viewer did not reopen");
+        const which = window.__viewerChevron();
+        await window.__frames();
+        return {
+          which,
+          h2: document.querySelector("h2") ? document.querySelector("h2").textContent : "",
+          detail: document.querySelector(".kb").classList.contains("is-detail"),
+          viewer: window.__viewer,
+          hash: location.hash,
+          length: history.length,
+          pushes: window.__pushes,
+          replaces: window.__replaces,
+          driveHome: window.__driveHome,
+          len,
+          hashBefore: hash,
+        };
+      `);
+      assert.equal(view.which, "detail");
+      assert.equal(view.h2, "本周小结.md");
+      assert.equal(view.detail, true);
+      assert.equal(view.viewer, false);
+      assert.equal(view.hash, view.hashBefore);
+      assert.equal(view.length, view.len);
+      assert.equal(view.pushes, 1);
+      assert.equal(view.replaces, 0);
+      assert.equal(view.driveHome, 0);
+    });
+  });
+
+  test("连续五次打开再返回，history.length 不增加", async () => {
+    await withPage(840, 900, async (sessionId) => {
+      await loadKb(sessionId, fixture);
+      const view = await evalAsync(sessionId, `
+        ${SHELL_BOOT}
+        const start = history.length;
+        const samples = [];
+        for (let i = 0; i < 5; i += 1) {
+          const row = document.querySelector('#kb-main-scroll [data-key="docs/本周小结.md"]');
+          if (!row) throw new Error("row missing on cycle " + i);
+          row.click();
+          samples.push({ phase: "open", n: history.length, hash: location.hash, pushes: window.__pushes });
+          const pending = window.__waitPop();
+          const which = window.__viewerChevron();
+          if (which !== "list") throw new Error("cycle " + i + " " + which);
+          const popped = await pending;
+          if (popped !== "pop") throw new Error("cycle " + i + " pop " + popped);
+          await window.__frames();
+          samples.push({
+            phase: "back",
+            n: history.length,
+            hash: location.hash,
+            detail: document.querySelector(".kb").classList.contains("is-detail"),
+            recent: document.querySelector("#kb-main-scroll").textContent.includes("最近更新"),
+            home: window.__driveHome,
+          });
+        }
+        return { start, samples, pushes: window.__pushes, replaces: window.__replaces };
+      `);
+      assert.equal(view.samples.length, 10);
+      assert.equal(view.pushes, 5);
+      assert.equal(view.replaces, 0);
+      for (const sample of view.samples) {
+        assert.equal(sample.n, view.start + 1, JSON.stringify(sample));
+        if (sample.phase === "open") assert.match(sample.hash, /^#\//);
+        if (sample.phase === "back") {
+          assert.equal(sample.hash, "");
+          assert.equal(sample.detail, false);
+          assert.equal(sample.recent, true);
+          assert.equal(sample.home, 0);
+        }
+      }
+    });
+  });
+
   test("完整外壳 390/840 深浅色：末尾筛选项可点", async () => {
     state.mode = "ok";
     const shots = [
