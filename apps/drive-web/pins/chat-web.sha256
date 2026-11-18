@@ -1,0 +1,14 @@
+790e3169bc19b046fe55ba1da6d13b976c28363c8c00462a2195fe5faf260910  apps/chat-web/.gitignore
+bdce9dcc7330065c36305f71b146ee3993ca742b4956dfe551077e77d73a17fd  apps/chat-web/index.html
+de59aa04c96fe92c521333c970ac4ee18a0c17312b8100ef9c1cc6bc085dcfb2  apps/chat-web/package-lock.json
+aabdd6fb148d5e06eb3b4993c2f98daea2030298c4716edbedc9dbf3ecf8e6c1  apps/chat-web/package.json
+089dadcd808c1c14840cbc227147efcb7daa4f143db74b3501065c6dd0c25741  apps/chat-web/src/App.tsx
+b09bbbbc0a8a91d642d97b8e2ff2ff2786980aecbc003101cb370699adb2d0ea  apps/chat-web/src/backend.ts
+d1e00205bc05b37f8381ff16d15e8c8157609d006cb0496e913de5468fbc7334  apps/chat-web/src/chat.css
+35d26ea66c86da9701e4f4b467913481ffeae910761cea34c775c5dacb7f8eaa  apps/chat-web/src/env.d.ts
+aa785f7235b1ed46f99d682aa94d69e9be1d20359eccc244963570297c302b54  apps/chat-web/src/icons.tsx
+6ef4b3289d9dbe7a6a6848c35dbaeef7b2ccacdfe61347d6c3f600ab78777b95  apps/chat-web/src/main.tsx
+9363f436a84eff8e9180c91ac633eef8b11f05c7f5a8d1a233cbbcdd0aedbaf3  apps/chat-web/src/mock.ts
+de6f54990a76e0f0af0a205c461c5706e280bb98e59886682cf73fb5b82b0fe7  apps/chat-web/src/voice.ts
+808b7cd67704dd4db43e8781768f11e70d2dbacb485d1e65b45a9d01dfdb8a0f  apps/chat-web/tsconfig.json
+c46b2bf4621d5510925e2b7fec2bbcd6470f3ca4a58cd21f89882475e765970f  apps/chat-web/vite.config.ts

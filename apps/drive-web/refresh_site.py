@@ -10,16 +10,23 @@ come from OSS_ACCESS_KEY_ID / OSS_ACCESS_KEY_SECRET and are never printed or
 written anywhere.
 
 Also builds the QBot chat tab (../chat-web, Vite) into chat/, and copies the shared
-design CSS (tokens/layout/components.css) and the feed module (feed.js, feed.css,
-out/feed.json, out/media/) next to index.html when present.
+design CSS (tokens/layout/components.css), the feed module (feed.js, feed.css,
+out/feed.json, out/media/), shell-media.js and shell-theme.js next to index.html when present.
 
 Usage: python3 refresh_site.py [--push] [--repo DIR] [--no-chat-build]
+                 [--manifest FILE --index FILE]
+                 [--feed-out DIR] [--fonts DIR]
   --push           git commit + push the repo (only if something changed)
   --repo DIR       write the site somewhere else (e.g. a local preview dir)
   --no-chat-build  reuse the existing ../chat-web/dist instead of running npm run build
+  --manifest FILE  use this manifest JSON instead of listing the OSS bucket
+  --index FILE     use this index JSON instead of ~/.oss_index.json
+                   Both are required together. They are copied byte for byte.
+                   OSS credentials are not read on this path.
+  --feed-out DIR   copy this feed directory instead of ./out
+  --fonts DIR      copy *.woff2 from here into fonts/ (source tree still has none)
 """
 import hashlib, json, os, shutil, subprocess, sys, time, mimetypes
-import oss2
 
 ENDPOINT = os.environ.get("OSS_ENDPOINT", "https://oss-cn-beijing.aliyuncs.com")
 BUCKET = os.environ.get("OSS_BUCKET", "qian-grokbot")
@@ -36,6 +43,7 @@ KIND_LABEL = {
 
 
 def bucket():
+    import oss2
     kid, sec = os.environ.get("OSS_ACCESS_KEY_ID"), os.environ.get("OSS_ACCESS_KEY_SECRET")
     if not kid or not sec:
         sys.exit("missing OSS credentials in environment")
@@ -154,13 +162,14 @@ def build_chat():
     return dist
 
 
-SHARED_FILES = ("tokens.css", "layout.css", "components.css", "feed.js", "feed.css")
+SHARED_FILES = ("tokens.css", "layout.css", "components.css", "feed.js", "feed.css", "shell-media.js", "shell-theme.js")
 
 
-def frontend_files(chat):
+def frontend_files(chat, feed_out=None):
     """Every extra file that ends up in the site; also feeds the page version hash."""
+    if feed_out is None:
+        feed_out = os.path.join(HERE, "out")
     out = [os.path.join(HERE, n) for n in SHARED_FILES if os.path.isfile(os.path.join(HERE, n))]
-    feed_out = os.path.join(HERE, "out")
     if os.path.isdir(feed_out):
         out += sorted(os.path.join(r, f) for r, _, fs in os.walk(feed_out) for f in fs)
     if chat:
@@ -168,13 +177,14 @@ def frontend_files(chat):
     return out
 
 
-def copy_frontend(dest, chat):
+def copy_frontend(dest, chat, feed_out=None):
     """Shared design CSS, feed module (+ media/) and chat bundle into the site dir."""
+    if feed_out is None:
+        feed_out = os.path.join(HERE, "out")
     for name in SHARED_FILES:
         if os.path.isfile(os.path.join(HERE, name)):
             shutil.copy2(os.path.join(HERE, name), os.path.join(dest, name))
     # Feed data: feed.js falls back to out/feed.json (+ out/media/) when OSS has none.
-    feed_out = os.path.join(HERE, "out")
     shutil.rmtree(os.path.join(dest, "out"), ignore_errors=True)
     if os.path.isdir(feed_out):
         shutil.copytree(feed_out, os.path.join(dest, "out"))
@@ -183,11 +193,22 @@ def copy_frontend(dest, chat):
         shutil.copytree(chat, os.path.join(dest, "chat"))
 
 
+def copy_fonts(dest, fonts):
+    """Copy pinned woff2 files into the site. Does nothing when fonts is omitted."""
+    if not fonts:
+        return
+    os.makedirs(os.path.join(dest, "fonts"), exist_ok=True)
+    for name in sorted(os.listdir(fonts)):
+        src = os.path.join(fonts, name)
+        if os.path.isfile(src) and name.endswith(".woff2"):
+            shutil.copy2(src, os.path.join(dest, "fonts", name))
+
+
 def git(repo, *args):
     return subprocess.run(["git", *GIT_ID, *args], cwd=repo, check=True, capture_output=True, text=True).stdout
 
 
-def write_tree(dest, html, mjson, vjson, idxjson, chat=None):
+def write_tree(dest, html, mjson, vjson, idxjson, chat=None, feed_out=None, fonts=None):
     os.makedirs(dest, exist_ok=True)
     open(os.path.join(dest, "index.html"), "w", encoding="utf-8").write(html)
     open(os.path.join(dest, "manifest.json"), "w", encoding="utf-8").write(mjson)
@@ -201,27 +222,50 @@ def write_tree(dest, html, mjson, vjson, idxjson, chat=None):
         src = os.path.join(HERE, name)
         if os.path.isfile(src):
             shutil.copy2(src, os.path.join(dest, name))
-    copy_frontend(dest, chat)
+    copy_frontend(dest, chat, feed_out)
+    copy_fonts(dest, fonts)
+
+
+def arg_value(flag):
+    if flag not in sys.argv:
+        return None
+    i = sys.argv.index(flag)
+    if i + 1 >= len(sys.argv):
+        sys.exit("missing value for %s" % flag)
+    return sys.argv[i + 1]
 
 
 def main():
-    repo = sys.argv[sys.argv.index("--repo") + 1] if "--repo" in sys.argv else "/workspace/qian-drive-repo"
+    repo = arg_value("--repo") or "/workspace/qian-drive-repo"
+    manifest_path = arg_value("--manifest")
+    index_path = arg_value("--index")
+    feed_out = arg_value("--feed-out")
+    fonts = arg_value("--fonts")
+    if bool(manifest_path) != bool(index_path):
+        sys.exit("pass both --manifest and --index, or neither")
     chat = build_chat()
-    m, skipped = build_manifest(bucket())
-    m["cors"] = check_cors(m["files"])
-    index = build_index(m)
-    mjson = json.dumps(m, ensure_ascii=False, separators=(",", ":"))
-    idxjson = json.dumps(index, ensure_ascii=False, separators=(",", ":"))
+    skipped = []
+    if manifest_path:
+        mjson = open(manifest_path, encoding="utf-8").read()
+        idxjson = open(index_path, encoding="utf-8").read()
+        m = json.loads(mjson)
+        index = json.loads(idxjson)
+    else:
+        m, skipped = build_manifest(bucket())
+        m["cors"] = check_cors(m["files"])
+        index = build_index(m)
+        mjson = json.dumps(m, ensure_ascii=False, separators=(",", ":"))
+        idxjson = json.dumps(index, ensure_ascii=False, separators=(",", ":"))
     tpl = open(os.path.join(HERE, "template.html"), encoding="utf-8").read()
     html = tpl.replace("__MANIFEST__", mjson.replace("</", r"<\/")).replace("__BASE__", BASE)
     h = hashlib.sha1(html.encode("utf-8"))
-    for f in frontend_files(chat):  # page version must change when only CSS/modules change
+    for f in frontend_files(chat, feed_out):  # page version must change when only CSS/modules change
         h.update(open(f, "rb").read())
     ver = h.hexdigest()[:12]
     html = html.replace("__VERSION__", ver)
     vjson = json.dumps({"version": ver, "generated": m["generated"]}, separators=(",", ":"))
-    write_tree(repo, html, mjson, vjson, idxjson, chat)
-    write_tree(os.path.join(HERE, "dist"), html, mjson, vjson, idxjson, chat)
+    write_tree(repo, html, mjson, vjson, idxjson, chat, feed_out, fonts)
+    write_tree(os.path.join(HERE, "dist"), html, mjson, vjson, idxjson, chat, feed_out, fonts)
     print("page version: %s" % ver)
     print("files listed: %d (%.1f MB); index.json: %d; bucket CORS for Pages origin: %s" % (
         m["count"], m["total_size"] / 1048576, index["count"],
