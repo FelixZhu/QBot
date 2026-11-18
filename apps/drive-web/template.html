@@ -2,69 +2,72 @@
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8">
+<script>window.__qbHash=location.hash;</script>
+<script src="shell-theme.js?v=__VERSION__"></script>
+<script>if(window.QbotShellTheme)QbotShellTheme.boot();</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Qian's Drive</title>
+<title>知识库</title>
 <meta name="robots" content="noindex,nofollow">
-<meta name="theme-color" content="#f6f5fb" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#18171d" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" id="qbsThemeColor" content="#F3EFE7">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Qian's Drive">
+<meta name="apple-mobile-web-app-title" content="知识库">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
 <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <link id="hlcss" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css" disabled>
+<link rel="stylesheet" href="tokens.css?v=__VERSION__">
+<link rel="stylesheet" href="layout.css?v=__VERSION__">
+<link rel="stylesheet" href="components.css?v=__VERSION__">
 <style>
 @font-face{font-family:"Microsoft YaHei";src:url("fonts/msyh-subset.woff2") format("woff2");font-weight:400;font-style:normal;font-display:swap}
-@font-face{font-family:"Microsoft YaHei";src:url("fonts/msyhbd-subset.woff2") format("woff2");font-weight:600;font-style:normal;font-display:swap}
 @font-face{font-family:"Microsoft YaHei";src:url("fonts/msyhbd-subset.woff2") format("woff2");font-weight:700;font-style:normal;font-display:swap}
 @font-face{font-family:"微软雅黑";src:url("fonts/msyh-subset.woff2") format("woff2");font-weight:400;font-style:normal;font-display:swap}
-@font-face{font-family:"微软雅黑";src:url("fonts/msyhbd-subset.woff2") format("woff2");font-weight:600;font-style:normal;font-display:swap}
 @font-face{font-family:"微软雅黑";src:url("fonts/msyhbd-subset.woff2") format("woff2");font-weight:700;font-style:normal;font-display:swap}
 :root{
-  --accent:#6d5ae6;--accent-2:#8b7cf6;--accent-soft:rgba(109,90,230,.12);
-  --bg:#ffffff;--bg-side:#f6f5fb;--bg-2:#f1f0f6;--bg-pane:#ffffff;--line:#e6e4ee;--text:#22202a;--muted:#77737f;--hover:rgba(30,20,60,.06);
-  --pdf-bg:#e9e8ef;--shadow:0 16px 48px rgba(20,16,40,.22);
-  --font:"Microsoft YaHei","微软雅黑","PingFang SC","Noto Sans SC","HarmonyOS Sans SC",system-ui,sans-serif;
+  --d-accent:#A94E27;--accent-2:#D9774B;--d-accent-soft:rgba(217,119,75,.12);
+  --d-bg:#FAF8F3;--bg-side:#F3EFE7;--bg-2:#ECE7DD;--bg-pane:#FAF8F3;--d-line:#E3DDD1;--text:#1C1B19;--muted:#736D62;--hover:rgba(28,27,25,.05);
+  --pdf-bg:#E6E1D7;--shadow:0 16px 48px rgba(28,27,25,.16);
+  --d-font:"Microsoft YaHei","微软雅黑","PingFang SC","Noto Sans SC","HarmonyOS Sans SC",system-ui,sans-serif;
   --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
   --side-w:320px;--info-w:280px;
 }
 [data-theme="dark"]{
-  --accent:#9d8cff;--accent-2:#b4a7ff;--accent-soft:rgba(157,140,255,.16);
-  --bg:#1e1d24;--bg-side:#18171d;--bg-2:#26252d;--bg-pane:#1e1d24;--line:#302e38;--text:#e6e3ee;--muted:#9a96a6;--hover:rgba(255,255,255,.06);
-  --pdf-bg:#131217;--shadow:0 16px 48px rgba(0,0,0,.5);
+  --d-accent:#E58A5E;--accent-2:#E58A5E;--d-accent-soft:rgba(229,138,94,.16);
+  --d-bg:#1F1D1A;--bg-side:#171614;--bg-2:#2E2B27;--bg-pane:#1F1D1A;--d-line:#34312C;--text:#EDE8DF;--muted:#9A9386;--hover:rgba(243,239,231,.06);
+  --pdf-bg:#131210;--shadow:0 16px 48px rgba(0,0,0,.5);
 }
 *{box-sizing:border-box}
 html,body{margin:0;height:100%;overflow:hidden}
-body{font-family:var(--font);color:var(--text);background:var(--bg);font-size:14px;-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent}
+body{font-family:var(--d-font);color:var(--text);background:var(--d-bg);font-size:14px;-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent}
 button{font-family:inherit;color:inherit;cursor:pointer;background:none;border:0}
 a{color:inherit;text-decoration:none}
 svg{flex:none}
 .app{display:flex;height:100vh;height:100dvh}
 /* ---------- sidebar ---------- */
-.side{width:var(--side-w);flex:none;background:var(--bg-side);border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0;transition:margin .2s}
+.side{width:var(--side-w);flex:none;background:var(--bg-side);border-right:1px solid var(--d-line);display:flex;flex-direction:column;min-height:0;transition:margin .2s}
 .app.side-collapsed .side{margin-left:calc(-1 * var(--side-w))}
 .side-head{display:flex;align-items:center;gap:8px;padding:calc(12px + env(safe-area-inset-top)) 12px 10px 14px}
 .brand{display:flex;align-items:center;gap:9px;font-weight:700;font-size:15px;flex:1;min-width:0}
-.logo{width:26px;height:26px;border-radius:7px;background:linear-gradient(135deg,var(--accent),var(--accent-2));display:grid;place-items:center}
+.logo{width:26px;height:26px;display:grid;place-items:center}
 .ib{width:30px;height:30px;border-radius:7px;display:inline-grid;place-items:center;color:var(--muted)}
 .ib:hover{background:var(--hover);color:var(--text)}
-.ib.on{color:var(--accent)}
+.ib.on{color:var(--d-accent)}
 .side-search{margin:0 10px 8px;display:flex;align-items:center;gap:8px;height:37px;padding:0 10px;border-radius:8px;background:var(--bg-2);color:var(--muted);font-size:15px;cursor:pointer;border:1px solid transparent}
-.side-search:hover{border-color:var(--line)}
+.side-search:hover{border-color:var(--d-line)}
 .side-search kbd{margin-left:auto}
-kbd{font-family:var(--mono);font-size:11px;padding:1px 5px;border-radius:4px;border:1px solid var(--line);background:var(--bg);color:var(--muted)}
+kbd{font-family:var(--mono);font-size:11px;padding:1px 5px;border-radius:4px;border:1px solid var(--d-line);background:var(--d-bg);color:var(--muted)}
 .tree{flex:1;overflow:auto;padding:2px 6px 16px;overscroll-behavior:contain;font-size:16px}
-.sec{display:flex;align-items:center;font-size:13px;letter-spacing:.4px;color:var(--muted);padding:14px 8px 5px;font-weight:600}
+.sec{display:flex;align-items:center;font-size:13px;letter-spacing:.4px;color:var(--muted);padding:14px 8px 5px;font-weight:700}
 .sec .grow{flex:1}
 .ti{display:flex;align-items:center;gap:6px;height:32px;padding-right:8px;border-radius:6px;cursor:pointer;color:var(--text);opacity:.88;white-space:nowrap;user-select:none;position:relative}
 .ti:hover{background:var(--hover);opacity:1}
-.ti.active{background:var(--accent-soft);color:var(--accent);opacity:1;font-weight:600}
+.ti.active{background:var(--d-accent-soft);color:var(--d-accent);opacity:1;font-weight:700}
 .ti .tw{width:18px;height:18px;display:grid;place-items:center;color:var(--muted);transition:transform .15s}
 .ti .tw.open{transform:rotate(90deg)}
 .ti .tw.none{visibility:hidden}
@@ -72,87 +75,87 @@ kbd{font-family:var(--mono);font-size:11px;padding:1px 5px;border-radius:4px;bor
 .ti .cnt{font-size:13px;color:var(--muted);font-weight:400}
 .ti .fic{width:18px;height:18px}
 .kids{position:relative}
-.kids::before{content:"";position:absolute;top:0;bottom:0;border-left:1px solid var(--line);left:var(--g)}
+.kids::before{content:"";position:absolute;top:0;bottom:0;border-left:1px solid var(--d-line);left:var(--g)}
 .kids.closed{display:none}
-.side-foot{padding:10px 14px calc(12px + env(safe-area-inset-bottom));border-top:1px solid var(--line);font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px}
+.side-foot{padding:10px 14px calc(12px + env(safe-area-inset-bottom));border-top:1px solid var(--d-line);font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px}
 /* ---------- main ---------- */
 .main{flex:1;min-width:0;display:flex;flex-direction:column;background:var(--bg-pane)}
-.tabbar{display:flex;align-items:flex-end;gap:2px;height:42px;padding:6px 6px 0;background:var(--bg-side);border-bottom:1px solid var(--line);flex:none;padding-top:calc(6px + env(safe-area-inset-top))}
+.tabbar{display:flex;align-items:flex-end;gap:2px;height:42px;padding:6px 6px 0;background:var(--bg-side);border-bottom:1px solid var(--d-line);flex:none;padding-top:calc(6px + env(safe-area-inset-top))}
 .tabbar .ib{margin-bottom:5px}
 .tabs{display:flex;gap:2px;overflow-x:auto;flex:1;min-width:0;scrollbar-width:none;align-items:flex-end;height:100%}
 .tabs::-webkit-scrollbar{display:none}
 .tab{display:flex;align-items:center;gap:6px;height:34px;padding:0 6px 0 10px;min-width:110px;max-width:220px;border-radius:8px 8px 0 0;color:var(--muted);cursor:pointer;flex:none;position:relative;font-size:13px}
 .tab:hover{background:var(--hover);color:var(--text)}
-.tab.active{background:var(--bg-pane);color:var(--text);box-shadow:0 0 0 1px var(--line);clip-path:inset(-2px -2px 0 -2px)}
+.tab.active{background:var(--bg-pane);color:var(--text);box-shadow:0 0 0 1px var(--d-line);clip-path:inset(-2px -2px 0 -2px)}
 .tab .tl{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .tab .x{width:20px;height:20px;border-radius:5px;display:grid;place-items:center;opacity:.55}
 .tab .x:hover{background:var(--hover);opacity:1}
 .tab .fic{width:15px;height:15px}
-.viewhead{display:flex;align-items:center;gap:6px;height:44px;padding:0 10px 0 14px;border-bottom:1px solid var(--line);flex:none}
+.viewhead{display:flex;align-items:center;gap:6px;height:44px;padding:0 10px 0 14px;border-bottom:1px solid var(--d-line);flex:none}
 .crumbs{flex:1;min-width:0;display:flex;align-items:center;gap:2px;font-size:13px;color:var(--muted);overflow:hidden;white-space:nowrap}
 .crumbs a{padding:3px 5px;border-radius:5px;cursor:pointer;flex:none}
 .crumbs a:hover{background:var(--hover);color:var(--text)}
-.crumbs .cur{color:var(--text);font-weight:600;flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;padding:3px 5px}
+.crumbs .cur{color:var(--text);font-weight:700;flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;padding:3px 5px}
 .crumbs .sep{opacity:.5;flex:none}
 .body{flex:1;display:flex;min-height:0}
 .pane{flex:1;min-width:0;position:relative;overflow:hidden;display:flex;flex-direction:column}
-.info{width:var(--info-w);flex:none;border-left:1px solid var(--line);background:var(--bg-side);overflow:auto;padding:18px 16px;display:none}
+.info{width:var(--info-w);flex:none;border-left:1px solid var(--d-line);background:var(--bg-side);overflow:auto;padding:18px 16px;display:none}
 .app.info-open .info{display:block}
 .info h4{margin:0 0 12px;font-size:12px;color:var(--muted);letter-spacing:.4px}
 .info .big{display:grid;place-items:center;padding:18px 0 14px}
 .info .big .fic{width:64px;height:64px}
-.info .fname{font-weight:600;word-break:break-all;line-height:1.5;margin-bottom:14px;text-align:center}
+.info .fname{font-weight:700;word-break:break-all;line-height:1.5;margin-bottom:14px;text-align:center}
 .kv{display:grid;grid-template-columns:72px 1fr;gap:9px 8px;font-size:13px;margin-bottom:18px}
 .kv dt{color:var(--muted)}
 .kv dd{margin:0;word-break:break-all}
-.btn{display:flex;align-items:center;justify-content:center;gap:7px;width:100%;height:36px;border-radius:8px;border:1px solid var(--line);background:var(--bg);font-size:13px;margin-bottom:8px}
-.btn:hover{border-color:var(--accent);color:var(--accent)}
-.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn{display:flex;align-items:center;justify-content:center;gap:7px;width:100%;height:36px;border-radius:8px;border:1px solid var(--d-line);background:var(--d-bg);font-size:13px;margin-bottom:8px}
+.btn:hover{border-color:var(--d-accent);color:var(--d-accent)}
+.btn.primary{background:var(--d-accent);border-color:var(--d-accent);color:#fff}
 .btn.primary:hover{background:var(--accent-2);color:#fff}
 /* ---------- viewers ---------- */
 .scroller{flex:1;overflow:auto;-webkit-overflow-scrolling:touch}
 .center{display:flex;align-items:center;justify-content:center;flex:1;padding:20px;min-height:0}
 .center img,.center video{max-width:100%;max-height:100%;border-radius:8px;box-shadow:var(--shadow);background:#000}
-.audio-card{width:min(520px,100%);text-align:center;padding:36px 28px;border-radius:16px;background:var(--bg-2);border:1px solid var(--line)}
+.audio-card{width:min(520px,100%);text-align:center;padding:36px 28px;border-radius:16px;background:var(--bg-2);border:1px solid var(--d-line)}
 .audio-card .fic{width:72px;height:72px;margin-bottom:12px}
 .audio-card audio{width:100%;margin-top:18px}
 .md{max-width:820px;margin:0 auto;padding:32px 36px 80px;line-height:1.8;font-size:15px}
 .md pre{background:var(--bg-2);padding:14px 16px;border-radius:8px;overflow:auto;font-size:13px}
 .md code{font-family:var(--mono);font-size:.9em}
-.md table{border-collapse:collapse}.md td,.md th{border:1px solid var(--line);padding:6px 10px}
+.md table{border-collapse:collapse}.md td,.md th{border:1px solid var(--d-line);padding:6px 10px}
 .md img{max-width:100%}
-.md a{color:var(--accent)}
+.md a{color:var(--d-accent)}
 pre.code{margin:0;padding:24px 28px 80px;font-family:var(--mono);font-size:13px;line-height:1.6;white-space:pre-wrap;word-break:break-word}
 pre.code .hljs{background:none;padding:0}
 /* pdf */
-.pdfbar{display:flex;align-items:center;gap:6px;height:40px;padding:0 10px;border-bottom:1px solid var(--line);flex:none;font-size:13px;color:var(--muted);background:var(--bg-pane)}
+.pdfbar{display:flex;align-items:center;gap:6px;height:40px;padding:0 10px;border-bottom:1px solid var(--d-line);flex:none;font-size:13px;color:var(--muted);background:var(--bg-pane)}
 .pdfbar .grow{flex:1}
-.pdfbar input{width:46px;height:26px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--text);text-align:center;font:inherit}
+.pdfbar input{width:46px;height:26px;border:1px solid var(--d-line);border-radius:6px;background:var(--d-bg);color:var(--text);text-align:center;font:inherit}
 .pdfbar .z{min-width:48px;text-align:center;font-variant-numeric:tabular-nums}
 .pdfwrap{flex:1;overflow:auto;background:var(--pdf-bg);padding:16px 0 60px;-webkit-overflow-scrolling:touch}
 .pg{margin:0 auto 14px;background:#fff;box-shadow:0 2px 10px rgba(0,0,0,.15);position:relative}
 .pg canvas{display:block;width:100%;height:100%}
 .pg .pn{position:absolute;right:-2px;bottom:-20px;font-size:11px;color:var(--muted)}
 .pdf-native{flex:1;border:0;width:100%;background:var(--pdf-bg)}
-.notice{display:flex;align-items:center;gap:8px;padding:8px 14px;font-size:12px;color:var(--muted);background:var(--bg-2);border-bottom:1px solid var(--line);flex:none}
-.notice a{color:var(--accent);font-weight:600;margin-left:auto;white-space:nowrap}
+.notice{display:flex;align-items:center;gap:8px;padding:8px 14px;font-size:12px;color:var(--muted);background:var(--bg-2);border-bottom:1px solid var(--d-line);flex:none}
+.notice a{color:var(--d-accent);font-weight:700;margin-left:auto;white-space:nowrap}
 .loading{display:flex;align-items:center;justify-content:center;flex:1;color:var(--muted);gap:10px}
-.spin{width:18px;height:18px;border-radius:50%;border:2px solid var(--line);border-top-color:var(--accent);animation:sp .8s linear infinite}
+.spin{width:18px;height:18px;border-radius:50%;border:2px solid var(--d-line);border-top-color:var(--d-accent);animation:sp .8s linear infinite}
 @keyframes sp{to{transform:rotate(360deg)}}
 /* folder / home view */
 .home{max-width:980px;margin:0 auto;padding:28px 28px 80px}
 .home h1{font-size:24px;margin:6px 0 4px}
 .home .sub{color:var(--muted);margin-bottom:24px;font-size:13px}
-.home h3{font-size:13px;color:var(--muted);margin:26px 0 10px;font-weight:600}
+.home h3{font-size:13px;color:var(--muted);margin:26px 0 10px;font-weight:700}
 .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px}
-.card{display:flex;align-items:center;gap:12px;padding:12px;border-radius:10px;border:1px solid var(--line);cursor:pointer;min-width:0;background:var(--bg)}
-.card:hover{border-color:var(--accent);background:var(--accent-soft)}
+.card{display:flex;align-items:center;gap:12px;padding:12px;border-radius:10px;border:1px solid var(--d-line);cursor:pointer;min-width:0;background:var(--d-bg)}
+.card:hover{border-color:var(--d-accent);background:var(--d-accent-soft)}
 .card .fic{width:30px;height:30px}
 .card .t{min-width:0;flex:1}
-.card .n{font-weight:600;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.card .n{font-weight:700;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .card .m{font-size:12px;color:var(--muted);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.rows{border:1px solid var(--line);border-radius:10px;overflow:hidden}
-.row{display:flex;align-items:center;gap:12px;padding:10px 14px;border-bottom:1px solid var(--line);cursor:pointer;min-width:0}
+.rows{border:1px solid var(--d-line);border-radius:10px;overflow:hidden}
+.row{display:flex;align-items:center;gap:12px;padding:10px 14px;border-bottom:1px solid var(--d-line);cursor:pointer;min-width:0}
 .row:last-child{border-bottom:0}
 .row:hover{background:var(--hover)}
 .row .fic{width:22px;height:22px}
@@ -161,17 +164,17 @@ pre.code .hljs{background:none;padding:0}
 /* quick switcher */
 .qs-ov{position:fixed;inset:0;background:rgba(10,8,20,.4);z-index:60;display:none;align-items:flex-start;justify-content:center;padding-top:12vh}
 .qs-ov.open{display:flex}
-.qs{width:min(640px,calc(100% - 24px));background:var(--bg);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);overflow:hidden}
-.qs input{width:100%;border:0;outline:0;background:none;color:var(--text);font:inherit;font-size:16px;padding:16px 18px;border-bottom:1px solid var(--line)}
+.qs{width:min(640px,calc(100% - 24px));background:var(--d-bg);border:1px solid var(--d-line);border-radius:12px;box-shadow:var(--shadow);overflow:hidden}
+.qs input{width:100%;border:0;outline:0;background:none;color:var(--text);font:inherit;font-size:16px;padding:16px 18px;border-bottom:1px solid var(--d-line)}
 .qs-list{max-height:min(420px,55vh);overflow:auto;padding:6px}
 .qi{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:7px;cursor:pointer}
-.qi.sel{background:var(--accent-soft)}
+.qi.sel{background:var(--d-accent-soft)}
 .qi .fic{width:18px;height:18px}
 .qi .t{min-width:0;flex:1}
 .qi .n{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.qi .n b{color:var(--accent)}
+.qi .n b{color:var(--d-accent)}
 .qi .p{font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.qs-foot{display:flex;gap:14px;padding:8px 14px;border-top:1px solid var(--line);font-size:12px;color:var(--muted)}
+.qs-foot{display:flex;gap:14px;padding:8px 14px;border-top:1px solid var(--d-line);font-size:12px;color:var(--muted)}
 .toast{position:fixed;left:50%;bottom:calc(28px + env(safe-area-inset-bottom));transform:translateX(-50%) translateY(16px);background:#222;color:#fff;padding:9px 16px;border-radius:9px;font-size:13px;opacity:0;transition:all .2s;z-index:90;pointer-events:none}
 .toast.show{opacity:1;transform:translateX(-50%)}
 .scrim{display:none}
@@ -186,7 +189,7 @@ pre.code .hljs{background:none;padding:0}
   .tab{min-width:90px;max-width:160px}
   .crumbs a,.crumbs .sep{display:none}
   .viewhead{padding-left:10px}
-  .info{position:fixed;left:0;right:0;bottom:0;width:auto;max-height:70vh;border-left:0;border-top:1px solid var(--line);border-radius:16px 16px 0 0;z-index:45;box-shadow:var(--shadow);padding-bottom:calc(18px + env(safe-area-inset-bottom))}
+  .info{position:fixed;left:0;right:0;bottom:0;width:auto;max-height:70vh;border-left:0;border-top:1px solid var(--d-line);border-radius:16px 16px 0 0;z-index:45;box-shadow:var(--shadow);padding-bottom:calc(18px + env(safe-area-inset-bottom))}
   .app.info-open .scrim{display:block;position:fixed;inset:0;background:rgba(0,0,0,.25);z-index:44}
   .home{padding:20px 14px 60px}
   .home-narrow h1{font-size:22px;margin:4px 0 2px}
@@ -199,15 +202,143 @@ pre.code .hljs{background:none;padding:0}
   .pg{margin-bottom:8px}
   .pdfbar .hide-s{display:none}
 }
+/* ================= QBot shell: bottom tabs (folded) / 72px rail (unfolded) =================
+ * Design: BRAND.md §8.1. Colors/sizes come from tokens.css (loaded globally, single copy in
+ * apps/drive-web/). The drive's own colliding variables were renamed --d-* so the two never clash. */
+html,body{height:100%;overflow:hidden;overscroll-behavior:none}
+.qbs{position:fixed;inset:0;display:grid;grid-template-rows:minmax(0,1fr) auto;grid-template-areas:"main" "nav";
+  overflow:hidden;overscroll-behavior:none;height:100%;height:100dvh}
+.qbs-panel{grid-area:main;min-width:0;min-height:0;height:100%;position:relative;overflow:hidden;overscroll-behavior:contain}
+/* Keep inactive tabs laid out (not display:none) so feed/kb can measure a definite height and scroll is preserved. */
+.qbs-panel[hidden]{display:block!important;visibility:hidden;pointer-events:none;z-index:0}
+.qbs-panel:not([hidden]){z-index:1}
+.qbs-panel[hidden]{display:none}
+#panel-kb>.app{height:100%}
+#tab-kb[hidden],#panel-kb>.app[hidden]{display:none}
+#btnKbBack{display:none}
+#panel-kb.kb-viewing #btnKbBack{display:inline-grid}
+/* With the kb module, the old drive is only the file previewer behind kb:open: no sidebar, no tab strip. */
+#panel-kb.kb-pending>.app{visibility:hidden}
+#panel-kb.kb-mode .side,#panel-kb.kb-mode .scrim,#panel-kb.kb-mode #tabs,#panel-kb.kb-mode #btnSide,
+#panel-kb.kb-mode #btnRefresh,#panel-kb.kb-mode #btnQsM,#panel-kb.kb-mode #btnNewTab{display:none!important}
+@media (min-width:600px){#panel-kb.kb-mode .tabbar{display:none}}
+.qbs-nav{grid-area:nav;display:flex;background:var(--bg);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom);z-index:20;font-family:var(--font)}
+/* Soft keyboard: hide the tab bar so the composer can use the 56px (folded) / 72px (unfolded). */
+.qbs.is-kbd{grid-template-rows:minmax(0,1fr);grid-template-columns:minmax(0,1fr);grid-template-areas:"main"}
+.qbs.is-kbd .qbs-nav{display:none}
+.qbs-brand{display:none}
+.qbs-item{flex:1;position:relative;height:56px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+  font-size:11px;line-height:16px;color:var(--text-3);-webkit-tap-highlight-color:transparent}
+.qbs-item:active{background:var(--fill)}
+@media (hover:hover){.qbs-item:hover{background:var(--fill-hover);color:var(--text-1)}}
+.qbs-item svg{width:24px;height:24px}
+.qbs-item>span{white-space:nowrap;overflow:hidden;text-overflow:clip;max-width:100%;line-height:16px}
+.qbs-item>*{flex:none}
+.qbs-item[aria-current="page"]{color:var(--text-1);font-weight:700}
+.qbs-item .dot{position:absolute;top:8px;left:calc(50% + 8px);width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 2px var(--bg)}
+.qbs-item .dot[hidden]{display:none}
+.qbs-item:focus-visible{outline:none;box-shadow:inset 0 0 0 2px var(--accent-soft)}
+#tab-feed,#tab-kb{height:100%;min-height:0;overflow:hidden;background:var(--surface);color:var(--text-1);font-family:var(--font)}
+#panel-feed,#panel-kb,#panel-chat,#chat-root{height:100%;min-height:0}
+.qbs-empty{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:24px;text-align:center}
+.qbs-empty svg{width:48px;height:48px;opacity:.35;margin-bottom:8px}
+.qbs-empty b{font-size:17px;line-height:24px}
+.qbs-empty span{font-size:14px;line-height:22px;color:var(--text-3);max-width:280px}
+@media (min-width:600px){
+  .qbs{grid-template-rows:none;grid-template-columns:72px minmax(0,1fr);grid-template-areas:"nav main"}
+  .qbs-nav{flex-direction:column;align-items:center;gap:4px;border-top:0;border-right:1px solid var(--line);
+    padding:calc(12px + env(safe-area-inset-top)) 0 calc(12px + env(safe-area-inset-bottom));overflow:hidden}
+  .qbs-brand{display:grid;place-items:center;width:44px;height:44px;margin-bottom:12px}
+  .qbs-brand svg{width:30px;height:30px}
+  .qbs-item{flex:none;width:60px;height:60px;border-radius:14px;font-size:11px}
+  .qbs-item[aria-current="page"]{background:var(--fill)}
+  .qbs-item .dot{top:8px;left:auto;right:12px}
+}
+.qbs-appearance{flex:1;position:relative;height:56px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:11px;line-height:16px;color:var(--text-3);-webkit-tap-highlight-color:transparent}
+.qbs-appearance svg{width:24px;height:24px}
+.qbs-appearance>span{white-space:nowrap}
+.qbs-appearance:active{background:var(--fill)}
+.qbs-appearance-pop{position:fixed;z-index:45;left:12px;right:12px;bottom:calc(64px + env(safe-area-inset-bottom));background:var(--surface-raised);color:var(--text-1);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow-3);padding:8px 8px 10px}
+.qbs-appearance-pop[hidden]{display:none!important}
+.qbs-appearance-title{font-size:13px;font-weight:700;color:var(--text-3);padding:6px 10px 4px}
+.qbs-appearance-pop button{display:flex;align-items:center;width:100%;min-height:44px;padding:0 12px;border-radius:10px;font-size:16px;text-align:left}
+.qbs-appearance-pop button[aria-checked="true"]{background:var(--fill);font-weight:700}
+@media (min-width:600px){.qbs-appearance{margin-top:auto;flex:none;width:60px;height:60px;border-radius:14px}}
+@media (min-width:600px){.qbs-appearance-pop{left:80px;right:auto;bottom:12px;width:220px}}
+/* drive inside the shell, folded: one merged 52px top bar, 44px targets, toast above the tab bar */
+@media (max-width:599px){
+  .toast{bottom:calc(28px + 56px + env(safe-area-inset-bottom))}
+  .main{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;grid-template-rows:52px minmax(0,1fr);align-items:center;
+    padding-top:env(safe-area-inset-top);border-bottom:0}
+  .main>.tabbar,.main>.viewhead{display:contents}
+  #tabs,#btnRefresh,#btnNewTab,#btnCopy{display:none!important}
+  .main .tabbar .ib{margin:0}
+  #btnKbBack{grid-column:1;grid-row:1;margin-left:4px}
+  #btnSide{grid-column:1;grid-row:1;margin-left:4px!important}
+  #panel-kb.kb-viewing #btnSide{display:none}
+  .main .crumbs{grid-column:2;grid-row:1;padding:0 4px;font-size:17px}
+  .main .crumbs .cur{font-weight:700;color:var(--text)}
+  #btnQsM{grid-column:3;grid-row:1}
+  #btnInfo{grid-column:4;grid-row:1;margin-right:4px}
+  .main>.body{grid-column:1/-1;grid-row:2;min-height:0;height:100%;border-top:1px solid var(--d-line)}
+  .ib{width:44px;height:44px;border-radius:10px}
+  .ti{height:44px}
+  .side-search{height:44px}
+}
+/* Article / video overlay. Folded (390): full bleed over the tab bar.
+   Unfolded (840, min-width 600px): leave the 72px rail. Header is --touch (44px). */
+.qbs-overlay{position:absolute;inset:0;z-index:40;display:flex;flex-direction:column;background:var(--bg);color:var(--text-1);font-family:var(--font)}
+.qbs-overlay[hidden]{display:none!important}
+.qbs-ov-bar{flex:none;height:var(--touch);display:flex;align-items:center;gap:4px;padding:0 8px;border-bottom:1px solid var(--line);background:var(--bg)}
+.qbs-ov-bar button{min-width:var(--touch);min-height:var(--touch);padding:0 10px;border-radius:10px;font-weight:700}
+.qbs-ov-title{flex:1;min-width:0;font-weight:700;font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.qbs-ov-body{flex:1;min-height:0;position:relative;display:flex;align-items:center;justify-content:center;background:#000}
+.qbs-ov-frame{position:absolute;inset:0;width:100%;height:100%;border:0;background:var(--surface)}
+.qbs-ov-video{max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;background:#000}
+.qbs-ov-fail{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:24px;text-align:center;background:var(--surface);color:var(--text-1)}
+.qbs-ov-fail-title{margin:0;font-size:17px;font-weight:700}
+.qbs-ov-fail-msg{margin:0;max-width:360px;font-size:14px;line-height:22px;color:var(--text-2)}
+.qbs-ov-fail button{min-height:var(--touch);padding:0 16px;border-radius:10px;background:var(--btn-primary-bg);color:var(--btn-primary-fg);font-weight:700}
+.qbs-ov-frame[hidden],.qbs-ov-video[hidden],.qbs-ov-fail[hidden],.qbs-ov-note[hidden],.qbs-ov-bar button[hidden]{display:none!important}
+.qbs-ov-note{flex:none;margin:0;padding:8px 12px;font-size:12px;line-height:16px;color:var(--text-2);background:var(--bg)}
+@media (min-width:600px){
+  .qbs-overlay{left:72px}
+}
 </style>
+<link rel="stylesheet" href="chat/chat.css?v=__VERSION__">
 </head>
 <body>
+<div class="qbs" id="qbs">
+<nav class="qbs-nav" id="qbsNav" aria-label="主导航">
+  <span class="qbs-brand" aria-hidden="true"><svg viewBox="0 0 32 32"><rect x="4" y="6.5" width="17" height="19" rx="6.5" fill="var(--text-1)"/><circle cx="25.5" cy="21.5" r="3.2" fill="var(--accent)"/></svg></span>
+  <button class="qbs-item" data-qbs-tab="chat" aria-current="page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M5 5.5h14a1.5 1.5 0 0 1 1.5 1.5v9a1.5 1.5 0 0 1-1.5 1.5H10l-4.5 3.5v-3.5H5A1.5 1.5 0 0 1 3.5 16V7A1.5 1.5 0 0 1 5 5.5z"/></svg><span>对话</span></button>
+  <button class="qbs-item" data-qbs-tab="feed"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5l1.9 4.6 4.6 1.9-4.6 1.9L12 16.5l-1.9-4.6L5.5 10l4.6-1.9z"/><path d="M18.5 15.5l.8 1.9 1.9.8-1.9.8-.8 1.9-.8-1.9-1.9-.8 1.9-.8z"/></svg><span>主动服务</span><i class="dot" id="qbsFeedDot" hidden></i></button>
+  <button class="qbs-item" data-qbs-tab="kb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 5.5A1.5 1.5 0 0 1 6 4h4.5L12 6h6a1.5 1.5 0 0 1 1.5 1.5v11A1.5 1.5 0 0 1 18 20H6a1.5 1.5 0 0 1-1.5-1.5z"/><path d="M8.5 11.5h7M8.5 15h4.5"/></svg><span>知识库</span></button>
+  <button class="qbs-appearance" id="qbsAppearanceBtn" type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="qbsAppearance" aria-label="外观"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.75"/><path d="M12 4a8 8 0 0 0 0 16z" fill="currentColor"/></svg><span>外观</span></button>
+</nav>
+<div id="qbsAppearance" class="qbs-appearance-pop" hidden role="dialog" aria-label="外观"><div class="qbs-appearance-title">外观</div><div role="radiogroup" aria-label="外观"><button type="button" role="radio" data-mode="light">浅色</button><button type="button" role="radio" data-mode="dark">深色</button><button type="button" role="radio" data-mode="auto">跟随系统</button></div></div>
+<section class="qbs-panel" id="panel-chat"><div id="chat-root"></div></section>
+<section class="qbs-panel" id="panel-feed" hidden><div id="tab-feed"><div class="qbs-empty"><svg viewBox="0 0 32 32" aria-hidden="true"><rect x="4" y="6.5" width="17" height="19" rx="6.5" fill="var(--text-1)"/><circle cx="25.5" cy="21.5" r="3.2" fill="var(--accent)"/></svg><b>主动服务即将上线</b><span>QBot 会在这里主动推送：AI 日报、每日英语、学习进度。</span></div></div></section>
+<script>
+/* Pick the starting tab before the drive script renders, so the drive never lays out hidden. */
+(function(){var t=null;try{t=sessionStorage.getItem("qbs_tab")}catch(e){}
+  if(t!=="chat"&&t!=="feed"&&t!=="kb")t=(window.__qbHash||"").indexOf("#/")===0?"kb":"chat";
+  window.__qbTab=t;
+  ["chat","feed"].forEach(function(n){
+    var p=document.getElementById("panel-"+n);p.hidden=n!==t;
+    if(n!==t)p.setAttribute("inert","");else p.removeAttribute("inert");
+  });
+  document.querySelectorAll(".qbs-item").forEach(function(b){if(b.dataset.qbsTab===t)b.setAttribute("aria-current","page");else b.removeAttribute("aria-current")});
+})();
+</script>
+<section class="qbs-panel kb-pending" id="panel-kb">
+<div id="tab-kb" hidden></div>
 <div class="app" id="app">
   <aside class="side" id="side">
     <div class="side-head">
-      <div class="brand"><div class="logo"><svg width="15" height="15" viewBox="0 0 24 24"><path d="M3 7.5A2.5 2.5 0 0 1 5.5 5H10l2 2.2h6.5A2.5 2.5 0 0 1 21 9.7v7.8a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 17.5z" fill="#fff"/></svg></div><span>Qian's Drive</span></div>
+      <div class="brand"><div class="logo"><svg width="26" height="26" viewBox="0 0 32 32" aria-hidden="true"><rect x="4" y="6.5" width="17" height="19" rx="6.5" fill="var(--text)"/><circle cx="25.5" cy="21.5" r="3.2" fill="#D9774B"/></svg></div><span>知识库</span></div>
       <button class="ib" id="btnCollapseAll" title="全部折叠"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m7 20 5-5 5 5M7 4l5 5 5-5"/></svg></button>
-      <button class="ib" id="btnTheme" title="切换深色/浅色"></button>
+      <button class="ib" id="btnTheme" title="外观" aria-label="外观"></button>
       <button class="ib only-m" id="btnCloseDrawer" title="关闭"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
     </div>
     <div class="side-search" id="openQs"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>快速打开文件<kbd class="hide-m" id="kbdHint">Ctrl K</kbd></div>
@@ -217,6 +348,7 @@ pre.code .hljs{background:none;padding:0}
   <div class="scrim" id="scrim"></div>
   <main class="main">
     <div class="tabbar">
+      <button class="ib" id="btnKbBack" title="返回知识库" aria-label="返回知识库"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></button>
       <button class="ib" id="btnSide" title="文件列表"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/></svg></button>
       <div class="tabs" id="tabs"></div>
       <button class="ib" id="btnRefresh" title="刷新页面"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-2.6-6.3"/><path d="M21 4v6h-6"/></svg></button>
@@ -233,6 +365,8 @@ pre.code .hljs{background:none;padding:0}
       <aside class="info" id="info"></aside>
     </div>
   </main>
+</div>
+</section>
 </div>
 <div class="qs-ov" id="qsOv"><div class="qs"><input id="qsIn" placeholder="输入文件名或路径…" autocomplete="off" enterkeyhint="go"><div class="qs-list" id="qsList"></div><div class="qs-foot"><span>↑↓ 选择</span><span>↵ 打开</span><span>Esc 关闭</span></div></div></div>
 <div class="toast" id="toast"></div>
@@ -278,7 +412,7 @@ var KIND={image:"jpg jpeg png gif webp bmp svg avif",video:"mp4 mov webm m4v",au
 function kind(f){var e=ext(f.name);for(var k in KIND)if((" "+KIND[k]+" ").indexOf(" "+e+" ")>=0)return k;var ct=f.type||"";if(/^image\//.test(ct))return"image";if(/^video\//.test(ct))return"video";if(/^audio\//.test(ct))return"audio";if(ct==="application/pdf")return"pdf";if(/^text\//.test(ct))return"code";return"file"}
 var KL={image:"图片",video:"视频",audio:"音频",pdf:"PDF 文档",md:"Markdown",code:"文本",file:"文件",folder:"文件夹"};
 var KC={image:"#22a06b",video:"#e5484d",audio:"#f08c00",pdf:"#e03131",md:"#5b6bd6",code:"#64748b",file:"#8a8f98"};
-var ALIAS={xhs:"小红书",videos:"视频",feishu:"飞书",export:"导出文档",docs:"文档",reports:"报告",intake:"资料整理",bilibili:"B 站",xiaoyuzhou:"小宇宙"};
+var ALIAS={xhs:"小红书",videos:"视频",export:"导出文档",docs:"文档",reports:"报告",bilibili:"B 站",xiaoyuzhou:"小宇宙"};
 function fic(k,open){
   if(k==="folder")return open?'<svg class="fic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 8a2 2 0 0 1 2-2h4l2 2h7a2 2 0 0 1 2 2v1H7.5a2 2 0 0 0-1.9 1.4L3.5 19"/><path d="M5.6 12.4A2 2 0 0 1 7.5 11H21l-2.4 7.2a2 2 0 0 1-1.9 1.3H5a1.5 1.5 0 0 1-1.5-1.5"/></svg>':'<svg class="fic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 7.5A2 2 0 0 1 5 5.5h4l2 2h8a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>';
   var c=KC[k]||KC.file,g="";
@@ -311,14 +445,20 @@ $("footTxt").textContent=files.length+" 个文件 · "+human(root.size)+" · 只
 var S={tabs:LS.get("tabs",[]).filter(function(t){return t==="~home"||t.indexOf("dir:")===0||byKey[t]}),active:LS.get("active",null),open:LS.get("open",{}),info:LS.get("info",false),theme:LS.get("theme","auto")};
 function save(){LS.set("tabs",S.tabs);LS.set("active",S.active);LS.set("open",S.open);LS.set("info",S.info)}
 
-/* ---------- theme ---------- */
-var mq=matchMedia("(prefers-color-scheme: dark)");
-function applyTheme(){var dark=S.theme==="dark"||(S.theme==="auto"&&mq.matches);document.documentElement.setAttribute("data-theme",dark?"dark":"light");
-  $("btnTheme").innerHTML=dark?IC.sun:IC.moon;$("btnTheme").title=dark?"切换到浅色":"切换到深色";
-  var hl=$("hlcss");hl.href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/"+(dark?"github-dark":"github")+".min.css"}
-mq.addEventListener&&mq.addEventListener("change",applyTheme);
-$("btnTheme").onclick=function(){var dark=document.documentElement.getAttribute("data-theme")==="dark";S.theme=dark?"light":"dark";LS.set("theme",S.theme);applyTheme()};
-applyTheme();
+/* ---------- theme ----------
+ * Choice lives in qd2_theme via QbotShellTheme (head). This button used to
+ * sit in .side, which kb-mode hides, and its click wrote only light/dark.
+ * It now opens the same 外观 menu. It does not write storage itself. */
+function paintThemeChrome(){
+  var dark=document.documentElement.getAttribute("data-theme")==="dark";
+  var b=$("btnTheme");
+  if(b){b.innerHTML=dark?IC.sun:IC.moon;b.title="外观";}
+  var hl=$("hlcss");
+  if(hl)hl.href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/"+(dark?"github-dark":"github")+".min.css";
+}
+window.addEventListener("qbot:theme",paintThemeChrome);
+$("btnTheme").onclick=function(){window.dispatchEvent(new CustomEvent("qbot:appearance"))};
+paintThemeChrome();
 
 /* ---------- tree ---------- */
 function sortedDirs(n){return Object.keys(n.dirs).sort(function(a,b){return a.localeCompare(b,"zh")}).map(function(k){return n.dirs[k]})}
@@ -404,7 +544,7 @@ function renderCrumbs(){var id=S.active||"~home",h="";
   $("btnInfo").classList.toggle("on",S.info);
 }
 function renderInfo(){var f=curFile(),el=$("info");
-  if(f){el.innerHTML='<h4>文件信息</h4><div class="big">'+fic(f.kind)+'</div><div class="fname">'+esc(f.name)+'</div><dl class="kv"><dt>类型</dt><dd>'+KL[f.kind]+' <span style="color:var(--muted)">'+esc(f.type||"")+'</span></dd><dt>大小</dt><dd>'+human(f.size)+'</dd><dt>修改时间</dt><dd>'+fmt(f.mtime)+'</dd><dt>位置</dt><dd><a data-crumb="'+esc(f.dir)+'" style="color:var(--accent);cursor:pointer">'+esc(f.dir||"根目录")+'</a></dd></dl><a class="btn primary" href="'+url(f)+'" download="'+esc(f.name)+'" target="_blank" rel="noopener">'+IC.dl+'下载</a><button class="btn" data-copylink="1">复制直链</button><button class="btn" data-copypage="1">复制本页链接</button>'}
+  if(f){el.innerHTML='<h4>文件信息</h4><div class="big">'+fic(f.kind)+'</div><div class="fname">'+esc(f.name)+'</div><dl class="kv"><dt>类型</dt><dd>'+KL[f.kind]+' <span style="color:var(--muted)">'+esc(f.type||"")+'</span></dd><dt>大小</dt><dd>'+human(f.size)+'</dd><dt>修改时间</dt><dd>'+fmt(f.mtime)+'</dd><dt>位置</dt><dd><a data-crumb="'+esc(f.dir)+'" style="color:var(--d-accent);cursor:pointer">'+esc(f.dir||"根目录")+'</a></dd></dl><a class="btn primary" href="'+url(f)+'" download="'+esc(f.name)+'" target="_blank" rel="noopener">'+IC.dl+'下载</a><button class="btn" data-copylink="1">复制直链</button><button class="btn" data-copypage="1">复制本页链接</button>'}
   else{var n=S.active&&S.active.indexOf("dir:")===0?nodeAt(S.active.slice(4)):root;n=n||root;el.innerHTML='<h4>'+(n===root?"空间概览":"文件夹信息")+'</h4><div class="big">'+fic("folder")+'</div><div class="fname">'+esc(n===root?"全部文件":dname(n.name))+'</div><dl class="kv"><dt>文件数</dt><dd>'+n.count+'</dd><dt>总大小</dt><dd>'+human(n.size)+'</dd><dt>最近更新</dt><dd>'+fmt(n.mtime)+'</dd><dt>更新清单</dt><dd>'+fmt(M.generated)+'</dd></dl>'}
 }
 function renderView(){
@@ -413,28 +553,28 @@ function renderView(){
   var id=S.active||"~home",pane=$("pane");pane.innerHTML="";
   if(id==="~home")return viewHome(pane);
   if(id.indexOf("dir:")===0)return viewFolder(pane,nodeAt(id.slice(4))||root);
-  var f=byKey[id];document.title=f.name+" · Qian's Drive";
+  var f=byKey[id];document.title=f.name+" · 知识库";
   ({pdf:viewPdf,image:viewImage,video:viewVideo,audio:viewAudio,md:viewText,code:viewText}[f.kind]||viewOther)(pane,f);
 }
 function card(f){return '<div class="card" data-open="'+esc(f.key)+'">'+fic(f.kind)+'<div class="t"><div class="n" title="'+esc(f.name)+'">'+esc(f.name)+'</div><div class="m">'+human(f.size)+' · '+fmt(f.mtime).slice(0,10)+'</div></div></div>'}
-function dcard(n){return '<div class="card" data-opendir="'+esc(n.path)+'"><span style="color:var(--accent)">'+fic("folder")+'</span><div class="t"><div class="n">'+esc(dname(n.name))+'</div><div class="m">'+n.count+' 个文件 · '+human(n.size)+'</div></div></div>'}
-function viewHome(p){document.title="Qian's Drive";
+function dcard(n){return '<div class="card" data-opendir="'+esc(n.path)+'"><span style="color:var(--d-accent)">'+fic("folder")+'</span><div class="t"><div class="n">'+esc(dname(n.name))+'</div><div class="m">'+n.count+' 个文件 · '+human(n.size)+'</div></div></div>'}
+function viewHome(p){document.title="知识库";
   if(isMobile()){
     var r=recentFiles();
     var body=r.files.length?r.files.map(card).join(""):'<div class="sub">还没有打开过文件</div>';
-    p.innerHTML='<div class="scroller"><div class="home home-narrow"><h1>Qian\'s Drive</h1><div class="sub">'+files.length+' 个文件 · '+human(root.size)+'</div><h3>'+r.title+'</h3><div class="cards">'+body+'</div></div></div>';
+    p.innerHTML='<div class="scroller"><div class="home home-narrow"><h1>知识库</h1><div class="sub">'+files.length+' 个文件 · '+human(root.size)+'</div><h3>'+r.title+'</h3><div class="cards">'+body+'</div></div></div>';
     return;
   }
   var recent=files.slice().sort(function(a,b){return b.mtime-a.mtime}).slice(0,8);
-  p.innerHTML='<div class="scroller"><div class="home"><h1>Qian\'s Drive</h1><div class="sub">'+files.length+' 个文件 · '+human(root.size)+' · 清单更新于 '+fmt(M.generated)+'</div><h3>最近更新</h3><div class="cards">'+recent.map(card).join("")+'</div><h3>文件夹</h3><div class="cards">'+sortedDirs(root).map(dcard).join("")+'</div></div></div>'}
-function viewFolder(p,n){document.title=(n.name||"全部文件")+" · Qian's Drive";
-  var rows=sortedDirs(n).map(function(c){return '<div class="row" data-opendir="'+esc(c.path)+'"><span style="color:var(--accent)">'+fic("folder")+'</span><span class="n">'+esc(dname(c.name))+'</span><span class="m">'+c.count+' 项</span></div>'}).join("")+
+  p.innerHTML='<div class="scroller"><div class="home"><h1>知识库</h1><div class="sub">'+files.length+' 个文件 · '+human(root.size)+' · 清单更新于 '+fmt(M.generated)+'</div><h3>最近更新</h3><div class="cards">'+recent.map(card).join("")+'</div><h3>文件夹</h3><div class="cards">'+sortedDirs(root).map(dcard).join("")+'</div></div></div>'}
+function viewFolder(p,n){document.title=(n.name||"全部文件")+" · 知识库";
+  var rows=sortedDirs(n).map(function(c){return '<div class="row" data-opendir="'+esc(c.path)+'"><span style="color:var(--d-accent)">'+fic("folder")+'</span><span class="n">'+esc(dname(c.name))+'</span><span class="m">'+c.count+' 项</span></div>'}).join("")+
     sortedFiles(n).map(function(f){return '<div class="row" data-open="'+esc(f.key)+'">'+fic(f.kind)+'<span class="n">'+esc(f.name)+'</span><span class="m hide-m">'+fmt(f.mtime)+'</span><span class="m">'+human(f.size)+'</span></div>'}).join("");
   p.innerHTML='<div class="scroller"><div class="home"><h1>'+esc(n.path?dname(n.name):"全部文件")+'</h1><div class="sub">'+n.count+' 个文件 · '+human(n.size)+'</div><div class="rows">'+rows+'</div></div></div>'}
 function viewImage(p,f){p.innerHTML='<div class="center"><img src="'+url(f)+'" alt="'+esc(f.name)+'"></div>'}
 function viewVideo(p,f){p.innerHTML='<div class="center"><video src="'+url(f)+'" controls playsinline preload="metadata"></video></div>';cleanup=function(){var v=p.querySelector("video");if(v){v.pause();v.removeAttribute("src");v.load()}}}
-function viewAudio(p,f){p.innerHTML='<div class="center"><div class="audio-card">'+fic("audio")+'<div style="font-weight:600;word-break:break-all;line-height:1.5">'+esc(f.name)+'</div><div style="color:var(--muted);font-size:12px;margin-top:4px">'+human(f.size)+'</div><audio src="'+url(f)+'" controls preload="metadata"></audio></div></div>';cleanup=function(){var a=p.querySelector("audio");if(a){a.pause();a.removeAttribute("src");a.load()}}}
-function viewOther(p,f){p.innerHTML='<div class="center"><div class="audio-card">'+fic(f.kind)+'<div style="font-weight:600;word-break:break-all">'+esc(f.name)+'</div><div style="color:var(--muted);font-size:13px;margin:8px 0 18px">这种格式无法在页面里预览</div><a class="btn primary" href="'+url(f)+'" target="_blank" rel="noopener">'+IC.dl+'下载</a></div></div>'}
+function viewAudio(p,f){p.innerHTML='<div class="center"><div class="audio-card">'+fic("audio")+'<div style="font-weight:700;word-break:break-all;line-height:1.5">'+esc(f.name)+'</div><div style="color:var(--muted);font-size:12px;margin-top:4px">'+human(f.size)+'</div><audio src="'+url(f)+'" controls preload="metadata"></audio></div></div>';cleanup=function(){var a=p.querySelector("audio");if(a){a.pause();a.removeAttribute("src");a.load()}}}
+function viewOther(p,f){p.innerHTML='<div class="center"><div class="audio-card">'+fic(f.kind)+'<div style="font-weight:700;word-break:break-all">'+esc(f.name)+'</div><div style="color:var(--muted);font-size:13px;margin:8px 0 18px">这种格式无法在页面里预览</div><a class="btn primary" href="'+url(f)+'" target="_blank" rel="noopener">'+IC.dl+'下载</a></div></div>'}
 function loading(p,t){p.innerHTML='<div class="loading"><div class="spin"></div>'+(t||"加载中…")+'</div>'}
 
 /* ---------- lazy libs ---------- */
@@ -578,10 +718,22 @@ function qbotBack(opts){
   return false;
 }
 window.qbotBack=qbotBack;
+window.qbotDriveOpen=function(key){if(byKey[key])openItem(key)};
 window.addEventListener("hashchange",function(){var id=fromHash();if(id&&id!==S.active)openItem(id,{noHash:true})});
 window.addEventListener("popstate",function(){
   if(ignorePop){ignorePop--;return}
-  qbotBack({fromPop:true});
+  if(window.__qbotIgnorePop){
+    window.__qbotIgnorePop--;
+    if(window.__qbotHistSync){
+      var sync=window.__qbotHistSync;
+      window.__qbotHistSync="";
+      try{history.replaceState({qbot:"tab",tab:sync},"",location.pathname+location.search+location.hash)}catch(e){}
+    }
+    return;
+  }
+  /* Call the shell wrapper installed later, not this drive-only function. */
+  var fn=window.qbotBack||qbotBack;
+  fn({fromPop:true});
 });
 function toast(t){var e=$("toast");e.textContent=t;e.classList.add("show");clearTimeout(toast.t);toast.t=setTimeout(function(){e.classList.remove("show")},1600)}
 function copy(t,msg){(navigator.clipboard&&window.isSecureContext?navigator.clipboard.writeText(t):Promise.reject()).then(function(){toast(msg||"已复制")}).catch(function(){var a=document.createElement("textarea");a.value=t;a.style.position="fixed";a.style.opacity="0";document.body.appendChild(a);a.select();try{document.execCommand("copy");toast(msg||"已复制")}catch(e){prompt("复制链接",t)}a.remove()})}
@@ -608,5 +760,230 @@ else openItem("~home");
 armAway();
 })();
 </script>
+<script src="shell-media.js?v=__VERSION__"></script>
+<script>
+/* QBot shell: tab switching, optional modules, and the Android back order (BRAND §8.1):
+ * close overlays/drawer → current tab's home → 对话 tab → false (native shows the exit hint). */
+(function(){
+  var TABS=["chat","feed","kb"],cur=window.__qbTab||"chat",V="__VERSION__";
+  var kbPanel=document.getElementById("panel-kb"),kbEl=document.getElementById("tab-kb"),app=document.getElementById("app");
+  kbPanel.hidden=cur!=="kb";
+  if(cur!=="kb")kbPanel.setAttribute("inert","");
+  /* Keep the shell inside the visual viewport so the composer stays visible above the soft keyboard. */
+  function fitViewport(){
+    var el=document.getElementById("qbs"),vv=window.visualViewport;
+    if(!el)return;
+    if(!vv){el.style.top=el.style.left=el.style.width=el.style.height="";el.classList.remove("is-kbd");return}
+    el.style.top=vv.offsetTop+"px";
+    el.style.left=vv.offsetLeft+"px";
+    el.style.width=vv.width+"px";
+    el.style.height=vv.height+"px";
+    el.style.right="auto";
+    el.style.bottom="auto";
+    /* Hide the bottom tab bar (and the unfolded rail) when the soft keyboard is open. */
+    if(vv.height<window.innerHeight*0.75)el.classList.add("is-kbd");
+    else el.classList.remove("is-kbd");
+  }
+  if(window.visualViewport){
+    visualViewport.addEventListener("resize",fitViewport);
+    visualViewport.addEventListener("scroll",fitViewport);
+  }
+  fitViewport();
+  var driveBack=window.qbotBack,kbMode=false;
+  function syncPanel(n,on){
+    var p=document.getElementById("panel-"+n);
+    p.hidden=!on;
+    if(on)p.removeAttribute("inert");else p.setAttribute("inert","");
+  }
+  var skipFeedHome=false;
+  /* While the feed panel is visibility:hidden it stays laid out, and the browser
+     moves its mandatory snap scroller by one card (856 -> 1712 at 840). That
+     scroll is not Feed's scrollTo. Park the offset before the hide and put it
+     back, including on the scroll event, so Feed's listener never adopts the
+     wrong card. */
+  var feedPark=null,feedParkUntil=0,feedPinning=false;
+  function feedScroller(){return document.querySelector("#panel-feed .q-feed")}
+  function noteFeedPark(){
+    var t=feedScroller();
+    if(!t)return;
+    feedPark=t.scrollTop;
+    feedParkUntil=Date.now()+900;
+  }
+  function restoreFeedPark(){
+    var t=feedScroller();
+    if(!t||feedPark==null||feedPinning||Date.now()>feedParkUntil)return;
+    if(Math.abs(t.scrollTop-feedPark)<=1)return;
+    feedPinning=true;
+    t.scrollTop=feedPark;
+    feedPinning=false;
+  }
+  document.addEventListener("scroll",function(e){
+    var t=e.target;
+    if(!t||!t.classList||!t.classList.contains("q-feed")||!t.closest||!t.closest("#panel-feed"))return;
+    restoreFeedPark();
+  },true);
+  function histUrl(){return location.pathname+location.search+location.hash}
+  function pushHist(state){try{history.pushState(state,"",histUrl())}catch(e){}}
+  function setTab(t,opts){
+    opts=opts||{};
+    if(TABS.indexOf(t)<0||t===cur)return;
+    if(!opts.fromHistory&&window.qbotShell&&qbotShell.isOpen&&qbotShell.isOpen()){
+      closeShellOverlay();
+      skipFeedHome=false;
+      if(history.state&&history.state.qbot==="overlay"){
+        try{history.replaceState({qbot:"tab",tab:t},"",histUrl())}catch(e){}
+      }
+    }
+    var leavingFeed=cur==="feed"&&t!=="feed";
+    if(leavingFeed)noteFeedPark();
+    cur=t;
+    TABS.forEach(function(n){syncPanel(n,n===t)});
+    document.querySelectorAll(".qbs-item").forEach(function(b){if(b.dataset.qbsTab===t)b.setAttribute("aria-current","page");else b.removeAttribute("aria-current")});
+    try{sessionStorage.setItem("qbs_tab",t)}catch(e){}
+    if(!opts.fromHistory){
+      var st=history.state;
+      if(t==="chat"&&st&&st.qbot==="tab"&&st.tab&&st.tab!=="chat"){
+        try{history.replaceState({qbot:"tab",tab:"chat"},"",histUrl())}catch(e){}
+      }else if(t!=="chat"&&(!st||st.qbot!=="tab"||st.tab!==t)){
+        pushHist({qbot:"tab",tab:t});
+      }
+    }
+    /* Every tab: feed (and kb) mount while hidden, so they need a resize once the panel has a definite height. */
+    window.dispatchEvent(new Event("resize"));
+    window.dispatchEvent(new CustomEvent("qbot:tab",{detail:{tab:t}}));
+    if(leavingFeed||(t==="feed"&&feedPark!=null)){
+      if(t==="feed")feedParkUntil=Date.now()+900;
+      restoreFeedPark();
+      if(t==="feed"){
+        requestAnimationFrame(function(){
+          restoreFeedPark();
+          requestAnimationFrame(restoreFeedPark);
+        });
+      }
+    }
+  }
+  /* 知识库: kb.js (knowledge-base engineer) shows the list; files open in the existing drive viewer. */
+  function showViewer(on){
+    kbPanel.classList.toggle("kb-viewing",on);
+    kbEl.hidden=on;app.hidden=!on;
+    if(on)window.dispatchEvent(new Event("resize"));
+  }
+  kbEl.addEventListener("kb:open",function(e){
+    var f=e.detail||{},key=f.key||f.path;
+    if(!key||!window.qbotDriveOpen)return;
+    showViewer(true);window.qbotDriveOpen(key);
+  });
+  document.getElementById("btnKbBack").addEventListener("click",function(){showViewer(false)});
+  document.getElementById("qbsNav").addEventListener("click",function(e){var b=e.target.closest(".qbs-item");if(!b)return;if(b.dataset.qbsTab===cur&&cur==="kb"&&kbMode)showViewer(false);setTab(b.dataset.qbsTab)});
+  window.qbotTab=setTab;
+  window.qbotCurrentTab=function(){return cur};
+  window.qbotSetFeedUnread=function(on){document.getElementById("qbsFeedDot").hidden=!on};
+  /* Old Android shells only inspect .scroller for pull-to-refresh; mark tab scrollers so down-swipes are not stolen. */
+  function markScrollers(){
+    document.querySelectorAll(".q-feed,.qc-viewport,#kb-main-scroll").forEach(function(el){el.classList.add("scroller")});
+  }
+  window.addEventListener("qbot:tab",markScrollers);
+  var qbsHost=document.getElementById("qbs");
+  if(qbsHost&&window.MutationObserver)new MutationObserver(markScrollers).observe(qbsHost,{childList:true,subtree:true});
+  markScrollers();
+  function restoreShellHistory(){
+    try{history.pushState({qbot:"tab",tab:cur},"",histUrl())}catch(e){}
+  }
+  /* Close the article overlay without using qbotFeed.back(). That method also
+     scrolls to the first card when no detail is open, so one back would both
+     close the overlay and change cards. closeDetail(), when Feed provides it,
+     clears only the open page and restores that card's index and scroll.
+     It must not call back into the shell. The next back returns to 对话. */
+  function closeShellOverlay(){
+    var feed=window.qbotFeed, shell=window.qbotShell;
+    if(feed&&typeof feed.closeDetail==="function"){
+      try{feed.closeDetail()}catch(e){}
+    }
+    if(shell&&typeof shell.isOpen==="function"&&shell.isOpen())shell.close();
+    skipFeedHome=true;
+    return true;
+  }
+  window.qbotBack=function(opts){
+    opts=opts||{};
+    if(window.QbotShellTheme&&QbotShellTheme.isOpen&&QbotShellTheme.isOpen()){
+      QbotShellTheme.close();
+      if(opts.fromPop)restoreShellHistory();
+      return true;
+    }
+    /* Article / video overlay sits above the feed. Closing it must not move the card.
+       A real history entry was pushed when it opened. Pop that entry instead of
+       pushing a replacement, or the browser back button and the shell disagree. */
+    if(window.qbotShell&&qbotShell.isOpen()){
+      if(!opts.fromPop&&history.state&&history.state.qbot==="overlay"){
+        try{history.back();return true}catch(e){}
+      }
+      closeShellOverlay();
+      return true;
+    }
+    var handled=false;
+    if(cur==="kb"){
+      if(kbMode&&!kbPanel.classList.contains("kb-viewing")){
+        if(window.qbotKb&&typeof window.qbotKb.back==="function"&&window.qbotKb.back())handled=true;
+      }else if(kbMode){
+        /* viewer opened from the kb list: close drive overlays first, then straight back to the list */
+        var ov=document.getElementById("qsOv").classList.contains("open")||app.classList.contains("info-open")||app.classList.contains("drawer");
+        if(ov&&driveBack&&driveBack(opts))handled=true;
+        else{showViewer(false);handled=true}
+      }else{
+        if(driveBack&&driveBack(opts))handled=true;
+        else if(opts&&opts.fromPop)handled=false;
+        else{setTab("chat");handled=true}
+      }
+      if(!handled){setTab("chat");handled=true}
+    }else if(cur==="chat"){
+      handled=!!(window.qbotChat&&window.qbotChat.back());
+    }else if(cur==="feed"){
+      var feedRoot=document.querySelector("#panel-feed .feed-root");
+      var layered=feedRoot&&(feedRoot.classList.contains("is-sheet")||feedRoot.classList.contains("is-menu")||feedRoot.classList.contains("is-detail"));
+      if(layered&&window.qbotFeed&&typeof window.qbotFeed.back==="function"&&window.qbotFeed.back())handled=true;
+      else if(skipFeedHome){
+        /* The article already consumed one back. This one returns to 对话.
+           Do not call qbotFeed.back(): that would spend the press on the first card. */
+        if(!opts.fromPop&&history.state&&history.state.qbot==="tab"&&history.state.tab===cur){
+          try{history.back();return true}catch(e){}
+        }
+        skipFeedHome=false;
+        setTab("chat",{fromHistory:true});
+        handled=true;
+      }else if(window.qbotFeed&&typeof window.qbotFeed.back==="function"&&window.qbotFeed.back())handled=true;
+      else{setTab("chat");handled=true}
+    }else{
+      setTab("chat");handled=true;
+    }
+    if(handled&&opts.fromPop)restoreShellHistory();
+    return handled;
+  };
+  if(window.QbotShellMedia&&QbotShellMedia.mount)QbotShellMedia.mount({host:document.getElementById("qbs")});
+  if(window.QbotShellTheme&&QbotShellTheme.mount)QbotShellTheme.mount({nav:document.getElementById("qbsNav")});
+  /* Optional standalone modules: load only if they were published next to index.html. */
+  function exists(u){return fetch(u,{method:"HEAD",cache:"no-store"}).then(function(r){return r.ok}).catch(function(){return false})}
+  function css(u){var l=document.createElement("link");l.rel="stylesheet";l.href=u+"?v="+V;document.head.appendChild(l)}
+  function js(u,cb){var s=document.createElement("script");s.src=u+"?v="+V;if(cb)s.onload=cb;document.body.appendChild(s)}
+  exists("feed.css").then(function(ok){if(ok)css("feed.css")});
+  /* 主动服务: feed.js exposes QbotFeed.mount(el,{feedUrl}); reads the site copy out/feed.json (feed.js only falls back from OSS on localhost); switch to OSS once feed/feed.json is uploaded. */
+  exists("feed.js").then(function(ok){if(ok)js("feed.js",function(){
+    if(window.QbotFeed&&QbotFeed.mount)QbotFeed.mount(document.getElementById("tab-feed"),{feedUrl:"out/feed.json"});
+    markScrollers();
+  })});
+  Promise.all([exists("kb.js"),exists("kb.css")]).then(function(r){
+    if(!r[0]){kbPanel.classList.remove("kb-pending");return}  /* fallback: the existing drive UI stays as the 知识库 tab */
+    if(r[1])css("kb.css");
+    js("kb.js",function(){
+      kbMode=true;
+      kbPanel.classList.add("kb-mode");kbPanel.classList.remove("kb-pending");
+      var vh=app.querySelector(".viewhead"),bb=document.getElementById("btnKbBack");vh.insertBefore(bb,vh.firstChild);
+      var h=window.__qbHash||"";
+      showViewer(h.indexOf("#/")===0&&h!=="#/"&&h.indexOf("#/~home")!==0);
+      markScrollers();
+    });
+  });
+})();
+</script>
+<script type="module" src="chat/chat.js?v=__VERSION__"></script>
 </body>
 </html>

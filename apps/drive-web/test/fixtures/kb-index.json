@@ -1,0 +1,90 @@
+{
+  "base": "https://files.example.test/pub",
+  "count": 7,
+  "files": [
+    {
+      "key": "docs/本周小结.md",
+      "name": "本周小结.md",
+      "kind": "file",
+      "doc_type": "文档",
+      "size": 2048,
+      "mtime": 1794816000,
+      "dir": "docs",
+      "summary": "示例周记，只有占位句子。",
+      "tags": ["示例"],
+      "private": false
+    },
+    {
+      "key": "docs/季度观察-示例.pdf",
+      "name": "季度观察-示例.pdf",
+      "kind": "pdf",
+      "doc_type": "PDF",
+      "size": 1048576,
+      "mtime": 1794470400,
+      "dir": "docs",
+      "summary": "公开示例报告，不含真实数据。",
+      "tags": ["示例"],
+      "private": false
+    },
+    {
+      "key": "docs/示 例/100%完成#稿?.txt",
+      "name": "100%完成#稿?.txt",
+      "kind": "file",
+      "doc_type": "文档",
+      "size": 128,
+      "mtime": 1793606400,
+      "dir": "docs/示 例",
+      "summary": "文件名含空格、中文、井号、问号和百分号的示例。",
+      "tags": ["示例"],
+      "private": false
+    },
+    {
+      "key": "videos/介绍-示例.mp4",
+      "name": "介绍-示例.mp4",
+      "kind": "video",
+      "doc_type": "视频",
+      "size": 4096,
+      "mtime": 1792483200,
+      "dir": "videos",
+      "summary": "示例短片。",
+      "tags": ["示例"],
+      "private": false
+    },
+    {
+      "key": "audio/示例-片段.wav",
+      "name": "示例-片段.wav",
+      "kind": "audio",
+      "doc_type": "音频",
+      "size": 16044,
+      "mtime": 1790841600,
+      "dir": "audio",
+      "summary": "示例音频。",
+      "tags": ["示例"],
+      "private": false
+    },
+    {
+      "key": "reports/周报-示例.md",
+      "name": "周报-示例.md",
+      "kind": "file",
+      "doc_type": "文档",
+      "size": 512,
+      "mtime": 1788249600,
+      "dir": "reports",
+      "summary": "示例周报。",
+      "tags": ["示例"],
+      "private": false
+    },
+    {
+      "key": "private/示例-私密.txt",
+      "name": "示例-私密.txt",
+      "kind": "file",
+      "doc_type": "文档",
+      "size": 64,
+      "mtime": 1788249600,
+      "dir": "private",
+      "summary": "不应出现在列表中。",
+      "tags": [],
+      "private": true
+    }
+  ]
+}

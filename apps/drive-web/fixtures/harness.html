@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>测试夹具 · 主动服务</title>
+<link rel="stylesheet" href="../tokens.css">
+<link rel="stylesheet" href="../layout.css">
+<link rel="stylesheet" href="../components.css">
+<link rel="stylesheet" href="../feed.css">
+<style>
+  html, body { height: 100%; margin: 0; }
+  /* Isolated fixture. Widths match the shell tokens: tab bar 56px, icon rail 72px.
+     This is not the installed 1.0.4 shell and it does not load shell-media.js. */
+  .fix-app {
+    height: 100%;
+    display: grid;
+    grid-template-columns: 1fr;
+    grid-template-rows: 1fr var(--tabbar-h);
+    background: var(--bg);
+    color: var(--text-1);
+  }
+  .fix-rail { display: none; }
+  .fix-main { min-width: 0; min-height: 0; display: flex; background: var(--surface); }
+  #tab-feed { flex: 1; min-height: 0; }
+  .fix-tabs {
+    display: flex;
+    align-items: stretch;
+    height: var(--tabbar-h);
+    border-top: 1px solid var(--line);
+    background: var(--bg);
+  }
+  .fix-tabs span {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    font-size: var(--fs-caption);
+    line-height: 16px;
+    color: var(--text-3);
+  }
+  .fix-tabs span[aria-current="page"] { color: var(--text-1); font-weight: var(--fw-bold); }
+  .fix-kicker { font-size: 10px; letter-spacing: .04em; color: var(--accent-ink); }
+  @media (min-width: 600px) {
+    .fix-app { grid-template-columns: var(--rail-w) 1fr; grid-template-rows: 1fr; }
+    .fix-rail {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      width: var(--rail-w);
+      padding-top: 12px;
+      border-right: 1px solid var(--line);
+      background: var(--bg);
+    }
+    .fix-rail b { font-size: 13px; }
+    .fix-rail i { font-style: normal; font-size: 12px; color: var(--text-1); font-weight: 700; }
+    .fix-tabs { display: none; }
+  }
+</style>
+</head>
+<body>
+<div class="fix-app" data-fixture="测试夹具，不是 1.0.4 安装包">
+  <nav class="fix-rail" aria-label="测试夹具">
+    <b class="fix-kicker">测试夹具</b>
+    <i aria-current="page">主动服务</i>
+  </nav>
+  <div class="fix-main"><div id="tab-feed"></div></div>
+  <nav class="fix-tabs" aria-label="测试夹具">
+    <span><b class="fix-kicker">测试夹具</b>对话</span>
+    <span aria-current="page">主动服务</span>
+    <span>知识库</span>
+  </nav>
+</div>
+<script src="../feed.js"></script>
+<script>
+  QbotFeed.mount(document.getElementById("tab-feed"), { feedUrl: "feed.json" });
+</script>
+</body>
+</html>

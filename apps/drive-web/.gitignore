@@ -7,3 +7,5 @@ assets/fonts/
 *.woff2
 *.ttc
 *.ttf
+# Feed data is generated daily and published to the site only.
+out/
