@@ -10,7 +10,7 @@ import hashlib, json, os, sys, urllib.request
 from urllib.parse import quote
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-DEFAULT_ORIGIN = "https://felixzhu.github.io/qian-drive/"
+DEFAULT_ORIGIN = "https://felixzhu.github.io/QBot/"
 
 
 def arg_value(flag):
@@ -183,7 +183,7 @@ def main():
         problems = accept_trees(built, expect)
     else:
         origin = arg_value("--origin") or DEFAULT_ORIGIN
-        pins = arg_value("--pins") or os.path.join(HERE, "pins", "live-20916f6.sha256")
+        pins = arg_value("--pins") or os.path.join(HERE, "pins", "live-qbot.sha256")
         import tempfile, shutil
         dest = tempfile.mkdtemp(prefix="qbot-expect-")
         try:
