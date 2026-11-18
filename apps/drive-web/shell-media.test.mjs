@@ -8,7 +8,7 @@ const api = require("./shell-media.js");
 const template = readFileSync(new URL("./template.html", import.meta.url), "utf8");
 const feedJs = readFileSync(new URL("./feed.js", import.meta.url), "utf8");
 const appJson = JSON.parse(readFileSync(new URL("../qbot-app/app.json", import.meta.url), "utf8"));
-const BASE = "https://felixzhu.github.io/qian-drive/";
+const BASE = "https://felixzhu.github.io/QBot/";
 
 test("390 and 840 overlay geometry, and back keeps the feed card", () => {
   for (const width of [390, 840]) {
@@ -54,10 +54,10 @@ test("template overlay matches the 390 / 840 shell widths", () => {
   assert.match(template, /\.qbs-overlay\{position:absolute;inset:0/);
   assert.match(template, /@media \(min-width:600px\)\{\s*\.qbs-overlay\{left:72px\}/);
   assert.match(template, /\.qbs-ov-bar\{[^}]*height:var\(--touch\)/);
-  assert.equal(appJson.expo.version, "1.0.4");
-  assert.equal(appJson.expo.android.versionCode, 6);
-  assert.equal(api.CAPABILITIES.requiresNewApk, false);
-  assert.equal(api.CAPABILITIES.apk.versionCode, 6);
+  assert.equal(appJson.expo.version, "1.0.5");
+  assert.equal(appJson.expo.android.versionCode, 7);
+  assert.equal(api.CAPABILITIES.requiresNewApk, true);
+  assert.equal(api.CAPABILITIES.apk.versionCode, 7);
 });
 
 test("integrated feed.js keeps the PR4 browser fallback and exports closeDetail", () => {
@@ -136,9 +136,10 @@ test("video URLs stay inline files; streams are not pretended to play", () => {
   assert.equal(api.classifyUrl("https://cdn.example.com/live.m3u8", BASE).kind, "unsupported-media");
   assert.equal(api.classifyUrl("https://cdn.example.com/live.mpd", BASE).kind, "unsupported-media");
   assert.equal(api.classifyUrl("https://cdn.example.com/clip.mkv", BASE).kind, "unsupported-media");
-  assert.equal(api.isShellPage("https://felixzhu.github.io/qian-drive/"), true);
-  assert.equal(api.isShellPage("https://felixzhu.github.io/qian-drive/index.html"), true);
-  assert.equal(api.isShellPage("https://felixzhu.github.io/qian-drive/#/docs/a"), true);
+  assert.equal(api.isShellPage("https://felixzhu.github.io/QBot/"), true);
+  assert.equal(api.isShellPage("https://felixzhu.github.io/QBot/index.html"), true);
+  assert.equal(api.isShellPage("https://felixzhu.github.io/QBot/#/docs/a"), true);
+  assert.equal(api.isShellPage("https://felixzhu.github.io/qian-drive/"), false);
   assert.equal(api.isShellPage("https://example.com/"), false);
 });
 

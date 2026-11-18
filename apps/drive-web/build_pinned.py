@@ -52,6 +52,8 @@ def sha256(path):
 
 
 def fetch_inputs(staging, origin, from_dir):
+    sys.path.insert(0, HERE)
+    import accept_site
     inputs = read_sums(os.path.join(PINS, "inputs.sha256"))
     for digest, rel in inputs:
         dest = os.path.join(staging, rel)
@@ -60,8 +62,7 @@ def fetch_inputs(staging, origin, from_dir):
             shutil.copy2(os.path.join(from_dir, rel), dest)
         else:
             url = origin.rstrip("/") + "/" + quote(rel, safe="/")
-            with urllib.request.urlopen(url, timeout=60) as r:
-                open(dest, "wb").write(r.read())
+            open(dest, "wb").write(accept_site.read_url(url))
         got = sha256(dest)
         if got != digest:
             sys.exit("pin mismatch %s\n expected %s\n got      %s" % (rel, digest, got))
@@ -208,7 +209,8 @@ def main():
                 # The borrowed live tree is not an optional cache. --from-dir only
                 # supplies build inputs; acceptance still reads the public site.
                 accept_site.fetch_tree(expect, origin, os.path.join(PINS, "live-20916f6.sha256"))
-                problems = accept_site.accept_trees(repo, expect)
+                problems = accept_site.accept_trees(repo, expect, accept_site.SOURCE_COPIES)
+                problems += accept_site.copies_match_source(repo, HERE)
                 problems += accept_site.copied_inputs(repo, os.path.join(PINS, "inputs.sha256"))
             finally:
                 shutil.rmtree(expect, ignore_errors=True)
