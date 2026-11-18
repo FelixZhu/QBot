@@ -1329,6 +1329,25 @@ describe("知识库行为", { concurrency: false, timeout: 120000 }, () => {
               await new Promise((r) => setTimeout(r, 30));
             }
             await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+            const len1 = history.length;
+            const push1 = pushes;
+            const replace1 = replaces;
+            const row2 = document.querySelector('#kb-main-scroll [data-key="docs/本周小结.md"]');
+            if (!row2) throw new Error("row missing on second open");
+            row2.click();
+            if (pushes !== push1 + 1) throw new Error("second cycle pushes " + pushes + " from " + push1);
+            if (replaces !== replace1 + 1) throw new Error("second cycle replaces " + replaces);
+            if (history.length !== len1) throw new Error("second cycle length " + history.length + " vs " + len1);
+            if (${JSON.stringify(mode)} === "button") document.getElementById("btnKbBack").click();
+            else history.back();
+            const againDeadline = Date.now() + 3000;
+            while (Date.now() < againDeadline) {
+              const viewing2 = document.getElementById("panel-kb").classList.contains("kb-viewing");
+              const detail2 = document.querySelector("#tab-kb.kb").classList.contains("is-detail");
+              if (!viewing2 && !detail2 && location.hash === before.hash) break;
+              await new Promise((r) => setTimeout(r, 30));
+            }
+            await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
             const tab = document.querySelector("[data-qbs-tab][aria-current]");
             return {
               mode: ${JSON.stringify(mode)},
@@ -1352,8 +1371,8 @@ describe("知识库行为", { concurrency: false, timeout: 120000 }, () => {
           assert.deepEqual(view.expanded, view.before.expanded, width + " " + mode);
           assert.ok(Math.abs(view.scrollMain - view.before.scrollMain) < 2, width + " " + mode + " main");
           assert.ok(Math.abs(view.scrollPane - view.before.scrollPane) < 2, width + " " + mode + " pane");
-          assert.equal(view.pushes, 1, width + " " + mode);
-          assert.equal(view.replaces, 0, width + " " + mode);
+          assert.equal(view.pushes, 2, width + " " + mode);
+          assert.equal(view.replaces, 1, width + " " + mode);
           assert.equal(view.length, view.before.length + 1, width + " " + mode + " length");
         }, origin + "/template.html");
       }

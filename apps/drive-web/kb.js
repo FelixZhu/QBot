@@ -746,17 +746,8 @@
   /* chat-demo shell: if (window.qbotKb.back()) return true; else leave the tab.
      File open still dispatches kb:open with the file (key/path unchanged).
      The shell's setHash remains the only history.pushState for that open.
-
-     index.html (shell) must:
-     1. setHash — if leftHome is still true but the URL is already the list
-        (browser back popped the file hash without calling setHash), clear
-        leftHome so the next file pushes exactly one entry instead of
-        replaceState-ing the list URL.
-     2. #btnKbBack — qbotKb.viewerBack(): "detail" → showViewer(false) only;
-        "list" → showViewer(false) then history.back() (do not pushState).
-     3. popstate → qbotBack({fromPop:true}) calls qbotKb.restore() first.
-        When it returns true, showViewer(false) and return without
-        openItem("~home") and without restoreShellHistory(). */
+     These hooks are installed here, not in index.html: the published page may
+     differ from a build only by its version stamp. */
   window.qbotKb = {
     back: function () { return !!(inst && inst.back()); },
     /* Switch to the 知识库 tab and show this file's detail. */
@@ -772,6 +763,61 @@
     /* Viewer "<" (#btnKbBack). "list" | "detail" | false. Does not touch history. */
     viewerBack: function () { return inst ? inst.viewerBack() : false; }
   };
+
+  /* The published shell closes the viewer only, then a popstate falls through
+     to the drive home and replaceState overwrites the list URL. Attach the
+     missing steps without editing index.html. */
+  function listUrlHash(hash) {
+    return !hash || hash === "#/" || hash.indexOf("#/~home") === 0;
+  }
+  function fileHashOf(url) {
+    var next = url == null ? "" : String(url);
+    var at = next.indexOf("#");
+    var hash = at >= 0 ? next.slice(at) : (next.charAt(0) === "#" ? next : "");
+    if (hash.indexOf("#/") !== 0 || hash === "#/" || hash.indexOf("#/~home") === 0) return "";
+    return hash;
+  }
+  function hideViewer() {
+    var panel = document.getElementById("panel-kb");
+    var kbEl = document.getElementById("tab-kb");
+    var app = document.getElementById("app");
+    if (panel) panel.classList.remove("kb-viewing");
+    if (kbEl) kbEl.hidden = false;
+    if (app) app.hidden = true;
+  }
+  if (!window.__qbotKbHashGuard && history && history.replaceState) {
+    window.__qbotKbHashGuard = true;
+    var origReplace = history.replaceState.bind(history);
+    history.replaceState = function (state, title, url) {
+      if (listUrlHash(location.hash) && fileHashOf(url)) {
+        return history.pushState(state, title, url);
+      }
+      return origReplace(state, title, url);
+    };
+  }
+  var backBtn = document.getElementById("btnKbBack");
+  if (backBtn && !backBtn.__qbotKbWired) {
+    backBtn.__qbotKbWired = true;
+    backBtn.addEventListener("click", function () {
+      var which = window.qbotKb && typeof qbotKb.viewerBack === "function" && qbotKb.viewerBack();
+      if (which !== "list") return;
+      try { history.back(); } catch (e) {}
+    }, true);
+  }
+  if (window.qbotBack && !window.qbotBack.__qbotKbWrapped) {
+    var prevBack = window.qbotBack;
+    var wrappedBack = function (opts) {
+      opts = opts || {};
+      if (opts.fromPop && window.qbotKb && typeof qbotKb.restore === "function" && qbotKb.restore()) {
+        hideViewer();
+        return true;
+      }
+      return prevBack(opts);
+    };
+    wrappedBack.__qbotKbWrapped = true;
+    window.qbotBack = wrappedBack;
+  }
+
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);
   else boot();
 })();
