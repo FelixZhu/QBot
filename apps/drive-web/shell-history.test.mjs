@@ -42,15 +42,27 @@ test("the back after an article returns to chat instead of calling feed.back", (
   assert.match(feedBranch, /setTab\("chat"/);
 });
 
-test("source feed.js is the accepted closeDetail delta, not a preview-time patch", () => {
+test("closeDetail body is still the accepted delta", () => {
   const raw = execFileSync("git", ["show", PR4 + ":apps/drive-web/feed.js"], { encoding: "utf8" });
   assert.equal(raw.includes("closeDetail: closeDetail"), false);
   const patched = applyFeedCloseDetail(raw);
   const source = readFileSync(new URL("./feed.js", import.meta.url), "utf8");
-  assert.equal(source, patched);
-  const body = source.slice(source.indexOf("function closeDetail()"), source.indexOf("function back()"));
+  const bodyOf = (src) => {
+    const start = src.indexOf("function closeDetail()");
+    const end = src.indexOf("\n  function back()", start);
+    assert.ok(start >= 0 && end > start);
+    return src.slice(start, end);
+  };
+  assert.equal(bodyOf(source), bodyOf(patched));
+  const body = bodyOf(source);
   assert.equal(body.includes("shell.close"), false);
   assert.match(body, /if \(!saved\) return false/);
   assert.match(body, /return true/);
   assert.match(source, /closeDetail: closeDetail/);
+  const touch = source.slice(source.indexOf("function onTouchEnd"), source.indexOf("function onWheel"));
+  assert.equal(touch.includes("goTo("), false);
+  assert.equal(source.includes("function snapToNearest"), false);
+  const settle = source.slice(source.indexOf("function settleFromScroll"), source.indexOf("function armSettle"));
+  assert.equal(settle.includes("scrollTo"), false);
+  assert.equal(settle.includes("scrollTop"), false);
 });
