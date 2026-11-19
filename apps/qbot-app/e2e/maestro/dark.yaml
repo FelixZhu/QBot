@@ -1,0 +1,9 @@
+appId: io.github.felixzhu.qiandrive
+---
+- setDarkMode: enabled
+- assertDarkMode
+- launchApp:
+    stopApp: true
+- runFlow: wait-home.yaml
+- takeScreenshot:
+    path: dark-chat-home
