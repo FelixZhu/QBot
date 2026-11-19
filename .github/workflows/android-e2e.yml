@@ -52,12 +52,16 @@ jobs:
         run: |
           set -euo pipefail
           timeout 180 bash -c 'yes | sdkmanager --licenses >/dev/null' || true
+          # API 37 is published as platforms;android-37.0. There is no android-37 package.
           sdkmanager --install \
-            "platforms;android-37" \
+            "platforms;android-37.0" \
             "build-tools;37.0.0" \
             "platform-tools" \
             "ndk;27.1.12297006" \
             "cmake;3.30.5"
+          if [[ -d "$ANDROID_HOME/platforms/android-37.0" && ! -e "$ANDROID_HOME/platforms/android-37" ]]; then
+            ln -s android-37.0 "$ANDROID_HOME/platforms/android-37"
+          fi
 
       - name: Install app dependencies
         working-directory: apps/qbot-app
