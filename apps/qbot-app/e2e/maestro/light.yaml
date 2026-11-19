@@ -34,50 +34,65 @@ appId: io.github.felixzhu.qiandrive
     visible: "追加进上下文"
     timeout: 20000
 - assertVisible: "DAY 01 / 30"
-- takeScreenshot:
-    path: light-feed-top
-- scrollUntilVisible:
-    element: "看讲义"
-    direction: DOWN
-    timeout: 40000
-    speed: 40
-    visibilityPercentage: 60
-    centerElement: true
-- assertVisible: "同一模型，差距在 Harness"
-- assertNotVisible: "追加进上下文"
-- takeScreenshot:
-    path: light-feed-scrolled-down
-- scrollUntilVisible:
-    element: "追加进上下文"
-    direction: UP
-    timeout: 40000
-    speed: 40
-    visibilityPercentage: 40
-- assertVisible: "追加进上下文"
-- assertVisible: "DAY 01 / 30"
+- assertVisible: "Study Bot"
+- assertVisible: "关注"
+- assertNotVisible: "点赞"
 - assertNotVisible: "看讲义"
 - takeScreenshot:
-    path: light-feed-scrolled-up
-- scrollUntilVisible:
-    element: "看讲义"
-    direction: DOWN
-    timeout: 40000
-    speed: 40
-    visibilityPercentage: 60
-    centerElement: true
-- tapOn: "看讲义"
+    path: light-feed-top
+# 一次滑动只翻一张。不用 scrollUntilVisible，那一下会甩过后面的课。
+- swipe:
+    start: "50%,75%"
+    end: "50%,30%"
+    duration: 600
 - extendedWaitUntil:
-    visible: "关闭讲义"
+    visible: "同一模型，差距在 Harness"
+    timeout: 8000
+- assertNotVisible: "追加进上下文"
+- assertNotVisible: "消息列表"
+- takeScreenshot:
+    path: light-feed-scrolled-down
+- swipe:
+    start: "50%,30%"
+    end: "50%,75%"
+    duration: 600
+- extendedWaitUntil:
+    visible: "追加进上下文"
+    timeout: 8000
+- assertVisible: "DAY 01 / 30"
+- assertNotVisible: "同一模型，差距在 Harness"
+- takeScreenshot:
+    path: light-feed-scrolled-up
+- tapOn: "中循环"
+- extendedWaitUntil:
+    visible: "返回信息流"
     timeout: 15000
-- assertVisible: "30 秒小测 · 1 题"
+- assertVisible: "模拟"
+- waitForAnimationToEnd:
+    timeout: 2000
 - takeScreenshot:
     path: light-feed-detail
-- tapOn: "关闭讲义"
+- tapOn: "视频"
 - extendedWaitUntil:
-    notVisible: "关闭讲义"
+    visible: "演示"
+    timeout: 8000
+- assertVisible: "播放演示"
+- takeScreenshot:
+    path: light-feed-video
+- tapOn: "小游戏"
+- extendedWaitUntil:
+    visible: "检查答案"
+    timeout: 8000
+- takeScreenshot:
+    path: light-feed-game
+- tapOn: "返回信息流"
+- extendedWaitUntil:
+    notVisible: "返回信息流"
     timeout: 15000
-- assertVisible: "看讲义"
-- assertNotVisible: "追加进上下文"
+- assertVisible: "追加进上下文"
+- assertVisible: "DAY 01 / 30"
+- waitForAnimationToEnd:
+    timeout: 2000
 - takeScreenshot:
     path: light-feed-restored
 

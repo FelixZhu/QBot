@@ -11,6 +11,7 @@
     "expo-splash-screen": "~58.0.14",
     "expo-status-bar": "~58.0.5",
     "expo-system-ui": "~58.0.7",
+    "expo-updates": "~58.0.22",
     "expo-video": "~58.0.14",
     "react": "19.3.0",
     "react-native": "0.88.1",
@@ -25,7 +26,7 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "node --experimental-strip-types --test src/host.test.ts src/feed/feed.test.ts src/feed/memory.test.ts src/feed/lessons.test.ts src/chat/chat.test.ts",
+    "test": "node --experimental-strip-types --test src/host.test.ts src/updates.test.ts src/feed/feed.test.ts src/feed/memory.test.ts src/feed/lessons.test.ts src/feed/paging.test.ts src/feed/game.test.ts src/chat/chat.test.ts",
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",

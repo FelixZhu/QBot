@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  Animated,
   BackHandler,
   Keyboard,
   Linking,
@@ -15,13 +16,26 @@ import { StatusBar } from "expo-status-bar";
 import { setBackgroundColorAsync } from "expo-system-ui";
 import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context";
 import { ChatEmpty, ChatList, ChatThread } from "./src/ChatPane";
+import { BookIcon, BubbleIcon, StarIcon } from "./src/TabIcons";
 import { findDemo, type DemoId } from "./src/demos";
 import { isSplit, palette, resolveScheme } from "./src/theme";
 import { LessonFeed } from "./src/feed/LessonFeed";
+import { pullUpdate } from "./src/updates";
 import { WebPane, type WebPaneHandle } from "./src/WebPane";
+import * as Updates from "expo-updates";
 
 type Tab = "chat" | "feed" | "kb";
 const EXIT_CONFIRM_MS = 2000;
+const TAB_HEIGHT = 60;
+const TAB_AMBER = "#F5A623";
+const TAB_CREAM = "#F4F1EA";
+const TAB_MUTED = "#8A8A8E";
+
+function TabIcon({ id, color, filled }: { id: Tab; color: string; filled: boolean }) {
+  if (id === "chat") return <BubbleIcon color={color} filled={filled} size={24} />;
+  if (id === "feed") return <StarIcon color={color} size={24} />;
+  return <BookIcon color={color} size={24} />;
+}
 
 function Shell() {
   const insets = useSafeAreaInsets();
@@ -38,11 +52,26 @@ function Shell() {
   const [query, setQuery] = useState("");
   const [keyboard, setKeyboard] = useState(false);
   const [webReady, setWebReady] = useState(false);
+  const [coverTabs, setCoverTabs] = useState(false);
+  const tabOpacity = useRef(new Animated.Value(1)).current;
   const demo = findDemo(thread);
 
   useEffect(() => {
     setBackgroundColorAsync(colors.canvas).catch(() => {});
   }, [colors.canvas]);
+
+  useEffect(() => {
+    // Native ON_LOAD also checks. This fetch does not reload; the next cold start picks it up.
+    try {
+      pullUpdate({
+        enabled: Updates.isEnabled,
+        check: () => Updates.checkForUpdateAsync(),
+        fetch: async () => { await Updates.fetchUpdateAsync(); },
+      }).catch(() => {});
+    } catch {
+      // Keep the embedded bundle.
+    }
+  }, []);
 
   useEffect(() => {
     const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
@@ -58,6 +87,10 @@ function Shell() {
   useEffect(() => {
     webRef.current?.setTheme(dark);
   }, [dark]);
+
+  useEffect(() => {
+    Animated.timing(tabOpacity, { toValue: coverTabs ? 0 : 1, duration: 300, useNativeDriver: true }).start();
+  }, [coverTabs, tabOpacity]);
 
   const exitOrHint = useCallback(() => {
     const now = Date.now();
@@ -106,9 +139,10 @@ function Shell() {
   const showList = tab === "chat" && (split || !demo);
   const showThread = tab === "chat" && (split || !!demo);
 
+  const feedOn = tab === "feed" || coverTabs;
   return (
-    <View style={{ flex: 1, backgroundColor: colors.canvas, paddingTop: insets.top }}>
-      <StatusBar style={colors.status} />
+    <View style={{ flex: 1, backgroundColor: feedOn ? "#0B0B0F" : colors.canvas, paddingTop: insets.top }}>
+      <StatusBar style={feedOn ? "light" : colors.status} />
       <View style={{ flex: 1, position: "relative", flexDirection: split && tab === "chat" ? "row" : "column" }}>
         <View
           pointerEvents={tab === "feed" ? "auto" : "none"}
@@ -117,6 +151,7 @@ function Shell() {
           <LessonFeed
             active={tab === "feed"}
             onBackReady={(back) => { feedBack.current = back; }}
+            onCover={setCoverTabs}
           />
         </View>
         {showList ? (
@@ -146,52 +181,48 @@ function Shell() {
         ) : null}
       </View>
       {showTabs ? (
-        <View
+        <Animated.View
+          pointerEvents={coverTabs ? "none" : "auto"}
           style={{
-            flexDirection: "row",
+            opacity: tabOpacity,
+            backgroundColor: "#000",
             borderTopWidth: 1,
-            borderTopColor: colors.line,
-            backgroundColor: colors.canvas,
-            paddingBottom: Math.max(insets.bottom, 6),
-            paddingTop: 6,
+            borderTopColor: "#1A1A1A",
+            paddingBottom: insets.bottom,
           }}
         >
-          {([
-            ["chat", "对话"],
-            ["feed", "主动服务"],
-            ["kb", "知识库"],
-          ] as const).map(([id, label]) => {
-            const current = tab === id;
-            return (
-              <Pressable
-                key={id}
-                accessibilityRole="tab"
-                accessibilityState={{ selected: current }}
-                accessibilityLabel={label}
-                onPress={() => {
-                  if (id === "chat") {
-                    webRef.current?.park();
-                    setTab("chat");
-                  } else if (id === "feed") setTab("feed");
-                  else openKb();
-                }}
-                style={({ pressed }) => ({
-                  flex: 1,
-                  minHeight: 48,
-                  alignItems: "center",
-                  justifyContent: "center",
-                  borderRadius: 12,
-                  marginHorizontal: 6,
-                  backgroundColor: pressed ? colors.press : "transparent",
-                })}
-              >
-                <Text style={{ fontSize: 12, lineHeight: 16, fontWeight: current ? "700" : "500", color: current ? colors.text : colors.muted }}>
-                  {label}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
+          <View style={{ height: TAB_HEIGHT, flexDirection: "row" }}>
+            {([
+              ["chat", "对话"],
+              ["feed", "主动服务"],
+              ["kb", "知识库"],
+            ] as const).map(([id, label]) => {
+              const current = tab === id;
+              const color = current ? TAB_AMBER : TAB_MUTED;
+              return (
+                <Pressable
+                  key={id}
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected: current }}
+                  accessibilityLabel={label}
+                  onPress={() => {
+                    if (id === "chat") {
+                      webRef.current?.park();
+                      setTab("chat");
+                    } else if (id === "feed") setTab("feed");
+                    else openKb();
+                  }}
+                  style={{ flex: 1, alignItems: "center", justifyContent: "center" }}
+                >
+                  <TabIcon id={id} color={color} filled={current} />
+                  <Text style={{ marginTop: 3, fontSize: 11, lineHeight: 14, fontWeight: current ? "700" : "400", color: current ? TAB_CREAM : TAB_MUTED }}>
+                    {label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </Animated.View>
       ) : null}
     </View>
   );
