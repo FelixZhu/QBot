@@ -2,7 +2,7 @@
 
 **结论**：QBot 的界面是一张奶白色的纸，墨色做主按钮，陶土橙只做「那个点」。三个 Tab（对话 / 主动服务 / 知识库），默认「对话」。折叠（约 390px）用底部 Tab，展开（约 840px）换左侧 72px 图标栏，同一套 token，只换布局。本文是给公开仓库 `docs/DESIGN.md` 用的精简规范，数值全部来自 `tokens.css`、`BRAND.md`、`SPEC.md` 和已落地的交互（`ix-fixes` `7369537`）。
 
-配套：代码架构见 `docs/ARCHITECTURE.md`。知识库、Feed 的实现细节以各自模块文档为准。
+配套：代码架构见 `docs/ARCHITECTURE.md`。协作和验收以根目录 `README.md` 为准。本文的尺寸是实现参考，不是像素级合同。
 
 ---
 
@@ -33,7 +33,7 @@ QBot 是 Qian 的私人助理：安静、可靠、先给结论。观感追求克
 
 ## 3. 设计变量
 
-源文件：`tokens.css`。页面跟随系统的 `prefers-color-scheme`。`<html data-theme="light|dark">` 是解析后的浅色或深色，`data-theme-mode` 保持 `auto`。导航里没有外观项；以前存下的浅色或深色选择不会再锁住页面。协作和验收以根目录 `README.md` 为准，本文的尺寸是实现参考，不是像素级合同。
+源文件：`tokens.css`。页面跟随系统的 `prefers-color-scheme`。`<html data-theme="light|dark">` 是解析后的浅色或深色，`data-theme-mode` 保持 `auto`。导航里没有外观项。以前存下的浅色或深色选择不会再锁住页面。
 
 ### 3.1 颜色
 
@@ -173,7 +173,7 @@ QBot 是 Qian 的私人助理：安静、可靠、先给结论。观感追求克
 - 卡片顺序：AI 日报（`digest`）在前，然后是每日英语、接着学；最近 7 天的公开新文件合并成**一张**卡，最多列出 5 个文件，超过则显示「还有 N 个」。没有符合条件的文件时不生成文件卡。主按钮文案是「打开知识库」；点某一行先 `qbotKb.open(key)`，失败再 `qbotTab("kb")`。
 - 底部固定三按钮：主操作（墨色）· 稍后 · 不再提醒。
 - 视频：`media.kind` 为 `video` 且有可用的 http(s) 地址时，卡片内点按播放，按文件自身的宽高比显示（不裁成 9:16），带暂停、进度和全屏。没有地址、或地址打不开时，卡片上写明暂时不能播，不编造链接。切到下一张、离开这个 Tab、页面进入后台（`visibilitychange` / `pagehide`，或外壳派发的 `qbot:appstate`）时暂停。
-- 网页：同源正文可以在 App 里读。外部网页不放进 iframe（隐藏的探测框也不行；空沙箱不能证明 1.0.4 上的接口已经隔离）。有 `qbotShell` 时，打开文章调用 `openArticle(url)` 显示说明，明确要去浏览器时调用 `openExternal(url)`。没有这套接口时，Feed 自己显示说明，「用浏览器打开」使用 `window.open(url, "_blank", "noopener,noreferrer")`。返回时先关掉这一步，并回到打开前的那张卡和滚动位置。
+- 网页：同源正文可以在 App 里读。外部网页不放进 iframe（隐藏的探测框也不行；空沙箱不能证明已安装外壳上的接口已经隔离）。有 `qbotShell` 时，打开文章调用 `openArticle(url)` 显示说明，明确要去浏览器时调用 `openExternal(url)`。没有这套接口时，Feed 自己显示说明，「用浏览器打开」使用 `window.open(url, "_blank", "noopener,noreferrer")`。返回时先关掉这一步，并回到打开前的那张卡和滚动位置。
 - 离开 Tab 时停音频和视频：模块自己听 `qbot:tab`，目标不是 feed 就停止；切回时重新排版，位置保留。
 - 私密提醒（尚未接入）：只显示「有一条私密提醒」+ 锁，主按钮「解锁查看」，不暴露标题和内容。
 
