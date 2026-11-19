@@ -302,7 +302,7 @@ function DemoVideo({
       <View style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "#15131a" }} />
       <View style={{ flex: 1, justifyContent: "center", paddingHorizontal: 28, paddingTop: insets.top + 72 }}>{poster}</View>
       <Text style={{ position: "absolute", top: insets.top + 64, left: 20, color: DIM, fontSize: 11, fontFamily: MONO, borderWidth: 1, borderColor: "rgba(255,255,255,0.3)", borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2, overflow: "hidden" }}>演示</Text>
-      <Pressable accessibilityRole="button" accessibilityLabel={playing ? "暂停演示" : "播放演示"} onPress={() => setPlaying((value) => !value)} style={{ position: "absolute", left: "50%", marginLeft: -38, top: "42%", width: 76, height: 76, borderRadius: 38, backgroundColor: "rgba(255,255,255,0.16)", alignItems: "center", justifyContent: "center" }}>
+      <Pressable accessibilityRole="button" accessibilityLabel={playing ? "暂停演示" : "播放演示"} onPress={() => setPlaying((value) => !value)} style={{ position: "absolute", left: "50%", marginLeft: -38, top: "58%", width: 76, height: 76, borderRadius: 38, backgroundColor: "rgba(255,255,255,0.16)", alignItems: "center", justifyContent: "center" }}>
         <Text style={{ color: "#fff", fontSize: 28 }}>{playing ? "Ⅱ" : "▶"}</Text>
       </Pressable>
       <View style={{ paddingHorizontal: 20, paddingBottom: Math.max(insets.bottom, 20), paddingTop: 24, backgroundColor: "rgba(0,0,0,0.72)", gap: 10 }}>

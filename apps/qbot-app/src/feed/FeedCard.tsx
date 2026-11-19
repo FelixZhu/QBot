@@ -119,8 +119,8 @@ function VideoPreview({ active }: { active: boolean }) {
     const timer = setInterval(() => setRatio((value) => (value >= 0.42 ? 0.12 : Math.round((value + 0.01) * 100) / 100)), 90);
     return () => clearInterval(timer);
   }, [active]);
-  const seconds = Math.round(ratio * 200);
-  const clock = `0:${String(seconds).padStart(2, "0")}`;
+  const whole = Math.round(ratio * 200);
+  const clock = `${Math.floor(whole / 60)}:${String(whole % 60).padStart(2, "0")}`;
   return (
     <View style={{ flex: 1, minHeight: 0, borderRadius: 16, backgroundColor: "#17171d", borderWidth: 1, borderColor: "rgba(255,255,255,0.1)", padding: 16, justifyContent: "space-between" }}>
       <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
