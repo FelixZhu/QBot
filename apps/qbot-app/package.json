@@ -4,6 +4,8 @@
   "main": "index.ts",
   "dependencies": {
     "@assistant-ui/react-native": "^0.1.52",
+    "@react-native-async-storage/async-storage": "^2.2.0",
+    "assistant-stream": "^0.3.58",
     "expo": "~58.0.25",
     "expo-image": "~58.0.18",
     "expo-splash-screen": "~58.0.14",
@@ -23,6 +25,7 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
+    "test": "node --experimental-strip-types --test src/host.test.ts src/feed/feed.test.ts src/chat/chat.test.ts",
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
