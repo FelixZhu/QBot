@@ -45,7 +45,7 @@ docs/DESIGN.md          视觉参考
 
 依赖只向下。导航调用模块已导出的 `back` / `closeDetail`。Feed 在有 `qbotShell` 时调用 `openArticle` / `openExternal`。文件卡若要打开知识库，走导航注入的 `qbotKb.open`，该函数不存在则只切 Tab。
 
-`apps/qbot-app/app.json` 里安装包版本是 `1.0.5`，`versionCode` 是 `7`。`package.json` 的 `1.0.0` 不是安装包版本。包名是 `io.github.felixzhu.qiandrive`。已安装的包要改打开的地址，必须发新 APK。本轮不改版本号，不打包。
+`apps/qbot-app/app.json` 里安装包版本是 `1.0.8`，`versionCode` 是 `10`。`package.json` 的 `1.0.0` 不是安装包版本。包名是 `io.github.felixzhu.qiandrive`。已安装的包要改打开的地址或原生界面，必须发新 APK。这一轮改了原生主动服务，不在这里打包。
 
 ## 3. closeDetail 与 back()
 

@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
 """Stop an APK build while the shell URL is not actually serving a page.
 
-Reads HOME_URL from App.tsx. Exits 0 only when that URL's version.json
+Reads HOME_URL from the app source. Exits 0 only when that URL's version.json
 returns HTTP 200 and a version field. Does not print credentials.
 """
 import json, re, sys, urllib.request
 from pathlib import Path
 
-src = Path(__file__).with_name("App.tsx").read_text(encoding="utf-8")
-match = re.search(r"const HOME_URL = '([^']+)';", src)
+root = Path(__file__).parent
+src = "\n".join(path.read_text(encoding="utf-8") for path in [root / "App.tsx", *sorted((root / "src").glob("*.ts*"))])
+match = re.search(r"""const HOME_URL = ['"]([^'"]+)['"]""", src)
 if not match:
-    sys.exit("HOME_URL missing from App.tsx")
+    sys.exit("HOME_URL missing from the app source")
 home = match.group(1)
 url = home.rstrip("/") + "/version.json"
 try:

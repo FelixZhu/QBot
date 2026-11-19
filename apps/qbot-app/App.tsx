@@ -1,174 +1,65 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  ActivityIndicator,
-  AppState,
   BackHandler,
+  Keyboard,
   Linking,
   Platform,
   Pressable,
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
   Text,
   ToastAndroid,
   useColorScheme,
+  useWindowDimensions,
   View,
-} from 'react-native';
-import type { AppStateStatus } from 'react-native';
-import { StatusBar } from 'expo-status-bar';
-import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
-import { WebView as RNWebView } from 'react-native-webview';
-import type { ComponentType, Ref } from 'react';
+} from "react-native";
+import { StatusBar } from "expo-status-bar";
+import { setBackgroundColorAsync } from "expo-system-ui";
+import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context";
+import { ChatEmpty, ChatList, ChatThread } from "./src/ChatPane";
+import { findDemo, type DemoId } from "./src/demos";
+import { isSplit, palette, resolveScheme } from "./src/theme";
+import { LessonFeed } from "./src/feed/LessonFeed";
+import { WebPane, type WebPaneHandle } from "./src/WebPane";
 
-// react-native-webview 14.0.1's bundled typings collapse to `never` against
-// RN 0.88 types; the runtime component is fine, so use a loose local type.
-type WebViewHandle = { goBack(): void; reload(): void; injectJavaScript(js: string): void };
-type Ev = { nativeEvent: any };
-const WebView = RNWebView as unknown as ComponentType<Record<string, unknown> & { ref?: Ref<WebViewHandle> }>;
-
-const HOME_URL = 'https://felixzhu.github.io/QBot/';
-const HOME_ORIGIN = 'https://felixzhu.github.io';
-const HOME_PATH = '/QBot';
-const RESUME_RELOAD_MS = 5 * 60 * 1000;
+type Tab = "chat" | "feed" | "kb";
 const EXIT_CONFIRM_MS = 2000;
 
-function hashOf(href: string) {
-  const i = href.indexOf('#');
-  return i >= 0 ? href.slice(i) : '';
-}
-
-function homeUri(hash = '') {
-  const h = !hash ? '' : hash.startsWith('#') ? hash : '#' + hash;
-  return `${HOME_URL}?v=${Date.now()}${h}`;
-}
-
-// Reports in-page navigation (hash routes, pushState) and whether the page
-// is scrolled to the top, so Android pull-to-refresh can be enabled safely.
-const PAGE_BRIDGE = `
-(function () {
-  function reportNav() {
-    try {
-      window.ReactNativeWebView.postMessage(JSON.stringify({
-        type: 'nav', href: location.href, length: history.length
-      }));
-    } catch (e) {}
-  }
-  ['hashchange', 'popstate'].forEach(function (ev) { window.addEventListener(ev, reportNav); });
-  ['pushState', 'replaceState'].forEach(function (m) {
-    var orig = history[m];
-    history[m] = function () { var r = orig.apply(this, arguments); setTimeout(reportNav, 0); return r; };
-  });
-  reportNav();
-
-  var lastTop = null;
-  function isAtTop() {
-    function top(el) { return !el || (el.scrollTop || 0) <= 0; }
-    if (!top(document.scrollingElement) || !top(document.documentElement) || !top(document.body)) return false;
-    var nodes = document.querySelectorAll('.scroller,.tree,.pdfwrap,.qs-list,.info,.qc-viewport,.q-feed,.kb-scroll,#kb-main-scroll,#kb-pane-scroll,.feed-stage');
-    for (var i = 0; i < nodes.length; i++) {
-      var el = nodes[i];
-      if ((el.scrollHeight > el.clientHeight + 1) && el.scrollTop > 0) return false;
-    }
-    return true;
-  }
-  function reportScroll() {
-    var v = isAtTop();
-    if (v === lastTop) return;
-    lastTop = v;
-    try { window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'scroll', atTop: v })); } catch (e) {}
-  }
-  window.addEventListener('scroll', reportScroll, { capture: true, passive: true });
-  document.addEventListener('touchstart', reportScroll, { capture: true, passive: true });
-  document.addEventListener('touchmove', reportScroll, { capture: true, passive: true });
-  setInterval(reportScroll, 600);
-  reportScroll();
-})();
-true;
-`;
-
-const ASK_BACK = `
-(function () {
-  var handled = false;
-  try { handled = !!(window.qbotBack && window.qbotBack()); } catch (e) {}
-  try { window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'back', handled: handled })); } catch (e) {}
-})();
-true;
-`;
-
-function isInternal(url: string) {
-  return url.startsWith(HOME_ORIGIN + HOME_PATH) || url.startsWith('about:') || url.startsWith('blob:') || url.startsWith('data:');
-}
-
-function DriveScreen() {
-  const ref = useRef<WebViewHandle>(null);
-  const lastHash = useRef('');
-  const bgAt = useRef<number | null>(null);
+function Shell() {
+  const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
+  const split = isSplit(width);
+  const scheme = resolveScheme(useColorScheme());
+  const colors = palette[scheme];
+  const dark = scheme === "dark";
+  const webRef = useRef<WebPaneHandle>(null);
+  const feedBack = useRef<() => boolean>(() => false);
   const lastExit = useRef(0);
-  const [uri, setUri] = useState(() => homeUri());
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [atTop, setAtTop] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [reloadKey, setReloadKey] = useState(0);
-  const dark = useColorScheme() === 'dark';
-  const bg = dark ? '#171614' : '#F3EFE7';
-  const fg = dark ? '#EDE8DF' : '#1C1B19';
-  const tint = dark ? '#EDE8DF' : '#1C1B19';
-
-  const loadFresh = useCallback((opts?: { remount?: boolean }) => {
-    setError(null);
-    setLoading(true);
-    setUri(homeUri(lastHash.current));
-    if (opts?.remount) setReloadKey((k) => k + 1);
-  }, []);
+  const [tab, setTab] = useState<Tab>("chat");
+  const [thread, setThread] = useState<DemoId | null>(null);
+  const [query, setQuery] = useState("");
+  const [keyboard, setKeyboard] = useState(false);
+  const [webReady, setWebReady] = useState(false);
+  const demo = findDemo(thread);
 
   useEffect(() => {
-    if (Platform.OS !== 'android') return;
-    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
-      if (ref.current) {
-        ref.current.injectJavaScript(ASK_BACK);
-        return true;
-      }
-      return false;
-    });
-    return () => sub.remove();
-  }, []);
+    setBackgroundColorAsync(colors.canvas).catch(() => {});
+  }, [colors.canvas]);
 
   useEffect(() => {
-    const onChange = (s: AppStateStatus) => {
-      if (s === 'background' || s === 'inactive') {
-        if (bgAt.current == null) bgAt.current = Date.now();
-        return;
-      }
-      if (s === 'active') {
-        const t = bgAt.current;
-        bgAt.current = null;
-        if (t && Date.now() - t > RESUME_RELOAD_MS) loadFresh({ remount: true });
-      }
+    const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
+    const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
+    const show = Keyboard.addListener(showEvent, () => setKeyboard(true));
+    const hide = Keyboard.addListener(hideEvent, () => setKeyboard(false));
+    return () => {
+      show.remove();
+      hide.remove();
     };
-    const sub = AppState.addEventListener('change', onChange);
-    return () => sub.remove();
-  }, [loadFresh]);
-
-  const openExternal = useCallback((url: string) => {
-    Linking.openURL(url).catch(() => {});
   }, []);
 
-  const retry = useCallback(() => {
-    setRefreshing(false);
-    loadFresh({ remount: true });
-  }, [loadFresh]);
+  useEffect(() => {
+    webRef.current?.setTheme(dark);
+  }, [dark]);
 
-  const onRefresh = useCallback(() => {
-    setRefreshing(true);
-    loadFresh({ remount: true });
-  }, [loadFresh]);
-
-  const onBackResult = useCallback((handled: boolean) => {
-    if (handled) {
-      lastExit.current = 0;
-      return;
-    }
+  const exitOrHint = useCallback(() => {
     const now = Date.now();
     if (now - lastExit.current < EXIT_CONFIRM_MS) {
       lastExit.current = 0;
@@ -176,120 +67,140 @@ function DriveScreen() {
       return;
     }
     lastExit.current = now;
-    ToastAndroid.show('再滑一次退出', ToastAndroid.SHORT);
+    if (Platform.OS === "android") ToastAndroid.show("再滑一次退出", ToastAndroid.SHORT);
   }, []);
 
-  const onMessage = useCallback((e: Ev) => {
-    try {
-      const msg = JSON.parse(e.nativeEvent.data || '{}');
-      if (msg.type === 'nav' && typeof msg.href === 'string') {
-        lastHash.current = hashOf(msg.href);
-      } else if (msg.type === 'scroll') {
-        setAtTop(!!msg.atTop);
-      } else if (msg.type === 'back') {
-        onBackResult(!!msg.handled);
-      }
-    } catch (_) {}
-  }, [onBackResult]);
+  const onBackResult = useCallback((handled: boolean) => {
+    if (handled) {
+      lastExit.current = 0;
+      return;
+    }
+    exitOrHint();
+  }, [exitOrHint]);
 
-  const webView = (
-    <WebView
-      key={reloadKey}
-      ref={ref}
-      source={{ uri }}
-      style={[styles.fill, { backgroundColor: bg }]}
-      javaScriptEnabled
-      domStorageEnabled
-      allowsInlineMediaPlayback
-      mediaPlaybackRequiresUserAction={false}
-      allowsFullscreenVideo
-      allowsBackForwardNavigationGestures
-      pullToRefreshEnabled={Platform.OS === 'ios'}
-      setSupportMultipleWindows
-      cacheEnabled
-      cacheMode="LOAD_DEFAULT"
-      nestedScrollEnabled
-      overScrollMode="never"
-      originWhitelist={['*']}
-      injectedJavaScript={PAGE_BRIDGE}
-      onMessage={onMessage}
-      onLoadStart={() => setLoading(true)}
-      onLoadEnd={() => {
-        setLoading(false);
-        setRefreshing(false);
-      }}
-      onError={(e: Ev) => {
-        setRefreshing(false);
-        setError(e.nativeEvent.description || '网络错误');
-      }}
-      onHttpError={(e: Ev) => {
-        if (e.nativeEvent.url?.startsWith(HOME_URL) && e.nativeEvent.statusCode >= 500) {
-          setError(`服务器返回 ${e.nativeEvent.statusCode}`);
-        }
-      }}
-      onRenderProcessGone={() => retry()}
-      onContentProcessDidTerminate={() => ref.current?.reload()}
-      // target=_blank links and window.open (downloads, "open in new tab")
-      onOpenWindow={(e: Ev) => openExternal(e.nativeEvent.targetUrl)}
-      onShouldStartLoadWithRequest={(req: { url: string; isTopFrame?: boolean }) => {
-        if (req.isTopFrame === false) return true; // iframes/media
-        if (isInternal(req.url)) return true;
-        openExternal(req.url);
-        return false;
-      }}
-      onFileDownload={({ nativeEvent }: Ev) => openExternal(nativeEvent.downloadUrl)}
-    />
-  );
+  useEffect(() => {
+    if (Platform.OS !== "android") return;
+    const sub = BackHandler.addEventListener("hardwareBackPress", () => {
+      if (tab === "chat" && thread) {
+        setThread(null);
+        return true;
+      }
+      if (tab === "feed" && feedBack.current()) return true;
+      if (tab === "kb") {
+        webRef.current?.back();
+        return true;
+      }
+      exitOrHint();
+      return true;
+    });
+    return () => sub.remove();
+  }, [tab, thread, exitOrHint]);
+
+  const openKb = () => {
+    setWebReady(true);
+    setTab("kb");
+    webRef.current?.show("kb");
+  };
+
+  const showTabs = !(keyboard && tab === "chat");
+  const showList = tab === "chat" && (split || !demo);
+  const showThread = tab === "chat" && (split || !!demo);
 
   return (
-    <SafeAreaView style={[styles.fill, { backgroundColor: bg }]} edges={['top', 'bottom', 'left', 'right']}>
-      <StatusBar style={dark ? 'light' : 'dark'} />
-      {error ? (
-        <View style={[styles.center, { backgroundColor: bg }]}>
-          <Text style={[styles.title, { color: fg }]}>打不开 Qian's Drive</Text>
-          <Text style={[styles.msg, { color: fg }]}>{error}</Text>
-          <Pressable style={styles.button} onPress={retry}>
-            <Text style={styles.buttonText}>重试</Text>
-          </Pressable>
-        </View>
-      ) : Platform.OS === 'android' ? (
-        <ScrollView
-          style={styles.fill}
-          contentContainerStyle={styles.fill}
-          nestedScrollEnabled
-          keyboardShouldPersistTaps="handled"
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} enabled={atTop} tintColor={tint} colors={[tint]} />
-          }
+    <View style={{ flex: 1, backgroundColor: colors.canvas, paddingTop: insets.top }}>
+      <StatusBar style={colors.status} />
+      <View style={{ flex: 1, position: "relative", flexDirection: split && tab === "chat" ? "row" : "column" }}>
+        <View
+          pointerEvents={tab === "feed" ? "auto" : "none"}
+          style={tab === "feed" ? { flex: 1 } : { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, opacity: 0, zIndex: -1 }}
         >
-          {webView}
-        </ScrollView>
-      ) : (
-        webView
-      )}
-      {loading && !error && !refreshing && (
-        <View pointerEvents="none" style={styles.loading}>
-          <ActivityIndicator size="large" color={tint} />
+          <LessonFeed
+            active={tab === "feed"}
+            onBackReady={(back) => { feedBack.current = back; }}
+          />
         </View>
-      )}
-    </SafeAreaView>
+        {showList ? (
+          <View style={{ flex: split ? 0.42 : 1, minWidth: split ? 280 : undefined, borderRightWidth: split ? 1 : 0, borderRightColor: colors.line }}>
+            <ChatList colors={colors} query={query} onQuery={setQuery} selected={thread} onOpen={setThread} />
+          </View>
+        ) : null}
+        {showThread ? (
+          <View style={{ flex: 1 }}>
+            {demo ? (
+              <ChatThread demo={demo} colors={colors} showBack={!split} onBack={() => setThread(null)} />
+            ) : (
+              <ChatEmpty colors={colors} />
+            )}
+          </View>
+        ) : null}
+        {webReady ? (
+          <WebPane
+            ref={webRef}
+            visible={tab === "kb"}
+            tab="kb"
+            dark={dark}
+            backgroundColor={colors.canvas}
+            onBackResult={onBackResult}
+            onExternal={(url) => { Linking.openURL(url).catch(() => {}); }}
+          />
+        ) : null}
+      </View>
+      {showTabs ? (
+        <View
+          style={{
+            flexDirection: "row",
+            borderTopWidth: 1,
+            borderTopColor: colors.line,
+            backgroundColor: colors.canvas,
+            paddingBottom: Math.max(insets.bottom, 6),
+            paddingTop: 6,
+          }}
+        >
+          {([
+            ["chat", "对话"],
+            ["feed", "主动服务"],
+            ["kb", "知识库"],
+          ] as const).map(([id, label]) => {
+            const current = tab === id;
+            return (
+              <Pressable
+                key={id}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: current }}
+                accessibilityLabel={label}
+                onPress={() => {
+                  if (id === "chat") {
+                    webRef.current?.park();
+                    setTab("chat");
+                  } else if (id === "feed") setTab("feed");
+                  else openKb();
+                }}
+                style={({ pressed }) => ({
+                  flex: 1,
+                  minHeight: 48,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  borderRadius: 12,
+                  marginHorizontal: 6,
+                  backgroundColor: pressed ? colors.press : "transparent",
+                })}
+              >
+                <Text style={{ fontSize: 12, lineHeight: 16, fontWeight: current ? "700" : "500", color: current ? colors.text : colors.muted }}>
+                  {label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      ) : null}
+    </View>
   );
 }
 
 export default function App() {
   return (
     <SafeAreaProvider>
-      <DriveScreen />
+      <Shell />
     </SafeAreaProvider>
   );
 }
-
-const styles = StyleSheet.create({
-  fill: { flex: 1 },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 },
-  title: { fontSize: 20, fontWeight: '700', marginBottom: 8 },
-  msg: { fontSize: 14, opacity: 0.7, textAlign: 'center', marginBottom: 24 },
-  button: { backgroundColor: '#1C1B19', paddingHorizontal: 28, paddingVertical: 12, borderRadius: 10 },
-  buttonText: { color: '#F3EFE7', fontSize: 16, fontWeight: '700' },
-  loading: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center' },
-});

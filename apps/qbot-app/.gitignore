@@ -40,6 +40,9 @@ yarn-error.*
 /ios
 /android
 
+# emulator run output
+/e2e/artifacts/
+
 # local builds and secrets (never commit)
 *.apk
 *.log
