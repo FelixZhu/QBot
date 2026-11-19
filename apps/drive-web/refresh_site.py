@@ -165,6 +165,19 @@ def build_chat():
 SHARED_FILES = ("tokens.css", "layout.css", "components.css", "feed.js", "feed.css", "shell-media.js", "shell-theme.js")
 
 
+def render_page(template, manifest_text, chat, feed_out=None):
+    """index.html and version.json for this template, manifest, and frontend bytes."""
+    generated = json.loads(manifest_text)["generated"]
+    pre = template.replace("__MANIFEST__", manifest_text.replace("</", r"<\/")).replace("__BASE__", BASE)
+    h = hashlib.sha1(pre.encode("utf-8"))
+    for path in frontend_files(chat, feed_out):
+        h.update(open(path, "rb").read())
+    ver = h.hexdigest()[:12]
+    html = pre.replace("__VERSION__", ver)
+    vjson = json.dumps({"version": ver, "generated": generated}, separators=(",", ":"))
+    return html, vjson
+
+
 def frontend_files(chat, feed_out=None):
     """Every extra file that ends up in the site; also feeds the page version hash."""
     if feed_out is None:
@@ -257,16 +270,10 @@ def main():
         mjson = json.dumps(m, ensure_ascii=False, separators=(",", ":"))
         idxjson = json.dumps(index, ensure_ascii=False, separators=(",", ":"))
     tpl = open(os.path.join(HERE, "template.html"), encoding="utf-8").read()
-    html = tpl.replace("__MANIFEST__", mjson.replace("</", r"<\/")).replace("__BASE__", BASE)
-    h = hashlib.sha1(html.encode("utf-8"))
-    for f in frontend_files(chat, feed_out):  # page version must change when only CSS/modules change
-        h.update(open(f, "rb").read())
-    ver = h.hexdigest()[:12]
-    html = html.replace("__VERSION__", ver)
-    vjson = json.dumps({"version": ver, "generated": m["generated"]}, separators=(",", ":"))
+    html, vjson = render_page(tpl, mjson, chat, feed_out)
     write_tree(repo, html, mjson, vjson, idxjson, chat, feed_out, fonts)
     write_tree(os.path.join(HERE, "dist"), html, mjson, vjson, idxjson, chat, feed_out, fonts)
-    print("page version: %s" % ver)
+    print("page version: %s" % json.loads(vjson)["version"])
     print("files listed: %d (%.1f MB); index.json: %d; bucket CORS for Pages origin: %s" % (
         m["count"], m["total_size"] / 1048576, index["count"],
         "yes (pdf.js inline)" if m["cors"] else "no (native-viewer fallback)"))
