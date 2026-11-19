@@ -1,8 +1,8 @@
 # QBot App
 
-安卓 App「QBot」的 Expo 源码（SDK 58，React Native 0.88，React 19.3）。当前源码版本：1.0.6（versionCode 8）。已安装的上一版是 1.0.5（versionCode 7），包名仍是 `io.github.felixzhu.qiandrive`。升级必须用原来的签名。本仓库没有签名文件，也不提交 `EXPO_TOKEN`。
+安卓 App「QBot」的 Expo 源码（SDK 58，React Native 0.88，React 19.3）。当前源码版本：1.0.7（versionCode 9）。已安装的上一版是 1.0.5（versionCode 7），包名仍是 `io.github.felixzhu.qiandrive`。升级必须用原来的签名。本仓库没有签名文件，也不提交 `EXPO_TOKEN`。
 
-1.0.6 把底栏、返回、会话列表和聊天做成本地原生界面。聊天用官方 `@assistant-ui/react-native`，三条 Info / English / Study 仍是本地演示，没有接通真实助手。主动服务和知识库仍打开 `https://felixzhu.github.io/QBot/`，由原生壳隐藏网页自己的底栏，并把系统明暗传给页面。不要把网页端的 React 18 装进这个包。
+1.0.7 把底栏、返回、会话列表、聊天和主动服务信息流做成本地原生界面。聊天用官方 `@assistant-ui/react-native`，三条 Info / English / Study 仍是本地演示。主动服务是虚构卡片，图片用 `expo-image`，短片用 `expo-video`，离开屏幕会暂停。知识库仍打开 `https://felixzhu.github.io/QBot/`。不要把网页端的 React 18 装进这个包。
 
 ## 本地预览
 

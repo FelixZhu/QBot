@@ -17,9 +17,10 @@ import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-cont
 import { ChatEmpty, ChatList, ChatThread } from "./src/ChatPane";
 import { findDemo, type DemoId } from "./src/demos";
 import { isSplit, palette, resolveScheme } from "./src/theme";
-import { WebPane, type WebPaneHandle, type WebTab } from "./src/WebPane";
+import { FeedPane } from "./src/feed/FeedPane";
+import { WebPane, type WebPaneHandle } from "./src/WebPane";
 
-type Tab = "chat" | WebTab;
+type Tab = "chat" | "feed" | "kb";
 const EXIT_CONFIRM_MS = 2000;
 
 function Shell() {
@@ -30,6 +31,7 @@ function Shell() {
   const colors = palette[scheme];
   const dark = scheme === "dark";
   const webRef = useRef<WebPaneHandle>(null);
+  const feedBack = useRef<() => boolean>(() => false);
   const lastExit = useRef(0);
   const [tab, setTab] = useState<Tab>("chat");
   const [thread, setThread] = useState<DemoId | null>(null);
@@ -83,7 +85,8 @@ function Shell() {
         setThread(null);
         return true;
       }
-      if (tab !== "chat") {
+      if (tab === "feed" && feedBack.current()) return true;
+      if (tab === "kb") {
         webRef.current?.back();
         return true;
       }
@@ -93,10 +96,10 @@ function Shell() {
     return () => sub.remove();
   }, [tab, thread, exitOrHint]);
 
-  const openWeb = (next: WebTab) => {
+  const openKb = () => {
     setWebReady(true);
-    setTab(next);
-    webRef.current?.show(next);
+    setTab("kb");
+    webRef.current?.show("kb");
   };
 
   const showTabs = !(keyboard && tab === "chat");
@@ -107,6 +110,17 @@ function Shell() {
     <View style={{ flex: 1, backgroundColor: colors.canvas, paddingTop: insets.top }}>
       <StatusBar style={colors.status} />
       <View style={{ flex: 1, position: "relative", flexDirection: split && tab === "chat" ? "row" : "column" }}>
+        <View
+          pointerEvents={tab === "feed" ? "auto" : "none"}
+          style={tab === "feed" ? { flex: 1 } : { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, opacity: 0, zIndex: -1 }}
+        >
+          <FeedPane
+            colors={colors}
+            split={split}
+            active={tab === "feed"}
+            onBackReady={(back) => { feedBack.current = back; }}
+          />
+        </View>
         {showList ? (
           <View style={{ flex: split ? 0.42 : 1, minWidth: split ? 280 : undefined, borderRightWidth: split ? 1 : 0, borderRightColor: colors.line }}>
             <ChatList colors={colors} query={query} onQuery={setQuery} selected={thread} onOpen={setThread} />
@@ -124,8 +138,8 @@ function Shell() {
         {webReady ? (
           <WebPane
             ref={webRef}
-            visible={tab !== "chat"}
-            tab={tab === "chat" ? "feed" : tab}
+            visible={tab === "kb"}
+            tab="kb"
             dark={dark}
             backgroundColor={colors.canvas}
             onBackResult={onBackResult}
@@ -160,7 +174,8 @@ function Shell() {
                   if (id === "chat") {
                     webRef.current?.park();
                     setTab("chat");
-                  } else openWeb(id);
+                  } else if (id === "feed") setTab("feed");
+                  else openKb();
                 }}
                 style={({ pressed }) => ({
                   flex: 1,
