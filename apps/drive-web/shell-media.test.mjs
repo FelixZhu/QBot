@@ -54,8 +54,8 @@ test("template overlay matches the 390 / 840 shell widths", () => {
   assert.match(template, /\.qbs-overlay\{position:absolute;inset:0/);
   assert.match(template, /@media \(min-width:600px\)\{\s*\.qbs-overlay\{left:72px\}/);
   assert.match(template, /\.qbs-ov-bar\{[^}]*height:var\(--touch\)/);
-  assert.equal(appJson.expo.version, "1.0.5");
-  assert.equal(appJson.expo.android.versionCode, 7);
+  assert.equal(appJson.expo.version, "1.0.6");
+  assert.equal(appJson.expo.android.versionCode, 8);
   assert.equal(api.CAPABILITIES.requiresNewApk, true);
   assert.equal(api.CAPABILITIES.apk.versionCode, 7);
 });
