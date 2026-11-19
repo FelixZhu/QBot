@@ -319,8 +319,21 @@ html,body{height:100%;overflow:hidden;overscroll-behavior:none}
 <section class="qbs-panel" id="panel-feed" hidden><div id="tab-feed"><div class="qbs-empty"><svg viewBox="0 0 32 32" aria-hidden="true"><rect x="4" y="6.5" width="17" height="19" rx="6.5" fill="var(--text-1)"/><circle cx="25.5" cy="21.5" r="3.2" fill="var(--accent)"/></svg><b>主动服务即将上线</b><span>QBot 会在这里主动推送：AI 日报、每日英语、学习进度。</span></div></div></section>
 <script>
 /* Pick the starting tab before the drive script renders, so the drive never lays out hidden. */
-(function(){var t=null;try{t=sessionStorage.getItem("qbs_tab")}catch(e){}
-  if(t!=="chat"&&t!=="feed"&&t!=="kb")t=(window.__qbHash||"").indexOf("#/")===0?"kb":"chat";
+(function(){
+  /* Reload and the app's ?v= refresh are a new start: conversation list.
+     A shared #/file link without that reload query still opens 知识库. */
+  var hash=window.__qbHash||"";
+  var nav=null;try{nav=performance.getEntriesByType("navigation")[0]}catch(e){}
+  var fresh=!!(nav&&nav.type==="reload")||/(?:^|[?&])v=\d+/.test(location.search);
+  var deep=!fresh&&hash.indexOf("#/")===0&&hash!=="#/"&&hash.indexOf("#/~home")!==0;
+  if(fresh&&hash){
+    try{history.replaceState({qbot:"tab",tab:"chat"},"",location.pathname+location.search)}catch(e){}
+    hash="";
+    window.__qbHash="";
+  }
+  window.__qbDeepLink=deep;
+  var t=deep?"kb":"chat";
+  try{sessionStorage.setItem("qbs_tab",t)}catch(e){}
   window.__qbTab=t;
   ["chat","feed"].forEach(function(n){
     var p=document.getElementById("panel-"+n);p.hidden=n!==t;
@@ -751,10 +764,13 @@ document.addEventListener("visibilitychange",function(){if(document.visibilitySt
 checkVersion();
 
 /* ---------- boot ---------- */
-var initial=fromHash();
+var initial=window.__qbDeepLink?fromHash():null;
 if(initial)openItem(initial,{noHash:true});
-else if(S.active&&(S.active==="~home"||S.active.indexOf("dir:")===0||byKey[S.active]))openItem(S.active);
-else openItem("~home");
+else{
+  /* Keep qd2_active stored, but do not put that file back on the URL. */
+  S.active="~home";
+  renderTree();renderTabs();renderView();
+}
 armAway();
 })();
 </script>

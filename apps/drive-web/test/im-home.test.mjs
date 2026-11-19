@@ -6,15 +6,25 @@ const app = readFileSync(new URL("../../chat-web/src/App.tsx", import.meta.url),
 const css = readFileSync(new URL("../../chat-web/src/chat.css", import.meta.url), "utf8");
 const template = readFileSync(new URL("../template.html", import.meta.url), "utf8");
 
-test("the conversation home does not ship the design samples as data", () => {
-  for (const sample of ["健康助手", "英语陪练", "学习助手", "灵感助手", "资讯助手", "AI Infra", "出差 · 上海", "周五 14:00", "CONVERSATIONS", "initialMessages"]) {
+test("the conversation home shows three labeled demos and no private sample chats", () => {
+  for (const sample of ["健康助手", "英语陪练", "学习助手", "灵感助手", "资讯助手", "AI Infra", "出差 · 上海", "周五 14:00", "CONVERSATIONS", "initialMessages", "NextToken"]) {
     assert.equal(app.includes(sample), false, sample);
   }
-  assert.match(app, /还没有会话/);
+  for (const name of ["Info Bot", "English Bot", "Study Bot", "演示会话，没有接通"]) {
+    assert.match(app, new RegExp(name));
+  }
+  assert.match(app, /虚构示例/);
   assert.match(app, /搜索对话/);
-  assert.match(app, /打开 QBot/);
   assert.match(app, /qbs-in-chat/);
-  assert.match(app, /screen === "list"/);
+  assert.match(app, /screen !== "list"/);
+});
+
+test("reload and the app refresh query open the conversation list", () => {
+  assert.match(template, /__qbDeepLink/);
+  assert.match(template, /nav\.type==="reload"/);
+  assert.match(template, /v=\\d\+/);
+  assert.equal(template.includes('sessionStorage.getItem("qbs_tab")'), false);
+  assert.match(template, /S\.active="~home"/);
 });
 
 test("list, bubble, and composer sizes follow the approved spec", () => {

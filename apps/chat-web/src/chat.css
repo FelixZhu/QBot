@@ -54,6 +54,8 @@
 .qc-conv .n{flex:1;min-width:0;font-size:16px;line-height:22px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .qc-conv .m{font-size:14px;line-height:20px;color:var(--im-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .qc-conv .tm{flex:none;font-size:12px;line-height:16px;color:var(--im-muted)}
+.qc-demo{flex:none;margin-left:8px;font-size:12px;line-height:16px;color:var(--im-accent);font-weight:600}
+.qc-topbar .qc-demo{position:absolute;right:16px}
 .qc-empty{display:flex;flex-direction:column;align-items:center;text-align:center;gap:8px;padding:48px 16px 24px}
 .qc-empty b{font-size:16px;line-height:24px;font-weight:600}
 .qc-empty p{margin:0;max-width:280px;font-size:14px;line-height:22px;color:var(--im-muted)}
@@ -78,7 +80,7 @@
 .qc-row.queued .qc-bubble{opacity:.6}
 .qc-bot{display:flex;gap:8px;max-width:100%;align-items:flex-start}
 .qc-bot .av{width:24px;height:24px;flex:none;margin-top:2px}
-.qc-bot .body{flex:0 1 auto;max-width:78%;min-width:0;padding:12px;border-radius:16px 16px 16px 4px;background:#fff;border:1px solid var(--im-line)}
+.qc-bot .body{flex:0 1 auto;max-width:78%;min-width:0;padding:12px;border-radius:16px 16px 16px 4px;background:#fff;border:1px solid var(--im-line);white-space:pre-wrap}
 :root[data-theme="dark"] .qc-bot .body{background:var(--surface-raised)}
 .qc-ts{font-size:12px;line-height:18px;color:var(--im-muted);margin:4px 4px 16px 32px}
 .qc-ts.r{margin:4px 4px 16px 0}
@@ -110,6 +112,8 @@
 @media (prefers-reduced-motion:reduce){.qc-thinking .mark b,.qc-thinking .mark i,.qc-recbar .wave i{animation:none}}
 
 /* composer. The shell tab bar is hidden on this screen, so the bar keeps the safe-area inset. */
+.qc-suggest{display:flex;flex-wrap:wrap;gap:8px;padding:8px 16px 0}
+.qc-suggest button{min-height:32px;padding:0 10px;border:1px solid var(--im-line);border-radius:999px;font-size:12px;line-height:16px;color:var(--im-muted)}
 .qc-composer,
 form.qc-composer{
   flex:0 0 auto!important;height:auto!important;min-height:calc(56px + env(safe-area-inset-bottom))!important;max-height:none!important;
