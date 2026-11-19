@@ -119,7 +119,12 @@ def main() -> None:
         path = by_stem[name]
         mean = mean_luminance(path)
         print(f"{path}: mean={mean:.1f}")
-        if name.startswith("light-") and mean < LIGHT_MIN_MEAN:
+        if name.startswith("light-feed"):
+            # The six-lesson feed is dark on purpose, including in light mode.
+            if mean < 8:
+                print(f"FAIL {path} looks blank (mean {mean:.1f} < 8)")
+                failed = True
+        elif name.startswith("light-") and mean < LIGHT_MIN_MEAN:
             print(f"FAIL {path} looks black (mean {mean:.1f} < {LIGHT_MIN_MEAN})")
             failed = True
     if failed:

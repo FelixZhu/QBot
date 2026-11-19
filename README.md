@@ -41,7 +41,7 @@ git worktree add ../QBot-claude -b claude/主题 origin/main
 - 外观跟随系统的 `prefers-color-scheme`。导航里没有外观项。以前存下的浅色或深色选择不会再锁住页面。`<html data-theme>` 是解析后的 `light` 或 `dark`，`data-theme-mode` 保持 `auto`。
 - 安卓返回键调用网页里的 `qbotBack`。对话里先回到会话列表。网页处理不了时，壳提示「再滑一次退出」。这套壳行为写在已安装的包里，本轮没有用真机复验。
 
-安装包版本看 [`apps/qbot-app/app.json`](apps/qbot-app/app.json) 的 `expo.version` 和 `expo.android.versionCode`。写这份说明时是 `1.0.5` 和 `7`。`package.json` 的 `1.0.0` 不是安装包版本。[`eas.json`](apps/qbot-app/eas.json) 的 `appVersionSource` 是 `local`。包名是 `io.github.felixzhu.qiandrive`。网页改动刷新即可，不必为界面重打 APK。
+安装包版本看 [`apps/qbot-app/app.json`](apps/qbot-app/app.json) 的 `expo.version` 和 `expo.android.versionCode`。当前源码是 `1.0.8` 和 `10`。`package.json` 的 `1.0.0` 不是安装包版本。[`eas.json`](apps/qbot-app/eas.json) 的 `appVersionSource` 是 `local`。包名是 `io.github.felixzhu.qiandrive`。网页改动刷新即可；这次主动服务改在原生壳里，要新的安装包才能在手机上看到。
 
 还没有：真实对话后端、会话持久化、原生语音识别、通知、私密区解锁、应用商店包、iOS 构建。GitHub Actions 不打 APK。
 

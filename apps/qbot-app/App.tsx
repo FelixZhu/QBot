@@ -17,7 +17,7 @@ import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-cont
 import { ChatEmpty, ChatList, ChatThread } from "./src/ChatPane";
 import { findDemo, type DemoId } from "./src/demos";
 import { isSplit, palette, resolveScheme } from "./src/theme";
-import { FeedPane } from "./src/feed/FeedPane";
+import { LessonFeed } from "./src/feed/LessonFeed";
 import { WebPane, type WebPaneHandle } from "./src/WebPane";
 
 type Tab = "chat" | "feed" | "kb";
@@ -114,9 +114,7 @@ function Shell() {
           pointerEvents={tab === "feed" ? "auto" : "none"}
           style={tab === "feed" ? { flex: 1 } : { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, opacity: 0, zIndex: -1 }}
         >
-          <FeedPane
-            colors={colors}
-            split={split}
+          <LessonFeed
             active={tab === "feed"}
             onBackReady={(back) => { feedBack.current = back; }}
           />

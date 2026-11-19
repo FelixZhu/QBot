@@ -31,52 +31,53 @@ appId: io.github.felixzhu.qiandrive
     notVisible: "搜索对话"
     timeout: 20000
 - extendedWaitUntil:
-    visible: "家人 · 照片，寄来一小片周末，虚构演示"
+    visible: "追加进上下文"
     timeout: 20000
-- assertVisible: "设计演示"
+- assertVisible: "DAY 01 / 30"
 - takeScreenshot:
     path: light-feed-top
 - scrollUntilVisible:
-    element: "造物镜 · 阿禾创作，下一种购物体验，虚构演示"
+    element: "看讲义"
     direction: DOWN
     timeout: 40000
     speed: 40
-    visibilityPercentage: 80
+    visibilityPercentage: 60
     centerElement: true
-- assertNotVisible: "设计演示"
+- assertVisible: "同一模型，差距在 Harness"
+- assertNotVisible: "追加进上下文"
 - takeScreenshot:
     path: light-feed-scrolled-down
 - scrollUntilVisible:
-    element: "家人 · 照片，寄来一小片周末，虚构演示"
+    element: "追加进上下文"
     direction: UP
     timeout: 40000
     speed: 40
     visibilityPercentage: 40
-- assertVisible: "家人 · 照片，寄来一小片周末，虚构演示"
-- assertNotVisible: "人物与内容均为虚构 · 没有真实邀请"
+- assertVisible: "追加进上下文"
+- assertVisible: "DAY 01 / 30"
+- assertNotVisible: "看讲义"
 - takeScreenshot:
     path: light-feed-scrolled-up
 - scrollUntilVisible:
-    element: "造物镜 · 阿禾创作，下一种购物体验，虚构演示"
+    element: "看讲义"
     direction: DOWN
     timeout: 40000
     speed: 40
-    visibilityPercentage: 80
+    visibilityPercentage: 60
     centerElement: true
-- assertNotVisible: "设计演示"
-- tapOn: "造物镜 · 阿禾创作，下一种购物体验，虚构演示"
+- tapOn: "看讲义"
 - extendedWaitUntil:
-    visible: "返回信息流"
+    visible: "关闭讲义"
     timeout: 15000
-- assertVisible: "虚构图集。阿禾不是真实创作者。"
+- assertVisible: "30 秒小测 · 1 题"
 - takeScreenshot:
     path: light-feed-detail
-- tapOn: "返回信息流"
+- tapOn: "关闭讲义"
 - extendedWaitUntil:
-    notVisible: "返回信息流"
+    notVisible: "关闭讲义"
     timeout: 15000
-- assertVisible: "造物镜 · 阿禾创作，下一种购物体验，虚构演示"
-- assertNotVisible: "设计演示"
+- assertVisible: "看讲义"
+- assertNotVisible: "追加进上下文"
 - takeScreenshot:
     path: light-feed-restored
 

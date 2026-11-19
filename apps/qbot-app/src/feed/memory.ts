@@ -123,3 +123,67 @@ export async function writeFeedMemory(store: FeedStore, memory: FeedMemory, know
 export function enqueueFeedWrite(previous: Promise<void>, write: () => Promise<void>): Promise<void> {
   return previous.catch(() => undefined).then(write).catch(() => undefined);
 }
+
+/** Lesson likes, stars, and check-ins. Same device store as the card memory, separate key. */
+export const LESSON_REACT_KEY = "qbot.lesson.react.v1";
+
+export type ReactKind = "like" | "star" | "check";
+
+export type LessonReactions = Record<ReactKind, string[]>;
+
+export const EMPTY_REACTIONS: LessonReactions = { like: [], star: [], check: [] };
+
+const REACT_KINDS: ReactKind[] = ["like", "star", "check"];
+
+export function parseReactions(raw: unknown): LessonReactions {
+  let value = raw;
+  if (typeof raw === "string") {
+    try {
+      value = JSON.parse(raw);
+    } catch {
+      return EMPTY_REACTIONS;
+    }
+  }
+  if (!value || typeof value !== "object" || Array.isArray(value)) return EMPTY_REACTIONS;
+  const record = value as Record<string, unknown>;
+  return {
+    like: idList(record.like),
+    star: idList(record.star),
+    check: idList(record.check),
+  };
+}
+
+export function retainReactions(reactions: LessonReactions, knownIds: readonly string[]): LessonReactions {
+  const known = new Set(knownIds);
+  const keep = (ids: readonly string[]) => uniqueIds(ids).filter((id) => known.has(id));
+  return {
+    like: keep(reactions.like),
+    star: keep(reactions.star),
+    check: keep(reactions.check),
+  };
+}
+
+export function toggleReaction(reactions: LessonReactions, kind: ReactKind, id: string): LessonReactions {
+  if (id.length === 0 || !REACT_KINDS.includes(kind)) return reactions;
+  const list = reactions[kind];
+  const next = list.includes(id) ? list.filter((item) => item !== id) : [...list, id];
+  if (next.length === list.length && next.every((item, index) => item === list[index])) return reactions;
+  return { ...reactions, [kind]: next };
+}
+
+export function serializeReactions(reactions: LessonReactions, knownIds: readonly string[]): string {
+  return JSON.stringify(retainReactions(reactions, knownIds));
+}
+
+export async function readReactions(store: FeedStore, knownIds: readonly string[]): Promise<LessonReactions> {
+  try {
+    const raw = await store.getItem(LESSON_REACT_KEY);
+    return retainReactions(parseReactions(raw), knownIds);
+  } catch {
+    return EMPTY_REACTIONS;
+  }
+}
+
+export async function writeReactions(store: FeedStore, reactions: LessonReactions, knownIds: readonly string[]): Promise<void> {
+  await store.setItem(LESSON_REACT_KEY, serializeReactions(reactions, knownIds));
+}
