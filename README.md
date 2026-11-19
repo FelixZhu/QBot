@@ -106,12 +106,12 @@ node apps/drive-web/shell-contract.test.mjs
 node apps/drive-web/im-thread.browser.mjs
 ```
 
-一次构建、不发布。对话源码已经和 `apps/drive-web/pins/chat-web.sha256` 不一致（`App.tsx`、`chat.css`、`icons.tsx`），所以这次构建会本地 `npm run build`，其余钉死输入仍从 QBot Pages 下载：
+一次构建、不发布：
 
 ```bash
 python3 apps/drive-web/build_pinned.py --repo /tmp/qbot-site
 ```
 
-`--strict` 仍会按 [`apps/drive-web/pins/live-qbot.sha256`](apps/drive-web/pins/live-qbot.sha256) 把线上文件逐个核对，对不上就退出 `borrowed file hash mismatch`。#12 的 Pages 部署已经成功，部署之后线上的 `chat/chat.css`、`chat/chat.js`、`index.html`、`version.json`、`shell-theme.js` 和这份 pin 不再相同。这是既存失败，与本次文档无关，本 PR 不改 pin。已发布的站点可以继续打开试用。
+对话源码已经和 `apps/drive-web/pins/chat-web.sha256` 不一致（`App.tsx`、`chat.css`、`icons.tsx`）。#12 的 Pages 部署已经成功，部署之后线上的 `chat/chat.css` 也不再等于 [`apps/drive-web/pins/inputs.sha256`](apps/drive-web/pins/inputs.sha256) 里的哈希。上面这条命令现在会在下载 `chat/chat.css` 时退出 `pin mismatch`，`--strict` 还没开始。同一份 [`live-qbot.sha256`](apps/drive-web/pins/live-qbot.sha256) 里，`chat/chat.js`、`index.html`、`version.json`、`shell-theme.js` 也和线上不同。这是既存失败，与本次文档无关，本 PR 不改 pin。已发布的站点可以继续打开试用。看对话界面用上面的 `npm run dev`。
 
 发布只走 [`.github/workflows/pages.yml`](.github/workflows/pages.yml)：推到 `main` 或手动跑 workflow `pages`，用 `build_pinned.py --strict` 构建，再 `deploy-pages`。构建结果不提交回 git。不要用 `refresh_site.py --push`。不带 `--repo` 时它写到 `/workspace/qian-drive-repo`。`build_pinned.py` 会传入 `--repo`，并且自己拒绝 `--push`。
