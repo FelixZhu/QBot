@@ -5,11 +5,26 @@ import {
   Text,
   View,
 } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Image } from "expo-image";
 import { useVideoPlayer, VideoView } from "expo-video";
 import type { Palette } from "../theme";
 import { FEED } from "./cards";
+import {
+  EMPTY_FEED_MEMORY,
+  arrangeFeed,
+  dismissCard,
+  enqueueFeedWrite,
+  readFeedMemory,
+  rememberInterest,
+  rememberRead,
+  undoDismiss,
+  writeFeedMemory,
+  type FeedMemory,
+} from "./memory";
 import type { FeedCard, FrameId } from "./model";
+
+const FEED_IDS = FEED.map((card) => card.id);
 
 const FRAMES: Record<FrameId, number> = {
   meadow: require("../../assets/feed/meadow.png"),
@@ -75,13 +90,13 @@ function Film({ active, height }: { active: boolean; height: number }) {
   );
 }
 
-function CardFace({ card, colors, active, onOpen }: { card: FeedCard; colors: Palette; active: boolean; onOpen: () => void }) {
+function CardFace({ card, colors, active, read, onOpen }: { card: FeedCard; colors: Palette; active: boolean; read: boolean; onOpen: () => void }) {
   const dark = card.type === "invite";
   return (
     <Pressable
       onPress={onOpen}
       accessibilityRole="button"
-      accessibilityLabel={`${card.source.name}，${card.title}，虚构演示`}
+      accessibilityLabel={`${card.source.name}，${card.title}，虚构演示${read ? "，已读" : ""}`}
       style={({ pressed }) => ({
         marginHorizontal: 16,
         marginBottom: 16,
@@ -98,6 +113,7 @@ function CardFace({ card, colors, active, onOpen }: { card: FeedCard; colors: Pa
         <Text style={{ flex: 1, color: dark ? "#FAF9F6" : colors.text, fontSize: 13 }} numberOfLines={1}>
           {card.source.name} · {card.kicker}
         </Text>
+        {read ? <Text style={{ color: dark ? "#C8C2B8" : colors.muted, fontSize: 12 }}>已读</Text> : null}
         <Text style={{ color: colors.accent, fontSize: 12, fontWeight: "700" }}>演示</Text>
       </View>
       {card.type === "gallery" ? <View style={{ marginTop: 10 }}><Gallery frames={card.frames} height={190} /></View> : null}
@@ -186,14 +202,31 @@ export function FeedPane({
   onBackReady: (back: () => boolean) => void;
 }) {
   const [selected, setSelected] = useState<string | null>(null);
-  const [hidden, setHidden] = useState<string[]>([]);
-  const [interest, setInterest] = useState<string[]>([]);
+  const [memory, setMemory] = useState<FeedMemory>(EMPTY_FEED_MEMORY);
+  const [hydrated, setHydrated] = useState(false);
   const [visible, setVisible] = useState<string[]>([]);
+  const writes = useRef<Promise<void>>(Promise.resolve());
   const onViewable = useRef(({ viewableItems }: { viewableItems: { key: string }[] }) => {
     setVisible(viewableItems.map((item) => String(item.key)));
   });
-  const cards = FEED.filter((card) => !hidden.includes(card.id));
+  const cards = hydrated ? arrangeFeed(FEED, memory) : [];
   const current = cards.find((card) => card.id === selected) ?? null;
+
+  useEffect(() => {
+    let alive = true;
+    readFeedMemory(AsyncStorage, FEED_IDS).then((next) => {
+      if (!alive) return;
+      setMemory(next);
+      setHydrated(true);
+    });
+    return () => { alive = false; };
+  }, []);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    const snapshot = memory;
+    writes.current = enqueueFeedWrite(writes.current, () => writeFeedMemory(AsyncStorage, snapshot, FEED_IDS));
+  }, [hydrated, memory]);
 
   const back = useCallback(() => {
     if (!selected) return false;
@@ -220,11 +253,30 @@ export function FeedPane({
           </View>
           <Text style={{ marginTop: 18, fontSize: 14, color: colors.muted }}>由 Agent 为你连接</Text>
           <Text style={{ marginTop: 6, fontSize: 34, lineHeight: 42, fontWeight: "700", color: colors.accent }}>世界很大，{"\n"}与你有关</Text>
+          {memory.dismissed.length > 0 ? (
+            <Pressable
+              onPress={() => setMemory((prev) => undoDismiss(prev))}
+              accessibilityRole="button"
+              accessibilityLabel="撤销不感兴趣"
+              style={({ pressed }) => ({ alignSelf: "flex-start", marginTop: 12, minHeight: 44, justifyContent: "center", opacity: pressed ? 0.6 : 1 })}
+            >
+              <Text style={{ color: colors.muted, fontSize: 13 }}>已收起 {memory.dismissed.length} 条不感兴趣 · 撤销</Text>
+            </Pressable>
+          ) : null}
         </View>
       }
       ListFooterComponent={<Text style={{ textAlign: "center", color: colors.muted, fontSize: 12, padding: 16 }}>人物与内容均为虚构 · 没有真实邀请</Text>}
       renderItem={({ item }) => (
-        <CardFace card={item} colors={colors} active={active && visible.includes(item.id) && (!selected || split)} onOpen={() => setSelected(item.id)} />
+        <CardFace
+          card={item}
+          colors={colors}
+          active={active && visible.includes(item.id) && (!selected || split)}
+          read={memory.read.includes(item.id)}
+          onOpen={() => {
+            setSelected(item.id);
+            setMemory((prev) => rememberRead(prev, item.id));
+          }}
+        />
       )}
     />
   );
@@ -234,9 +286,12 @@ export function FeedPane({
       card={current}
       colors={colors}
       onClose={() => setSelected(null)}
-      interested={interest.includes(current.id)}
-      onInterest={() => setInterest((prev) => prev.includes(current.id) ? prev : [...prev, current.id])}
-      onDismiss={() => { setHidden((prev) => [...prev, current.id]); setSelected(null); }}
+      interested={memory.interest.includes(current.id)}
+      onInterest={() => setMemory((prev) => rememberInterest(prev, current.id))}
+      onDismiss={() => {
+        setMemory((prev) => dismissCard(prev, current.id));
+        setSelected(null);
+      }}
     />
   ) : (
     <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: 24 }}>
