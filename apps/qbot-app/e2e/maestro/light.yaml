@@ -116,21 +116,21 @@ appId: io.github.felixzhu.qiandrive
     end: "50%,30%"
     duration: 600
 - extendedWaitUntil:
-    visible: "硬约束"
+    visible: "DAY 04 / 30"
     timeout: 8000
 - swipe:
     start: "50%,75%"
     end: "50%,30%"
     duration: 600
 - extendedWaitUntil:
-    visible: "五个模式"
+    visible: "DAY 05 / 30"
     timeout: 8000
 - swipe:
     start: "50%,75%"
     end: "50%,30%"
     duration: 600
 - extendedWaitUntil:
-    visible: "消息列表"
+    visible: "DAY 06 / 30"
     timeout: 8000
 - swipe:
     start: "50%,75%"
