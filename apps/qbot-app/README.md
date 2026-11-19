@@ -2,7 +2,7 @@
 
 安卓 App「QBot」的 Expo 源码（SDK 58，React Native 0.88，React 19.3）。当前源码版本：1.0.9（versionCode 11）。已安装的上一版是 1.0.5（versionCode 7），包名仍是 `io.github.felixzhu.qiandrive`。升级必须用原来的签名。本仓库没有签名文件，也不提交 `EXPO_TOKEN`。
 
-1.0.9 的主动服务是六课全屏卡片。底部只有头像、Study Bot 和「关注」，没有右侧按钮，也没有课名。轻点卡片，卡片放大成沉浸页：第 1 课可以看图文、演示视频和本地小游戏，其他课按自己的内容打开。返回或系统返回键缩回原来那张卡。下滑一次只翻一张。问 AI 标「模拟」，视频标「演示」，都不接后端。底栏是图标在上、文字在下。聊天仍走本地传输。知识库仍打开 `https://felixzhu.github.io/QBot/`。不要把网页端的 React 18 装进这个包。界面只用系统字体，不提交字体文件。
+1.0.9 的主动服务先是六课全屏卡片，后面再接 Info、English、Study 三个静态样例账号。底部只有头像、Study Bot 和「关注」，没有右侧按钮，也没有课名。轻点卡片，卡片放大成沉浸页：第 1 课可以看图文、演示视频和本地小游戏，其他课按自己的内容打开。返回或系统返回键缩回原来那张卡。下滑一次只翻一张。问 AI 标「模拟」，视频标「演示」，都不接后端。底栏是图标在上、文字在下。聊天仍走本地传输。知识库仍打开 `https://felixzhu.github.io/QBot/`。不要把网页端的 React 18 装进这个包。界面只用系统字体，不提交字体文件。
 
 同一 `expo.version` 的界面改动不用重装。`runtimeVersion` 用 `appVersion`（就是 `expo.version`），preview 构建的 channel 是 `preview`。装过带 expo-updates 的 1.0.9 包之后，在盒子上发布 JS 更新：
 

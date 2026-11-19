@@ -96,6 +96,127 @@ appId: io.github.felixzhu.qiandrive
 - takeScreenshot:
     path: light-feed-restored
 
+# 六课后面接着三张样例。每次只翻一张。
+- swipe:
+    start: "50%,75%"
+    end: "50%,30%"
+    duration: 600
+- extendedWaitUntil:
+    visible: "同一模型，差距在 Harness"
+    timeout: 8000
+- swipe:
+    start: "50%,75%"
+    end: "50%,30%"
+    duration: 600
+- extendedWaitUntil:
+    visible: "通用工具探索，专用工具守底线"
+    timeout: 8000
+- swipe:
+    start: "50%,75%"
+    end: "50%,30%"
+    duration: 600
+- extendedWaitUntil:
+    visible: "DAY 04 / 30"
+    timeout: 8000
+- swipe:
+    start: "50%,75%"
+    end: "50%,30%"
+    duration: 600
+- extendedWaitUntil:
+    visible: "DAY 05 / 30"
+    timeout: 8000
+- swipe:
+    start: "50%,75%"
+    end: "50%,30%"
+    duration: 600
+- extendedWaitUntil:
+    visible: "DAY 06 / 30"
+    timeout: 8000
+- swipe:
+    start: "50%,75%"
+    end: "50%,30%"
+    duration: 600
+- extendedWaitUntil:
+    visible: "Info Bot 样例封面"
+    timeout: 8000
+- assertVisible: "样例"
+- takeScreenshot:
+    path: light-feed-demo-info
+- tapOn: "Info Bot 样例封面"
+- extendedWaitUntil:
+    visible: "今日三条信号"
+    timeout: 8000
+- assertVisible: "模拟"
+- takeScreenshot:
+    path: light-feed-demo-info-open
+- tapOn: "Info Bot 账号"
+- extendedWaitUntil:
+    visible: "连续出刊"
+    timeout: 8000
+- assertNotVisible: "粉丝"
+- takeScreenshot:
+    path: light-feed-demo-info-account
+- tapOn: "返回上一页"
+- extendedWaitUntil:
+    visible: "今日三条信号"
+    timeout: 8000
+- tapOn: "返回封面"
+- extendedWaitUntil:
+    visible: "Info Bot 样例封面"
+    timeout: 8000
+- swipe:
+    start: "50%,75%"
+    end: "50%,30%"
+    duration: 600
+- extendedWaitUntil:
+    visible: "English Bot 样例封面"
+    timeout: 8000
+- takeScreenshot:
+    path: light-feed-demo-english
+- tapOn: "English Bot 样例封面"
+- extendedWaitUntil:
+    visible: "别搞混"
+    timeout: 8000
+- assertVisible: "模拟"
+- takeScreenshot:
+    path: light-feed-demo-english-open
+- tapOn: "English Bot 账号"
+- extendedWaitUntil:
+    visible: "今日音频"
+    timeout: 8000
+- takeScreenshot:
+    path: light-feed-demo-english-account
+- tapOn: "返回上一页"
+- tapOn: "返回封面"
+- extendedWaitUntil:
+    visible: "English Bot 样例封面"
+    timeout: 8000
+- swipe:
+    start: "50%,75%"
+    end: "50%,30%"
+    duration: 600
+- extendedWaitUntil:
+    visible: "Study Bot 样例封面"
+    timeout: 8000
+- takeScreenshot:
+    path: light-feed-demo-study
+- tapOn: "Study Bot 样例封面"
+- extendedWaitUntil:
+    visible: "手算锚点 · N = 8B"
+    timeout: 8000
+- assertVisible: "演示"
+- assertVisible: "模拟"
+- takeScreenshot:
+    path: light-feed-demo-study-open
+- tapOn: "Study Bot 账号"
+- extendedWaitUntil:
+    visible: "Agent 已学完"
+    timeout: 8000
+- takeScreenshot:
+    path: light-feed-demo-study-account
+- tapOn: "返回上一页"
+- tapOn: "返回封面"
+
 - tapOn:
     point: "83%,93%"
     retryTapIfNoChange: true
