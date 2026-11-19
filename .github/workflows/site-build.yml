@@ -52,6 +52,9 @@ jobs:
       - name: Local conversation thread proof
         run: node apps/drive-web/im-thread.browser.mjs
 
+      - name: Home defaults to chat after refresh
+        run: node apps/drive-web/im-home-boot.browser.mjs
+
       - name: Source commit excludes fonts, generated feed output, and test clips
         run: |
           python3 - << 'PY'
