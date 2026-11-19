@@ -254,27 +254,89 @@ function listTime(d?: Date) {
   return `${d.getMonth() + 1}月${d.getDate()}日`;
 }
 
-function listedFrom(messages: readonly ThreadMessageLike[]): Listed | null {
-  for (let i = messages.length - 1; i >= 0; i--) {
-    const preview = plain(textOf(messages[i]));
-    if (!preview) continue;
-    return { preview, time: listTime(messages[i].createdAt) };
+type DemoId = "info" | "english" | "study";
+type DemoLine = { role: "user" | "assistant"; text: string };
+type Demo = {
+  id: DemoId;
+  name: string;
+  preview: string;
+  note: string;
+  messages: DemoLine[];
+  suggestions: string[];
+};
+
+/* Scripted demos. Not Qian's chats, not live bots, and not real news. */
+const DEMOS: Demo[] = [
+  {
+    id: "info",
+    name: "Info Bot",
+    preview: "演示：虚构简报，不是实时新闻",
+    note: "演示会话，没有接通 Info Bot。下面是虚构示例，不是新闻、引用、日期或价格。",
+    messages: [
+      { role: "user", text: "演示：给我看一条资讯简报" },
+      { role: "assistant", text: "演示回复：这是虚构示例。\n\n1. 示例小镇把周末市集延长到傍晚。\n2. 示例图书馆增加了一个晚间阅览室。\n3. 示例出版社出了一本讲笔记方法的小书。\n\n没有来源，也没有价格。" },
+    ],
+    suggestions: ["演示：再给一条更短的简报", "演示：把第二条改成一句话"],
+  },
+  {
+    id: "english",
+    name: "English Bot",
+    preview: "演示：工作邮件句子可以更自然",
+    note: "演示会话，没有接通 English Bot。用来练习工作英语，不是你的真实邮件。",
+    messages: [
+      { role: "user", text: "演示：请改这句工作邮件：I am write to follow up the file." },
+      { role: "assistant", text: "演示回复：这句可以更自然。\n\n改写：I am writing to follow up on the file.\n\n更礼貌：Could you let me know if you had a chance to review the file?" },
+    ],
+    suggestions: ["演示：Send me the file now 这样说礼貌吗", "演示：再给一个更正式的开头"],
+  },
+  {
+    id: "study",
+    name: "Study Bot",
+    preview: "演示：用一句话说明 AI Agent",
+    note: "演示会话，没有接通 Study Bot。只讲概念，不读取资料或私人记录。",
+    messages: [
+      { role: "user", text: "演示：用一句话说明 AI Agent" },
+      { role: "assistant", text: "演示回复：AI Agent 是能按一个目标自己拆步骤、使用工具，并检查结果的程序。普通问答只回答一句，Agent 会继续把事情做完。" },
+    ],
+    suggestions: ["演示：Agent 和聊天机器人有什么差别", "演示：用生活例子说明工具调用"],
+  },
+];
+
+function localReply(id: DemoId, text: string) {
+  if (id === "info") {
+    return text.includes("一句话")
+      ? "演示回复：示例图书馆今晚多开一间阅览室。虚构示例，没有接通 Info Bot。"
+      : "演示回复：再补一条虚构简报：示例小镇的周末市集增加了手作摊位。不是实时新闻，没有价格。";
   }
-  return null;
+  if (id === "english") {
+    return text.toLowerCase().includes("send me")
+      ? "演示回复：Send me the file now 偏生硬。更礼貌：Could you send me the file when you have a moment?"
+      : "演示回复：更正式的开头可以是：I hope you are well. I am writing to follow up on our last note.";
+  }
+  return text.includes("差别")
+    ? "演示回复：聊天机器人停在一句回答。Agent 会自己选择下一步，并使用工具完成目标。这是概念示例。"
+    : "演示回复：生活例子：你说“订一张去示例城的票”，Agent 会查时刻、比较方案，再把结果交给你确认。没有接通 Study Bot。";
 }
 
-function Home({ onOpen }: { onOpen: () => void }) {
-  const messages = useAuiState((s) => s.thread.messages);
+function Home({
+  threads,
+  onOpen,
+}: {
+  threads: Record<DemoId, DemoLine[]>;
+  onOpen: (id: DemoId) => void;
+}) {
   const [query, setQuery] = useState("");
-  const listed = listedFrom(messages);
   const q = query.trim().toLowerCase();
-  const matched = !!listed && (!q || "qbot".includes(q) || listed.preview.toLowerCase().includes(q));
+  const rows = DEMOS.filter((demo) => {
+    const last = threads[demo.id][threads[demo.id].length - 1]?.text || demo.preview;
+    return !q || demo.name.toLowerCase().includes(q) || last.toLowerCase().includes(q) || demo.preview.toLowerCase().includes(q);
+  });
   return (
     <div className="qc">
       <header className="qc-homebar">
         <div>
           <h1>对话</h1>
-          <p>QBot</p>
+          <p>演示</p>
         </div>
       </header>
       <label className="qc-search">
@@ -292,27 +354,24 @@ function Home({ onOpen }: { onOpen: () => void }) {
         />
       </label>
       <div className="qc-list" aria-label="会话列表">
-        {matched && listed ? (
-          <button type="button" className="qc-conv" onClick={onOpen}>
-            <span className="av"><BrandMark /></span>
-            <span className="t">
-              <span className="top">
-                <span className="n">QBot</span>
-                {listed.time ? <span className="tm">{listed.time}</span> : null}
+        {rows.length ? rows.map((demo) => {
+          const last = threads[demo.id][threads[demo.id].length - 1];
+          return (
+            <button type="button" key={demo.id} className="qc-conv" onClick={() => onOpen(demo.id)}>
+              <span className="av"><BrandMark /></span>
+              <span className="t">
+                <span className="top">
+                  <span className="n">{demo.name}</span>
+                  <span className="qc-demo">演示</span>
+                </span>
+                <span className="m">{plain(last?.text || demo.preview)}</span>
               </span>
-              <span className="m">{listed.preview}</span>
-            </span>
-          </button>
-        ) : q ? (
+            </button>
+          );
+        }) : (
           <div className="qc-empty" role="status">
             <b>没有匹配的会话</b>
             <p>换个词，或清空搜索。</p>
-          </div>
-        ) : (
-          <div className="qc-empty" role="status">
-            <b>还没有会话</b>
-            <p>这里只列出已经发生的对话。现在没有消息，也不会放上示例助手。</p>
-            <button type="button" className="qc-open" onClick={onOpen}>打开 QBot</button>
           </div>
         )}
       </div>
@@ -320,56 +379,89 @@ function Home({ onOpen }: { onOpen: () => void }) {
   );
 }
 
-function ThreadScreen({ onBack }: { onBack: () => void }) {
-  const { msg, show } = useToast();
-  const [scrolled, setScrolled] = useState(false);
-  const count = useAuiState((s) => s.thread.messages.length);
+function DemoThread({
+  demo,
+  lines,
+  onBack,
+  onSend,
+}: {
+  demo: Demo;
+  lines: DemoLine[];
+  onBack: () => void;
+  onSend: (text: string) => void;
+}) {
+  const [text, setText] = useState("");
+  const send = (value: string) => {
+    const next = value.trim();
+    if (!next) return;
+    onSend(next);
+    setText("");
+  };
   return (
     <main className="qc">
-      <header className={"qc-topbar" + (scrolled ? " is-scrolled" : "")}>
+      <header className="qc-topbar">
         <button type="button" className="qc-back" aria-label="返回会话列表" onClick={onBack}>
           <IconBack />
         </button>
-        <span className="title">QBot</span>
+        <span className="title">{demo.name}</span>
+        <span className="qc-demo">演示</span>
       </header>
-      <ThreadPrimitive.Root className="qc-thread">
-        <ThreadPrimitive.Viewport className="qc-viewport"
-          onScroll={(e) => setScrolled((e.currentTarget as HTMLDivElement).scrollTop > 4)}>
+      <div className="qc-thread">
+        <div className="qc-viewport">
           <div className="qc-msgs">
-            <p className="qc-note">回复是本地模拟，没有接通外部助手。</p>
-            {count === 0 && <p className="qc-emptyline">还没有消息。</p>}
-            <ThreadPrimitive.Messages>
-              {({ message }) => (message.role === "user" ? <UserMessage /> : <AssistantMessage />)}
-            </ThreadPrimitive.Messages>
-            <Queued />
+            <p className="qc-note">{demo.note}</p>
+            {lines.map((line, i) => line.role === "user" ? (
+              <div className="qc-row me" key={i}>
+                <div className="qc-bubble">{line.text}</div>
+              </div>
+            ) : (
+              <div className="qc-row bot" key={i}>
+                <div className="qc-bot">
+                  <BrandMark className="av" />
+                  <div className="body">{line.text}</div>
+                </div>
+              </div>
+            ))}
           </div>
-        </ThreadPrimitive.Viewport>
-        <Composer toast={show} />
-      </ThreadPrimitive.Root>
-      {msg && <div className="qc-toast" role="status">{msg}</div>}
+        </div>
+        <div className="qc-suggest">
+          {demo.suggestions.map((item) => (
+            <button type="button" key={item} onClick={() => send(item)}>{item}</button>
+          ))}
+        </div>
+        <form className="qc-composer kb" onSubmit={(e) => { e.preventDefault(); send(text); }}>
+          <textarea className="qc-field" rows={1} value={text} placeholder="发消息…"
+            aria-label="发消息" onChange={(e) => setText(e.target.value)} />
+          <button type="submit" className="qc-send" aria-label="发送" disabled={!text.trim()}>
+            <IconSend />
+          </button>
+        </form>
+      </div>
     </main>
   );
 }
 
 /* ---------- root ---------- */
 export function ChatApp() {
-  const backend = useMemo(() => new MockBackend(initialMode(), fixedDelay), []);
-  const backendRef = useRef<ChatBackend>(backend);
-  const adapter = useMemo(() => toModelAdapter(() => backendRef.current), []);
-  const runtime = useLocalRuntime(adapter, { unstable_enableMessageQueue: true });
-  const [screen, setScreen] = useState<"list" | "thread">("list");
+  const [screen, setScreen] = useState<"list" | DemoId>("list");
+  const [threads, setThreads] = useState<Record<DemoId, DemoLine[]>>(() => ({
+    info: DEMOS[0].messages,
+    english: DEMOS[1].messages,
+    study: DEMOS[2].messages,
+  }));
+  const open = DEMOS.find((demo) => demo.id === screen) || null;
 
   useLayoutEffect(() => {
     const root = document.getElementById("qbs");
     if (!root) return;
-    root.classList.toggle("qbs-in-chat", screen === "thread");
+    root.classList.toggle("qbs-in-chat", screen !== "list");
     return () => root.classList.remove("qbs-in-chat");
   }, [screen]);
 
   useEffect(() => {
     window.qbotChat = {
       back: () => {
-        if (screen === "thread") {
+        if (screen !== "list") {
           setScreen("list");
           return true;
         }
@@ -378,10 +470,21 @@ export function ChatApp() {
     };
   }, [screen]);
 
+  const send = (id: DemoId, text: string) => {
+    setThreads((prev) => ({
+      ...prev,
+      [id]: [...prev[id], { role: "user", text }, { role: "assistant", text: localReply(id, text) }],
+    }));
+  };
+
+  if (!open) return <Home threads={threads} onOpen={setScreen} />;
   return (
-    <AssistantRuntimeProvider runtime={runtime}>
-      {screen === "list" ? <Home onOpen={() => setScreen("thread")} /> : <ThreadScreen onBack={() => setScreen("list")} />}
-    </AssistantRuntimeProvider>
+    <DemoThread
+      demo={open}
+      lines={threads[open.id]}
+      onBack={() => setScreen("list")}
+      onSend={(text) => send(open.id, text)}
+    />
   );
 }
 

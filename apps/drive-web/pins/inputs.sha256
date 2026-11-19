@@ -1,9 +1,8 @@
 # Public inputs fetched from https://felixzhu.github.io/QBot/.
 # SHA256 rechecked there on 2026-11-18. The bytes match the previous pin.
-# Fonts, feed media, the chat bundle, manifest.json, and index.json are not in this repo.
+# Fonts, feed media, manifest.json, and index.json are not in this repo.
+# chat/chat.js and chat/chat.css are built from apps/chat-web. They are not borrowed.
 # qian-drive is not contacted.
-5849a846cda866f27495296ab4c32dceae2aa43559f41ff9bac44b9f6a76d8ee  chat/chat.css
-f9355c72bb462616df1af75a214d55c16f6c83640bc72991487fa235a387ba23  chat/chat.js
 37bf3eb3aa5a4367bf0c8da759c7f447965789a843e419735c7100d3aa5b4772  fonts/msyh-subset.woff2
 d4cc1dccbd5c6414e4119d97675fdcde9fc025e9a70a28ff32864c0f712e1b96  fonts/msyhbd-subset.woff2
 930d722657ee4f0ab7daae37eb15c16aee5734617b50fcfcb3517dc722b69880  index.json
