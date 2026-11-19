@@ -20,8 +20,7 @@ appId: io.github.felixzhu.qiandrive
 - extendedWaitUntil:
     visible: "返回会话列表"
     timeout: 20000
-- assertVisible: "演示会话，没有接通 Info Bot"
-- assertVisible: "虚构示例，不是新闻"
+- assertVisible: "演示会话，没有接通 Info Bot。下面是虚构示例，不是新闻、引用、日期或价格。"
 - takeScreenshot:
     path: light-demo-thread
 - tapOn: "返回会话列表"
@@ -41,7 +40,7 @@ appId: io.github.felixzhu.qiandrive
 - extendedWaitUntil:
     visible: "家人 · 照片，寄来一小片周末，虚构演示"
     timeout: 20000
-- assertVisible: "与你有关"
+- assertVisible: "设计演示"
 - takeScreenshot:
     path: light-feed-top
 - scrollUntilVisible:
@@ -51,7 +50,7 @@ appId: io.github.felixzhu.qiandrive
     speed: 40
     visibilityPercentage: 80
     centerElement: true
-- assertNotVisible: "与你有关"
+- assertNotVisible: "设计演示"
 - takeScreenshot:
     path: light-feed-scrolled-down
 - scrollUntilVisible:
@@ -60,7 +59,7 @@ appId: io.github.felixzhu.qiandrive
     timeout: 40000
     speed: 40
     visibilityPercentage: 80
-- assertVisible: "与你有关"
+- assertVisible: "设计演示"
 - takeScreenshot:
     path: light-feed-scrolled-up
 - scrollUntilVisible:
@@ -70,7 +69,7 @@ appId: io.github.felixzhu.qiandrive
     speed: 40
     visibilityPercentage: 80
     centerElement: true
-- assertNotVisible: "与你有关"
+- assertNotVisible: "设计演示"
 - tapOn: "造物镜 · 阿禾创作，下一种购物体验，虚构演示"
 - extendedWaitUntil:
     visible: "返回信息流"
@@ -83,7 +82,7 @@ appId: io.github.felixzhu.qiandrive
     notVisible: "返回信息流"
     timeout: 15000
 - assertVisible: "造物镜 · 阿禾创作，下一种购物体验，虚构演示"
-- assertNotVisible: "与你有关"
+- assertNotVisible: "设计演示"
 - takeScreenshot:
     path: light-feed-restored
 
