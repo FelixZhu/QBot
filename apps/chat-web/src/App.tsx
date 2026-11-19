@@ -11,11 +11,11 @@ import {
 } from "@assistant-ui/react";
 import { MarkdownTextPrimitive } from "@assistant-ui/react-markdown";
 import remarkGfm from "remark-gfm";
-import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as RPointerEvent, type KeyboardEvent as RKeyboardEvent } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as RPointerEvent, type KeyboardEvent as RKeyboardEvent } from "react";
 import { toModelAdapter, type ChatBackend } from "./backend";
 import { MockBackend, type MockMode } from "./mock";
 import { webSpeechVoice, type VoiceSession } from "./voice";
-import { BrandMark, IconEdit, IconKeyboard, IconMenu, IconMic, IconMore, IconPlus, IconSend } from "./icons";
+import { BrandMark, IconBack, IconKeyboard, IconMic, IconSend } from "./icons";
 
 /* ---------- demo config (URL: ?mock=stream|whole&mockDelay=ms) ---------- */
 const params = new URLSearchParams(location.search);
@@ -26,28 +26,6 @@ function initialMode(): MockMode {
   return localStorage.getItem(MODE_KEY) === "stream" ? "stream" : "whole";
 }
 const fixedDelay = params.get("mockDelay") ? Number(params.get("mockDelay")) : undefined;
-
-/* ---------- sample conversation shown on first open ---------- */
-function at(h: number, m: number) {
-  const d = new Date();
-  d.setHours(h, m, 0, 0);
-  return d;
-}
-const SAMPLE: ThreadMessageLike[] = [
-  { role: "user", content: "帮我看下下周什么时候要续护照", createdAt: at(8, 10) },
-  {
-    role: "assistant",
-    createdAt: at(8, 10),
-    content:
-      "**护照 2026-12-24 到期**，还有 37 天。续签要准备：\n\n1. 旧护照原件\n2. 身份证正反面\n3. 近 6 个月的白底照片\n\n来源：`知识库 · 护照扫描件` 第 2 页。",
-  },
-  { role: "user", content: "好的，周五下午提醒我约一下", createdAt: at(8, 12) },
-  {
-    role: "assistant",
-    createdAt: at(8, 12),
-    content: "记下了：**周五 11-20 14:00** 提醒你预约续签，到时候会在「主动服务」里出现一张卡。",
-  },
-];
 
 /* ---------- small pieces ---------- */
 const hhmm = (d?: Date) =>
@@ -127,10 +105,11 @@ function AssistantMessage() {
   );
 }
 
-/* ---------- composer: voice first, keyboard second ---------- */
+/* ---------- composer: text is always available; voice only when the browser can do it ---------- */
 function Composer({ toast }: { toast: (m: string) => void }) {
   const aui = useAui();
-  const [keyboard, setKeyboard] = useState(false);
+  const voiceOk = webSpeechVoice.available();
+  const [keyboard, setKeyboard] = useState(true);
   const [rec, setRec] = useState<null | { started: number; cancel: boolean }>(null);
   const [secs, setSecs] = useState(0);
   const session = useRef<VoiceSession | null>(null);
@@ -143,7 +122,6 @@ function Composer({ toast }: { toast: (m: string) => void }) {
     const c = aui.composer();
     if (!c.getState().text.trim()) return;
     c.send({ steer: false });
-    // Stay in the current composer mode (text stays text until the user taps the mic).
   }, [aui]);
 
   useEffect(() => {
@@ -153,10 +131,7 @@ function Composer({ toast }: { toast: (m: string) => void }) {
   }, [rec]);
 
   const onMicDown = (e: RPointerEvent<HTMLButtonElement>) => {
-    if (!webSpeechVoice.available()) {
-      toast("语音输入即将上线，先点 Aa 打字");
-      return;
-    }
+    if (!voiceOk) return;
     e.currentTarget.setPointerCapture(e.pointerId);
     startY.current = e.clientY;
     setSecs(0);
@@ -205,14 +180,16 @@ function Composer({ toast }: { toast: (m: string) => void }) {
     }
   }, [keyboard, text, grow]);
 
-  if (keyboard) {
+  if (!voiceOk || keyboard) {
     return (
       <ComposerPrimitive.Root className="qc-composer kb" onSubmit={(e) => { e.preventDefault(); send(); }}>
-        <button type="button" className="qc-side" aria-label="切换到语音" onClick={() => setKeyboard(false)}>
-          <IconMic size={22} />
-        </button>
+        {voiceOk && (
+          <button type="button" className="qc-side" aria-label="切换到语音" onClick={() => setKeyboard(false)}>
+            <IconMic size={22} />
+          </button>
+        )}
         <ComposerPrimitive.Input ref={inputRef} className="qc-field" rows={1} submitMode="none"
-          placeholder="给 QBot 发消息" onKeyDown={onKey} onInput={grow} />
+          placeholder="发消息…" onKeyDown={onKey} onInput={grow} />
         <button type="button" className="qc-send" aria-label="发送" disabled={!text.trim()} onClick={send}>
           <IconSend />
         </button>
@@ -229,9 +206,6 @@ function Composer({ toast }: { toast: (m: string) => void }) {
         </div>
       )}
       <div className="qc-voice-row">
-        <button type="button" className="qc-side" aria-label="附件" onClick={() => toast("附件即将上线")}>
-          <IconPlus />
-        </button>
         <div className="qc-mic-wrap">
           <button type="button" className={"qc-mic" + (rec ? " rec" : "")} aria-label="按住说话"
             onPointerDown={onMicDown} onPointerMove={onMicMove} onPointerUp={onMicUp} onPointerCancel={onMicUp}>
@@ -260,106 +234,153 @@ function Queued() {
   );
 }
 
+/* ---------- one local thread. Rows come only from messages that already exist. ---------- */
+type Listed = { preview: string; time: string };
 
-/* ---------- conversation list (pane on unfolded, drawer on folded) ---------- */
-const CONVERSATIONS = [
-  { id: "qbot", name: "QBot", last: "周五 14:00 提醒你预约续签", time: "08:12" },
-  { id: "study", name: "AI Infra 学习", last: "第 3/30 天：KV Cache", time: "昨天" },
-  { id: "trip", name: "出差 · 上海", last: "下周三 08:30 虹桥落地", time: "周日" },
-];
+function textOf(message: ThreadMessageLike) {
+  const content = message.content;
+  if (typeof content === "string") return content;
+  return content.map((part) => (part.type === "text" ? part.text : "")).join("");
+}
 
-function ConversationList({ onPick, toast }: { onPick: () => void; toast: (m: string) => void }) {
+function plain(text: string) {
+  return text.replace(/[#>*_`|[\]()]/g, "").replace(/\s+/g, " ").trim();
+}
+
+function listTime(d?: Date) {
+  if (!d || Number.isNaN(d.getTime())) return "";
+  const now = new Date();
+  if (d.toDateString() === now.toDateString()) return hhmm(d);
+  return `${d.getMonth() + 1}月${d.getDate()}日`;
+}
+
+function listedFrom(messages: readonly ThreadMessageLike[]): Listed | null {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const preview = plain(textOf(messages[i]));
+    if (!preview) continue;
+    return { preview, time: listTime(messages[i].createdAt) };
+  }
+  return null;
+}
+
+function Home({ onOpen }: { onOpen: () => void }) {
+  const messages = useAuiState((s) => s.thread.messages);
+  const [query, setQuery] = useState("");
+  const listed = listedFrom(messages);
+  const q = query.trim().toLowerCase();
+  const matched = !!listed && (!q || "qbot".includes(q) || listed.preview.toLowerCase().includes(q));
   return (
-    <div className="qc-list">
-      <div className="qc-list-head">
-        <span className="title">对话</span>
-        <button type="button" className="qc-iconbtn" aria-label="新对话" onClick={() => toast("Demo 里只有一个会话")}>
-          <IconEdit />
-        </button>
+    <div className="qc">
+      <header className="qc-homebar">
+        <div>
+          <h1>对话</h1>
+          <p>QBot</p>
+        </div>
+      </header>
+      <label className="qc-search">
+        <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+          <circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" strokeWidth="1.75" />
+          <path d="m16 16 4 4" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
+        </svg>
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="搜索对话"
+          aria-label="搜索对话"
+          enterKeyHint="search"
+          autoComplete="off"
+        />
+      </label>
+      <div className="qc-list" aria-label="会话列表">
+        {matched && listed ? (
+          <button type="button" className="qc-conv" onClick={onOpen}>
+            <span className="av"><BrandMark /></span>
+            <span className="t">
+              <span className="top">
+                <span className="n">QBot</span>
+                {listed.time ? <span className="tm">{listed.time}</span> : null}
+              </span>
+              <span className="m">{listed.preview}</span>
+            </span>
+          </button>
+        ) : q ? (
+          <div className="qc-empty" role="status">
+            <b>没有匹配的会话</b>
+            <p>换个词，或清空搜索。</p>
+          </div>
+        ) : (
+          <div className="qc-empty" role="status">
+            <b>还没有会话</b>
+            <p>这里只列出已经发生的对话。现在没有消息，也不会放上示例助手。</p>
+            <button type="button" className="qc-open" onClick={onOpen}>打开 QBot</button>
+          </div>
+        )}
       </div>
-      {CONVERSATIONS.map((c, i) => (
-        <button type="button" key={c.id} className={"qc-conv" + (i === 0 ? " on" : "")}
-          onClick={() => (i === 0 ? onPick() : toast("Demo 里只有一个会话"))}>
-          <span className="av">{i === 0 ? <BrandMark /> : c.name.slice(0, 1)}</span>
-          <span className="t"><span className="n">{c.name}</span><span className="m">{c.last}</span></span>
-          <span className="tm">{c.time}</span>
-        </button>
-      ))}
     </div>
+  );
+}
+
+function ThreadScreen({ onBack }: { onBack: () => void }) {
+  const { msg, show } = useToast();
+  const [scrolled, setScrolled] = useState(false);
+  const count = useAuiState((s) => s.thread.messages.length);
+  return (
+    <main className="qc">
+      <header className={"qc-topbar" + (scrolled ? " is-scrolled" : "")}>
+        <button type="button" className="qc-back" aria-label="返回会话列表" onClick={onBack}>
+          <IconBack />
+        </button>
+        <span className="title">QBot</span>
+      </header>
+      <ThreadPrimitive.Root className="qc-thread">
+        <ThreadPrimitive.Viewport className="qc-viewport"
+          onScroll={(e) => setScrolled((e.currentTarget as HTMLDivElement).scrollTop > 4)}>
+          <div className="qc-msgs">
+            <p className="qc-note">回复是本地模拟，没有接通外部助手。</p>
+            {count === 0 && <p className="qc-emptyline">还没有消息。</p>}
+            <ThreadPrimitive.Messages>
+              {({ message }) => (message.role === "user" ? <UserMessage /> : <AssistantMessage />)}
+            </ThreadPrimitive.Messages>
+            <Queued />
+          </div>
+        </ThreadPrimitive.Viewport>
+        <Composer toast={show} />
+      </ThreadPrimitive.Root>
+      {msg && <div className="qc-toast" role="status">{msg}</div>}
+    </main>
   );
 }
 
 /* ---------- root ---------- */
 export function ChatApp() {
-  const [mode, setMode] = useState<MockMode>(initialMode);
   const backend = useMemo(() => new MockBackend(initialMode(), fixedDelay), []);
-  backend.mode = mode;
   const backendRef = useRef<ChatBackend>(backend);
   const adapter = useMemo(() => toModelAdapter(() => backendRef.current), []);
-  const runtime = useLocalRuntime(adapter, { initialMessages: SAMPLE, unstable_enableMessageQueue: true });
-  const { msg, show } = useToast();
-  const [drawer, setDrawer] = useState(false);
-  const [scrolled, setScrolled] = useState(false);
+  const runtime = useLocalRuntime(adapter, { unstable_enableMessageQueue: true });
+  const [screen, setScreen] = useState<"list" | "thread">("list");
+
+  useLayoutEffect(() => {
+    const root = document.getElementById("qbs");
+    if (!root) return;
+    root.classList.toggle("qbs-in-chat", screen === "thread");
+    return () => root.classList.remove("qbs-in-chat");
+  }, [screen]);
 
   useEffect(() => {
     window.qbotChat = {
       back: () => {
-        if (drawer) {
-          setDrawer(false);
+        if (screen === "thread") {
+          setScreen("list");
           return true;
         }
         return false;
       },
     };
-  }, [drawer]);
-
-  useEffect(() => {
-    const mq = window.matchMedia("(min-width:600px)");
-    const onChange = () => { if (mq.matches) setDrawer(false); };
-    mq.addEventListener("change", onChange);
-    return () => mq.removeEventListener("change", onChange);
-  }, []);
-
-  const toggleMode = () => {
-    const next: MockMode = mode === "whole" ? "stream" : "whole";
-    localStorage.setItem(MODE_KEY, next);
-    setMode(next);
-    show(next === "stream" ? "已切换：流式回复（模拟）" : "已切换：整段回复（模拟 webhook）");
-  };
+  }, [screen]);
 
   return (
     <AssistantRuntimeProvider runtime={runtime}>
-      <div className={"qc" + (drawer ? " is-drawer" : "")}>
-        <aside className="qc-pane">
-          <ConversationList onPick={() => setDrawer(false)} toast={show} />
-        </aside>
-        <div className="qc-scrim" onClick={() => setDrawer(false)} />
-        <main className="qc-main">
-          <header className={"qc-topbar" + (scrolled ? " is-scrolled" : "")}>
-            <button type="button" className="qc-iconbtn only-folded" aria-label="会话列表" onClick={() => setDrawer(true)}>
-              <IconMenu />
-            </button>
-            <span className="title">QBot</span>
-            <button type="button" className="qc-iconbtn" aria-label="切换模拟回复方式" title={backend.label} onClick={toggleMode}>
-              <IconMore />
-            </button>
-          </header>
-          <ThreadPrimitive.Root className="qc-thread">
-            <ThreadPrimitive.Viewport className="qc-viewport"
-              onScroll={(e) => setScrolled((e.currentTarget as HTMLDivElement).scrollTop > 4)}>
-              <div className="qc-msgs">
-                <div className="qc-day">今天 08:10 · 演示数据，回复为模拟</div>
-                <ThreadPrimitive.Messages>
-                  {({ message }) => (message.role === "user" ? <UserMessage /> : <AssistantMessage />)}
-                </ThreadPrimitive.Messages>
-                <Queued />
-              </div>
-            </ThreadPrimitive.Viewport>
-            <Composer toast={show} />
-          </ThreadPrimitive.Root>
-          {msg && <div className="qc-toast" role="status">{msg}</div>}
-        </main>
-      </div>
+      {screen === "list" ? <Home onOpen={() => setScreen("thread")} /> : <ThreadScreen onBack={() => setScreen("list")} />}
     </AssistantRuntimeProvider>
   );
 }

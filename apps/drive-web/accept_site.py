@@ -2,9 +2,11 @@
 """Strict acceptance for a built site tree.
 
 An ordinary build records differences and still exits 0. This check fails
-when a path is missing, extra, or different. index.html may differ only by
-the version stamp. version.json may differ only in its "version" field.
-No file is skipped as a whole.
+when a path is missing, extra, or different. Source copies are compared to
+this repo. Borrowed inputs are compared to their pins. The generated page
+and chat bundle are not compared to the previous live bytes; check_generated
+requires each whitelist path to be non-empty, produced by this build, and
+usable.
 """
 import hashlib, json, os, sys, urllib.request
 from urllib.parse import quote
@@ -106,6 +108,15 @@ SOURCE_COPIES = (
     "shell-media.js", "shell-theme.js",
 )
 
+# Produced by refresh_site from the current template and chat build.
+# Not compared to the previously published site.
+GENERATED_OUTPUTS = (
+    "index.html",
+    "version.json",
+    "chat/chat.js",
+    "chat/chat.css",
+)
+
 
 def accept_trees(built_root, expected_root, source_checked=()):
     """Problems are human-readable. Empty means the trees agree under the whitelist.
@@ -123,8 +134,9 @@ def accept_trees(built_root, expected_root, source_checked=()):
         problems.append("missing %s" % rel)
     for rel in sorted(set(built) - set(expected)):
         problems.append("extra %s" % rel)
+    generated = set(GENERATED_OUTPUTS)
     for rel in sorted(set(built) & set(expected)):
-        if rel in source_checked:
+        if rel in source_checked or rel in generated:
             continue
         b = open(built[rel], "rb").read()
         e = open(expected[rel], "rb").read()
@@ -160,6 +172,52 @@ def fetch_tree(dest, origin, pins):
             sys.exit("borrowed file hash mismatch %s" % rel)
 
 
+def check_generated(built_root, chat_dist, template_path, feed_out):
+    """Whitelist only. Empty, missing, or not produced by this build fails."""
+    import refresh_site
+    problems = []
+    present = {}
+    for rel in GENERATED_OUTPUTS:
+        path = os.path.join(built_root, rel)
+        if not os.path.isfile(path) or os.path.getsize(path) == 0:
+            problems.append("generated missing or empty %s" % rel)
+        else:
+            present[rel] = open(path, "rb").read()
+    for name in ("chat.js", "chat.css"):
+        src = os.path.join(chat_dist, name)
+        rel = "chat/" + name
+        if not os.path.isfile(src) or os.path.getsize(src) == 0:
+            problems.append("generated chat build missing %s" % name)
+        elif rel in present and present[rel] != open(src, "rb").read():
+            problems.append("generated not from this build %s" % rel)
+    if "index.html" in present:
+        html = present["index.html"].decode("utf-8")
+        for needle in (
+            'data-qbs-tab="chat"', 'data-qbs-tab="feed"', 'data-qbs-tab="kb"',
+            "chat/chat.js", "chat/chat.css",
+        ):
+            if needle not in html:
+                problems.append("generated index.html unusable, missing %s" % needle)
+    if "chat/chat.js" in present and b"chat-root" not in present["chat/chat.js"]:
+        problems.append("generated chat.js does not mount chat-root")
+    if "chat/chat.css" in present and b"#chat-root" not in present["chat/chat.css"]:
+        problems.append("generated chat.css has no chat-root rules")
+    manifest_path = os.path.join(built_root, "manifest.json")
+    if not os.path.isfile(manifest_path) or not os.path.isfile(template_path):
+        problems.append("generated source inputs missing")
+        return problems
+    if set(GENERATED_OUTPUTS) - set(present):
+        return problems
+    manifest_text = open(manifest_path, encoding="utf-8").read()
+    template = open(template_path, encoding="utf-8").read()
+    html, vjson = refresh_site.render_page(template, manifest_text, chat_dist, feed_out)
+    if present["index.html"].decode("utf-8") != html:
+        problems.append("generated index.html is not this template build")
+    if present["version.json"].decode("utf-8") != vjson:
+        problems.append("generated version.json is not this build stamp")
+    return problems
+
+
 def copied_inputs(built_root, pins):
     """Pinned catalog bytes must be copied, not rewritten."""
     problems = []
@@ -192,6 +250,12 @@ def main():
         finally:
             shutil.rmtree(dest, ignore_errors=True)
     problems += copied_inputs(built, os.path.join(HERE, "pins", "inputs.sha256"))
+    problems += check_generated(
+        built,
+        os.path.join(os.path.dirname(HERE), "chat-web", "dist"),
+        os.path.join(HERE, "template.html"),
+        os.path.join(built, "out"),
+    )
     if problems:
         print("strict acceptance failed:")
         print("\n".join(problems))
