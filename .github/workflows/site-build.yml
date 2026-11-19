@@ -36,7 +36,7 @@ jobs:
         run: python3 apps/drive-web/test_accept_site.py
 
       - name: Unit checks that do not need a browser
-        run: node --test apps/drive-web/shell-history.test.mjs apps/drive-web/shell-media.test.mjs apps/drive-web/shell-back.test.mjs apps/drive-web/shell-theme.test.mjs
+        run: node --test apps/drive-web/shell-history.test.mjs apps/drive-web/shell-media.test.mjs apps/drive-web/shell-back.test.mjs apps/drive-web/shell-theme.test.mjs apps/drive-web/test/im-home.test.mjs
 
       - name: Install Chrome for the browser gates
         run: |

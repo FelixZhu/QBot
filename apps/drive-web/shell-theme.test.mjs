@@ -18,31 +18,26 @@ function memory(initial) {
   };
 }
 
-test("appearance control is on every tab at 390 and 840", () => {
-  for (const tab of ["chat", "feed", "kb"]) {
-    for (const width of [390, 840]) {
-      const place = theme.placement(width, tab);
-      assert.equal(place.visible, true);
-      assert.equal(place.tab, tab);
-      assert.equal(place.clippedByPanel, false);
-      assert.equal(place.edge, width === 390 ? "bottom" : "rail");
-      assert.equal(place.menu, width === 390 ? "above-tabbar" : "beside-rail");
-    }
-  }
-  assert.match(template, /id="qbsAppearanceBtn"/);
-  assert.match(template, /id="qbsAppearance"/);
-  assert.match(template, /浅色/);
-  assert.match(template, /深色/);
-  assert.match(template, /跟随系统/);
+test("the nav keeps three entries and has no appearance tab", () => {
+  assert.match(template, /data-qbs-tab="chat"/);
+  assert.match(template, /data-qbs-tab="feed"/);
+  assert.match(template, /data-qbs-tab="kb"/);
+  assert.match(template, />对话</);
+  assert.match(template, />主动服务</);
+  assert.match(template, />知识库</);
+  assert.equal(template.includes('id="qbsAppearanceBtn"'), false);
+  assert.equal(template.includes('id="qbsAppearance"'), false);
+  assert.equal(template.includes(">外观<"), false);
   assert.match(template, /shell-theme\.js\?v=__VERSION__/);
   assert.match(template, /QbotShellTheme\.boot\(\)/);
   assert.match(template, /QbotShellTheme\.mount\(\{nav:document\.getElementById\("qbsNav"\)\}\)/);
   assert.match(template, /QbotShellTheme&&QbotShellTheme\.isOpen&&QbotShellTheme\.isOpen\(\)/);
   assert.equal(template.includes('S.theme=dark?"light":"dark"'), false);
-  assert.match(template, /\.qbs-appearance\{flex:1/);
-  assert.match(template, /@media \(min-width:600px\)\{[^}]*\.qbs-appearance\{[^}]*margin-top:auto/);
   assert.equal(feedJs.includes("qbsAppearance"), false);
   assert.equal(kbJs.includes("qbsAppearance"), false);
+  const themeJs = readFileSync(new URL("./shell-theme.js", import.meta.url), "utf8");
+  assert.equal(themeJs.includes("nav.appendChild(btn)"), false);
+  assert.match(themeJs, /apply\(doc\.documentElement, "auto"/);
 });
 
 test("explicit light or dark wins over the system", () => {
@@ -57,24 +52,26 @@ test("explicit light or dark wins over the system", () => {
   assert.equal(dark.resolved, "dark");
 });
 
-test("legacy saved dark is kept and recoverable, not reset", () => {
+test("a saved light or dark choice does not lock the page", () => {
   const store = memory({
     qd2_theme: JSON.stringify("dark"),
     qd2_tabs: JSON.stringify(["~home"]),
     qd2_active: JSON.stringify("~home")
   });
   const before = store.dump();
-  const saved = theme.read(store);
-  assert.equal(saved.mode, "dark");
+  assert.equal(theme.read(store).mode, "dark");
   assert.deepEqual(store.dump(), before);
-  assert.equal(theme.resolve(saved.mode, false), "dark");
-  const chosen = theme.reduce({ mode: saved.mode, systemDark: false }, { type: "choose", mode: "auto" });
-  assert.equal(chosen.mode, "auto");
-  assert.equal(chosen.resolved, "light");
-  theme.write(store, chosen.mode);
-  assert.equal(JSON.parse(store.getItem("qd2_theme")), "auto");
-  assert.equal(store.getItem("qd2_tabs"), before.qd2_tabs);
-  assert.equal(store.getItem("qd2_active"), before.qd2_active);
+  const el = { attrs: {}, style: {}, setAttribute(k, v) { this.attrs[k] = v; } };
+  const doc = { documentElement: el, getElementById() { return null; } };
+  const followed = theme.boot(doc, { systemDark: false });
+  assert.equal(followed.mode, "auto");
+  assert.equal(followed.resolved, "light");
+  assert.equal(el.attrs["data-theme"], "light");
+  assert.equal(el.attrs["data-theme-mode"], "auto");
+  const night = theme.boot(doc, { systemDark: true });
+  assert.equal(night.resolved, "dark");
+  assert.equal(el.attrs["data-theme"], "dark");
+  assert.deepEqual(store.dump(), before);
 });
 
 test("refresh, restart, system change, and foreground", () => {
