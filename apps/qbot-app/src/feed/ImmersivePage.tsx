@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { PanResponder, Pressable, ScrollView, Text, View } from "react-native";
+import { PanResponder, Pressable, ScrollView, Text, useWindowDimensions, View, type LayoutChangeEvent } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { fitAspect, isSplit, PHONE_CARD_HEIGHT, PHONE_CARD_WIDTH, READ_MAX } from "../theme";
 import { LOOP_NODE_4, type Lesson, type LessonAsk } from "./lessons";
 import {
   GAME_CHIPS,
@@ -129,11 +130,12 @@ function ModeSwitch({ mode, onMode }: { mode: ImmersiveMode; onMode: (mode: Imme
   );
 }
 
-function AskBar({ asks }: { asks: readonly LessonAsk[] }) {
+function AskBar({ asks, wide }: { asks: readonly LessonAsk[]; wide: boolean }) {
   const [open, setOpen] = useState<number | null>(null);
   const insets = useSafeAreaInsets();
+  const pad = { paddingHorizontal: 16, paddingTop: 8, paddingBottom: Math.max(insets.bottom, 12), gap: 8, borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.06)" };
   return (
-    <View style={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: Math.max(insets.bottom, 12), gap: 8, borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.06)" }}>
+    <View style={wide ? { width: "100%", maxWidth: READ_MAX, alignSelf: "center", ...pad } : pad}>
       {asks.map((ask, index) => (
         <Pressable key={ask.q} accessibilityRole="button" accessibilityLabel={`问 AI：${ask.q}，模拟`} onPress={() => setOpen(open === index ? null : index)} style={{ paddingHorizontal: 12, paddingVertical: 12, borderRadius: 14, backgroundColor: "rgba(245,166,35,0.12)", flexDirection: "row", alignItems: "center", gap: 8 }}>
           <Text style={{ color: AM }}>✦</Text>
@@ -474,6 +476,22 @@ function Game({ onToast }: { onToast: (message: string) => void }) {
   );
 }
 
+/** Full-bleed on a phone. On a wide screen, keep width/height and center it. */
+function KeepAspect({ active, aspect, children }: { active: boolean; aspect: number; children: ReactNode }) {
+  const [box, setBox] = useState({ w: 0, h: 0 });
+  const onLayout = (event: LayoutChangeEvent) => {
+    const { width, height } = event.nativeEvent.layout;
+    setBox((prev) => (prev.w === width && prev.h === height ? prev : { w: width, h: height }));
+  };
+  if (!active) return <>{children}</>;
+  const fitted = fitAspect(box.w, box.h, aspect);
+  return (
+    <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }} onLayout={onLayout}>
+      {fitted.width > 0 ? <View style={{ width: fitted.width, height: fitted.height }}>{children}</View> : null}
+    </View>
+  );
+}
+
 const slotStyle = {
   minHeight: 48,
   borderRadius: 10,
@@ -569,6 +587,8 @@ export function ImmersivePage({
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(() => setToast(""), 1600);
   };
+  const { width } = useWindowDimensions();
+  const wide = isSplit(width);
   const showSwitch = lesson.day === 1;
   const title = mode === "video"
     ? (lesson.day === 1 ? "一次「想→做→看」循环" : plainTitle(lesson.title))
@@ -587,7 +607,9 @@ export function ImmersivePage({
       {mode === "video" ? null : <GridLines />}
       {mode === "video" ? (
         <View style={{ flex: 1 }}>
-          <DemoVideo spec={lesson.day === 1 ? LESSON_ONE_VIDEO : HARNESS_VIDEO} poster={lesson.day === 1 ? lessonOnePoster() : harnessPoster()} />
+          <KeepAspect active={wide} aspect={PHONE_CARD_WIDTH / PHONE_CARD_HEIGHT}>
+            <DemoVideo spec={lesson.day === 1 ? LESSON_ONE_VIDEO : HARNESS_VIDEO} poster={lesson.day === 1 ? lessonOnePoster() : harnessPoster()} />
+          </KeepAspect>
           <View style={{ position: "absolute", top: 0, left: 0, right: 0, paddingTop: insets.top, backgroundColor: "rgba(0,0,0,0.28)" }}>
             {bar}
             {switcher}
@@ -597,17 +619,34 @@ export function ImmersivePage({
         <View style={{ flex: 1, paddingTop: insets.top }}>
           {bar}
           {switcher}
-          <Game onToast={show} />
+          <KeepAspect active={wide} aspect={PHONE_CARD_WIDTH / PHONE_CARD_HEIGHT}>
+            <Game onToast={show} />
+          </KeepAspect>
         </View>
       ) : (
         <View style={{ flex: 1, paddingTop: insets.top }}>
           {bar}
           {switcher}
-          <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 16, gap: 12 }} showsVerticalScrollIndicator={false}>
-            {lesson.day === 1 ? <LoopArticle /> : <PointArticle lesson={lesson} />}
-            <Quiz lesson={lesson} />
+          <ScrollView
+            style={{ flex: 1 }}
+            contentContainerStyle={wide
+              ? { alignItems: "center", paddingBottom: 16 }
+              : { paddingHorizontal: 20, paddingBottom: 16, gap: 12 }}
+            showsVerticalScrollIndicator={false}
+          >
+            {wide ? (
+              <View style={{ width: "100%", maxWidth: READ_MAX, paddingHorizontal: 20, gap: 12 }}>
+                {lesson.day === 1 ? <LoopArticle /> : <PointArticle lesson={lesson} />}
+                <Quiz lesson={lesson} />
+              </View>
+            ) : (
+              <>
+                {lesson.day === 1 ? <LoopArticle /> : <PointArticle lesson={lesson} />}
+                <Quiz lesson={lesson} />
+              </>
+            )}
           </ScrollView>
-          <AskBar asks={lesson.asks} />
+          <AskBar asks={lesson.asks} wide={wide} />
         </View>
       )}
       {menu ? (

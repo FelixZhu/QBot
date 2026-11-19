@@ -15,8 +15,25 @@ export type Palette = {
   bubbleBot: string;
   raised: string;
   press: string;
+  /** Whole-row fill for the open conversation. */
+  selected: string;
   status: "light" | "dark";
 };
+
+/** Wide list and directory panes: 38% of the window, clamped to 320–400dp. */
+export const LIST_PANE_RATIO = 0.38;
+export const LIST_PANE_MIN = 320;
+export const LIST_PANE_MAX = 400;
+
+/** Messages, composer, and immersive body copy stop growing past this. */
+export const READ_MAX = 720;
+
+/** Unfolded feed card, in dp. Scaled up to the feed height; never stretched. */
+export const PHONE_CARD_WIDTH = 390;
+export const PHONE_CARD_HEIGHT = 844;
+
+/** Side gutters take the card color at this HSL lightness. */
+export const GUTTER_LIGHTNESS = 0.15;
 
 export const palette: Record<Scheme, Palette> = {
   light: {
@@ -31,6 +48,7 @@ export const palette: Record<Scheme, Palette> = {
     bubbleBot: "#FFFFFF",
     raised: "#FFFFFF",
     press: "rgba(28,27,25,0.06)",
+    selected: "#ECE7DD",
     status: "dark",
   },
   dark: {
@@ -45,6 +63,7 @@ export const palette: Record<Scheme, Palette> = {
     bubbleBot: "#2E2B27",
     raised: "#2E2B27",
     press: "rgba(237,232,223,0.08)",
+    selected: "#2E2B27",
     status: "light",
   },
 };
@@ -56,4 +75,68 @@ export function resolveScheme(colorScheme: string | null | undefined): Scheme {
 
 export function isSplit(width: number): boolean {
   return width >= SPLIT_WIDTH;
+}
+
+/** Shared width for every wide list or directory pane. Narrow layouts do not call this. */
+export function listPaneWidth(windowWidth: number): number {
+  const preferred = windowWidth * LIST_PANE_RATIO;
+  const clamped = Math.min(LIST_PANE_MAX, Math.max(LIST_PANE_MIN, preferred));
+  return Math.round(clamped);
+}
+
+/** Largest rectangle of `aspect` (width / height) that fits inside the box. */
+export function fitAspect(maxWidth: number, maxHeight: number, aspect: number): { width: number; height: number } {
+  if (maxWidth <= 0 || maxHeight <= 0 || aspect <= 0) return { width: 0, height: 0 };
+  let width = maxHeight * aspect;
+  let height = maxHeight;
+  if (width > maxWidth) {
+    width = maxWidth;
+    height = width / aspect;
+  }
+  return { width, height };
+}
+
+export function phoneFrame(maxWidth: number, maxHeight: number): { width: number; height: number } {
+  return fitAspect(maxWidth, maxHeight, PHONE_CARD_WIDTH / PHONE_CARD_HEIGHT);
+}
+
+function channel(value: number): string {
+  return Math.max(0, Math.min(255, Math.round(value))).toString(16).padStart(2, "0");
+}
+
+/** Card color with lightness set to ~15%, hue and saturation kept. Orange becomes dark orange. */
+export function gutterColor(background: string): string {
+  const match = /^#?([0-9a-f]{6})$/i.exec(background.trim());
+  if (!match) return "#262626";
+  const packed = Number.parseInt(match[1], 16);
+  const r = ((packed >> 16) & 255) / 255;
+  const g = ((packed >> 8) & 255) / 255;
+  const b = (packed & 255) / 255;
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const chroma = max - min;
+  let hue = 0;
+  if (chroma !== 0) {
+    if (max === r) hue = ((g - b) / chroma) % 6;
+    else if (max === g) hue = (b - r) / chroma + 2;
+    else hue = (r - g) / chroma + 4;
+    hue /= 6;
+    if (hue < 0) hue += 1;
+  }
+  const saturation = chroma === 0 ? 0 : chroma / (1 - Math.abs(max + min - 1));
+  const lightness = GUTTER_LIGHTNESS;
+  const nextChroma = (1 - Math.abs(2 * lightness - 1)) * saturation;
+  const x = nextChroma * (1 - Math.abs((hue * 6) % 2 - 1));
+  const m = lightness - nextChroma / 2;
+  let nr = 0;
+  let ng = 0;
+  let nb = 0;
+  const sector = hue * 6;
+  if (sector < 1) [nr, ng, nb] = [nextChroma, x, 0];
+  else if (sector < 2) [nr, ng, nb] = [x, nextChroma, 0];
+  else if (sector < 3) [nr, ng, nb] = [0, nextChroma, x];
+  else if (sector < 4) [nr, ng, nb] = [0, x, nextChroma];
+  else if (sector < 5) [nr, ng, nb] = [x, 0, nextChroma];
+  else [nr, ng, nb] = [nextChroma, 0, x];
+  return `#${channel((nr + m) * 255)}${channel((ng + m) * 255)}${channel((nb + m) * 255)}`;
 }

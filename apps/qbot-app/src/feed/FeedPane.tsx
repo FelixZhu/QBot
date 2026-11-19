@@ -3,12 +3,13 @@ import {
   FlatList,
   Pressable,
   Text,
+  useWindowDimensions,
   View,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Image } from "expo-image";
 import { useVideoPlayer, VideoView } from "expo-video";
-import type { Palette } from "../theme";
+import { listPaneWidth, type Palette } from "../theme";
 import { FEED } from "./cards";
 import {
   EMPTY_FEED_MEMORY,
@@ -201,6 +202,7 @@ export function FeedPane({
   active: boolean;
   onBackReady: (back: () => boolean) => void;
 }) {
+  const { width } = useWindowDimensions();
   const [selected, setSelected] = useState<string | null>(null);
   const [memory, setMemory] = useState<FeedMemory>(EMPTY_FEED_MEMORY);
   const [hydrated, setHydrated] = useState(false);
@@ -302,8 +304,8 @@ export function FeedPane({
   if (split) {
     return (
       <View style={{ flex: 1, flexDirection: "row", backgroundColor: colors.bg }}>
-        <View style={{ flex: 0.42, borderRightWidth: 1, borderRightColor: colors.line }}>{list}</View>
-        <View style={{ flex: 1 }}>{detail}</View>
+        <View style={{ width: listPaneWidth(width), borderRightWidth: 1, borderRightColor: colors.line }}>{list}</View>
+        <View style={{ flex: 1, minWidth: 0 }}>{detail}</View>
       </View>
     );
   }

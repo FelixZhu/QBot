@@ -12,6 +12,13 @@ import { AM, AccountBar, BG, CREAM, DIM, GridLines, INK, MONO, Title, asMeasurab
 const NODE_LABELS = ["模型思考", "调用工具", LOOP_NODE_4, "环境返回结果"];
 const NODE_NUMS = ["1", "2", "4", "3"];
 
+/** Background the wide gutters follow. Carousel pages are white; other cards keep their chrome. */
+export function lessonSurface(kind: Lesson["kind"]): string {
+  if (kind === "video") return "#101014";
+  if (kind === "carousel") return "#FFFFFF";
+  return BG;
+}
+
 function Segments({ day }: { day: number }) {
   return (
     <View style={{ flexDirection: "row", gap: 2 }}>

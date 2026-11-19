@@ -4,6 +4,15 @@
  * and the resolved light/dark value.
  */
 
+import { LIST_PANE_MAX, LIST_PANE_MIN, LIST_PANE_RATIO, SPLIT_WIDTH } from "./theme.ts";
+
+/** Same 38% / 320–400 rule as the native list, applied to the knowledge-base directory. */
+export function hostEmbedCss(): string {
+  const percent = `${Math.round(LIST_PANE_RATIO * 100)}%`;
+  return "#qbsNav{display:none!important}#qbs{grid-template-rows:minmax(0,1fr)!important;grid-template-columns:minmax(0,1fr)!important;grid-template-areas:\"main\" !important}"
+    + `@media (min-width:${SPLIT_WIDTH}px){.kb-pane{width:clamp(${LIST_PANE_MIN}px,${percent},${LIST_PANE_MAX}px)!important;flex:none!important;border-right:1px solid var(--line)!important}}`;
+}
+
 export function themeBoot(dark: boolean): string {
   const flag = dark ? "true" : "false";
   return `(function () {
@@ -79,9 +88,9 @@ export function showWebTab(tab: "feed" | "kb"): string {
   if (!style && document.head) {
     style = document.createElement("style");
     style.id = "qbot-host-embed";
-    style.textContent = "#qbsNav{display:none!important}#qbs{grid-template-rows:minmax(0,1fr)!important;grid-template-columns:minmax(0,1fr)!important;grid-template-areas:\\"main\\" !important}";
     document.head.appendChild(style);
   }
+  if (style) style.textContent = ${JSON.stringify(hostEmbedCss())};
   if (window.qbotTab) {
     try { window.qbotTab(${JSON.stringify(tab)}); } catch (e) {}
   }

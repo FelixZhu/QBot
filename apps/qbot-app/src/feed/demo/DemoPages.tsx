@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Image, Pressable, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { ACCOUNTS, ENGLISH, INFO, STUDY, WAVEFORM, type DemoId } from "./data";
+import { ACCOUNTS, demoSurface, ENGLISH, INFO, STUDY, WAVEFORM, type DemoId } from "./data";
 import { SampleMark } from "./DemoCard";
 
 const INK = "#1C1B19";
@@ -92,7 +92,7 @@ export function DemoImmersive({
   const [ask, setAsk] = useState(false);
   const [step, setStep] = useState(1);
   const ink = id !== "demo-study";
-  const backgroundColor = id === "demo-english" ? CLAY : id === "demo-info" ? CREAM : "#0F0F11";
+  const backgroundColor = demoSurface(id);
   const title = id === "demo-info" ? INFO.immersiveTitle : id === "demo-english" ? ENGLISH.phraseLine : STUDY.immersiveTitle;
   const account = id === "demo-info" ? INFO.accountLine : id === "demo-english" ? "English Bot · 11-19 口语" : STUDY.accountLine;
   return (
@@ -274,7 +274,7 @@ export function DemoAccount({
 }) {
   const insets = useSafeAreaInsets();
   const account = ACCOUNTS[id];
-  const headerBg = id === "demo-info" ? CREAM : id === "demo-english" ? CLAY : "#0F0F11";
+  const headerBg = demoSurface(id);
   const headerInk = id !== "demo-study";
   const color = headerInk ? INK : CREAM;
   return (
