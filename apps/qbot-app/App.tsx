@@ -18,7 +18,7 @@ import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-cont
 import { ChatEmpty, ChatList, ChatThread } from "./src/ChatPane";
 import { BookIcon, BubbleIcon, StarIcon } from "./src/TabIcons";
 import { findDemo, type DemoId } from "./src/demos";
-import { isSplit, palette, resolveScheme } from "./src/theme";
+import { isSplit, listPaneWidth, palette, resolveScheme } from "./src/theme";
 import { LessonFeed } from "./src/feed/LessonFeed";
 import { pullUpdate } from "./src/updates";
 import { WebPane, type WebPaneHandle } from "./src/WebPane";
@@ -41,6 +41,7 @@ function Shell() {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const split = isSplit(width);
+  const listWidth = listPaneWidth(width);
   const scheme = resolveScheme(useColorScheme());
   const colors = palette[scheme];
   const dark = scheme === "dark";
@@ -155,12 +156,12 @@ function Shell() {
           />
         </View>
         {showList ? (
-          <View style={{ flex: split ? 0.42 : 1, minWidth: split ? 280 : undefined, borderRightWidth: split ? 1 : 0, borderRightColor: colors.line }}>
+          <View style={split ? { width: listWidth, borderRightWidth: 1, borderRightColor: colors.line } : { flex: 1 }}>
             <ChatList colors={colors} query={query} onQuery={setQuery} selected={thread} onOpen={setThread} />
           </View>
         ) : null}
         {showThread ? (
-          <View style={{ flex: 1 }}>
+          <View style={{ flex: 1, minWidth: 0 }}>
             {demo ? (
               <ChatThread demo={demo} colors={colors} showBack={!split} onBack={() => setThread(null)} />
             ) : (

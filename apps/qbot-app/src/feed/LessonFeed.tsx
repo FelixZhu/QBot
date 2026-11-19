@@ -1,18 +1,20 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import {
   Animated,
   Dimensions,
   FlatList,
   Modal,
   Text,
+  useWindowDimensions,
   View,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { FeedCard } from "./FeedCard";
+import { gutterColor, isSplit, PHONE_CARD_HEIGHT, PHONE_CARD_WIDTH, phoneFrame } from "../theme";
+import { FeedCard, lessonSurface } from "./FeedCard";
 import { ImmersivePage, type ImmersiveMode } from "./ImmersivePage";
 import { DemoCard } from "./demo/DemoCard";
 import { DemoAccount, DemoImmersive } from "./demo/DemoPages";
-import { DEMO_IDS, demoById, type DemoId } from "./demo/data";
+import { DEMO_IDS, demoById, demoSurface, type DemoId } from "./demo/data";
 import { LESSONS, LESSON_IDS, lessonById, type Lesson } from "./lessons";
 import {
   EMPTY_FEED_MEMORY,
@@ -43,6 +45,37 @@ const ROWS: FeedRow[] = [
 
 const KNOWN_IDS = [...LESSON_IDS, ...DEMO_IDS];
 
+function rowSurface(row: FeedRow | undefined): string {
+  if (row?.lesson) return lessonSurface(row.lesson.kind);
+  if (row?.demo) return demoSurface(row.demo);
+  return BG;
+}
+
+/** 390×844 card, scaled to the feed height and centered. Gutters stay empty. */
+function WideCard({
+  width,
+  height,
+  gutter,
+  children,
+}: {
+  width: number;
+  height: number;
+  gutter: string;
+  children: ReactNode;
+}) {
+  const frame = phoneFrame(width, height);
+  const scale = frame.width > 0 ? frame.width / PHONE_CARD_WIDTH : 1;
+  return (
+    <View style={{ width, height, backgroundColor: gutter, alignItems: "center", justifyContent: "center" }}>
+      <View style={{ width: frame.width, height: frame.height, overflow: "hidden", alignItems: "center", justifyContent: "center" }}>
+        <View style={{ width: PHONE_CARD_WIDTH, height: PHONE_CARD_HEIGHT, transform: [{ scale }] }}>
+          {children}
+        </View>
+      </View>
+    </View>
+  );
+}
+
 export function LessonFeed({
   active,
   onBackReady,
@@ -58,7 +91,9 @@ export function LessonFeed({
   const anchor = useRef(0);
   const progress = useRef(new Animated.Value(0)).current;
   const closing = useRef(false);
-  const [height, setHeight] = useState(0);
+  const [box, setBox] = useState({ w: 0, h: 0 });
+  const height = box.h;
+  const wide = isSplit(box.w);
   const [index, setIndex] = useState(0);
   const [memory, setMemory] = useState<FeedMemory>(EMPTY_FEED_MEMORY);
   const [hydrated, setHydrated] = useState(false);
@@ -74,6 +109,7 @@ export function LessonFeed({
   const [origin, setOrigin] = useState<Rect>(EMPTY_RECT);
   const lesson = openId ? lessonById(openId) : null;
   const screen = Dimensions.get("screen");
+  const windowSize = useWindowDimensions();
 
   useEffect(() => {
     let alive = true;
@@ -185,13 +221,20 @@ export function LessonFeed({
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: BG }} onLayout={(event) => setHeight(event.nativeEvent.layout.height)}>
+    <View
+      style={{ flex: 1, backgroundColor: wide ? gutterColor(rowSurface(ROWS[index])) : BG }}
+      onLayout={(event) => {
+        const { width, height: nextHeight } = event.nativeEvent.layout;
+        setBox((prev) => (prev.w === width && prev.h === nextHeight ? prev : { w: width, h: nextHeight }));
+      }}
+    >
       {height > 0 ? (
         <FlatList
           ref={listRef}
           data={ROWS}
           keyExtractor={(item) => item.key}
           pagingEnabled
+          removeClippedSubviews={wide ? false : undefined}
           directionalLockEnabled
           showsVerticalScrollIndicator={false}
           scrollEnabled={scrollable && !covered}
@@ -216,51 +259,61 @@ export function LessonFeed({
               listRef.current?.scrollToOffset({ offset: target, animated: false });
             }
           }}
-          renderItem={({ item, index: itemIndex }) => item.lesson ? (
-            <FeedCard
-              lesson={item.lesson}
-              height={height}
-              active={active && itemIndex === index && !covered}
-              followed={followed}
-              onFollow={() => setFollowed((value) => !value)}
-              onOpen={(node) => openFrom(item.lesson?.id ?? "", node)}
-            />
-          ) : (
-            <DemoCard
-              id={item.demo ?? "demo-info"}
-              height={height}
-              followed={Boolean(demoFollow[item.demo ?? ""])}
-              onFollow={() => {
-                const id = item.demo ?? "";
-                setDemoFollow((prev) => ({ ...prev, [id]: !prev[id] }));
-              }}
-              onOpen={(node) => {
-                const id = demoById(item.demo ?? "");
-                if (!id) return;
-                setDemoPage("immersive");
-                setDemoParent("feed");
-                openFrom(id, node);
-                setDemoId(id);
-                setOpenId(null);
-              }}
-              onAccount={() => {
-                const id = demoById(item.demo ?? "");
-                if (!id) return;
-                setOrigin({ x: 0, y: 0, w: screen.width, h: screen.height });
-                setDemoPage("account");
-                setDemoParent("feed");
-                setDemoId(id);
-                setOpenId(null);
-                onCover(true);
-              }}
-            />
-          )}
+          extraData={wide ? `${box.w}x${height}:${index}` : index}
+          renderItem={({ item, index: itemIndex }) => {
+            const cardHeight = wide ? PHONE_CARD_HEIGHT : height;
+            const card = item.lesson ? (
+              <FeedCard
+                lesson={item.lesson}
+                height={cardHeight}
+                active={active && itemIndex === index && !covered}
+                followed={followed}
+                onFollow={() => setFollowed((value) => !value)}
+                onOpen={(node) => openFrom(item.lesson?.id ?? "", node)}
+              />
+            ) : (
+              <DemoCard
+                id={item.demo ?? "demo-info"}
+                height={cardHeight}
+                followed={Boolean(demoFollow[item.demo ?? ""])}
+                onFollow={() => {
+                  const id = item.demo ?? "";
+                  setDemoFollow((prev) => ({ ...prev, [id]: !prev[id] }));
+                }}
+                onOpen={(node) => {
+                  const id = demoById(item.demo ?? "");
+                  if (!id) return;
+                  setDemoPage("immersive");
+                  setDemoParent("feed");
+                  openFrom(id, node);
+                  setDemoId(id);
+                  setOpenId(null);
+                }}
+                onAccount={() => {
+                  const id = demoById(item.demo ?? "");
+                  if (!id) return;
+                  setOrigin({ x: 0, y: 0, w: screen.width, h: screen.height });
+                  setDemoPage("account");
+                  setDemoParent("feed");
+                  setDemoId(id);
+                  setOpenId(null);
+                  onCover(true);
+                }}
+              />
+            );
+            if (!wide) return card;
+            return (
+              <WideCard width={box.w} height={height} gutter={gutterColor(rowSurface(item))}>
+                {card}
+              </WideCard>
+            );
+          }}
         />
       ) : null}
       <Modal visible={lesson !== null || demoId !== null} transparent animationType="none" statusBarTranslucent onRequestClose={() => { back(); }} navigationBarTranslucent>
         <View style={{ flex: 1 }} pointerEvents="box-none">
           {lesson || demoId ? (
-            <Animated.View style={{ position: "absolute", overflow: "hidden", left: frame.left, top: frame.top, width: frame.width, height: frame.height, borderRadius: frame.radius, backgroundColor: BG }}>
+            <Animated.View style={{ position: "absolute", overflow: "hidden", left: frame.left, top: frame.top, width: frame.width, height: frame.height, borderRadius: frame.radius, backgroundColor: wide && demoId ? gutterColor(demoSurface(demoId)) : BG }}>
               {lesson ? (
                 <ImmersivePage
                   lesson={lesson}
@@ -270,21 +323,40 @@ export function LessonFeed({
                   onDismiss={() => setMemory((prev) => dismissCard(prev, lesson.id))}
                 />
               ) : null}
-              {demoId && demoPage === "immersive" ? (
-                <DemoImmersive
-                  id={demoId}
-                  onBack={() => { close(); }}
-                  onAccount={() => { setDemoParent("immersive"); setDemoPage("account"); }}
-                  onSample={(message) => setToast(message)}
-                />
-              ) : null}
-              {demoId && demoPage === "account" ? (
-                <DemoAccount
-                  id={demoId}
-                  followed={Boolean(demoFollow[demoId])}
-                  onFollow={() => setDemoFollow((prev) => ({ ...prev, [demoId]: !prev[demoId] }))}
-                  onBack={() => { back(); }}
-                />
+              {demoId ? (
+                wide ? (
+                  <WideCard width={windowSize.width} height={windowSize.height} gutter={gutterColor(demoSurface(demoId))}>
+                    {demoPage === "account" ? (
+                      <DemoAccount
+                        id={demoId}
+                        followed={Boolean(demoFollow[demoId])}
+                        onFollow={() => setDemoFollow((prev) => ({ ...prev, [demoId]: !prev[demoId] }))}
+                        onBack={() => { back(); }}
+                      />
+                    ) : (
+                      <DemoImmersive
+                        id={demoId}
+                        onBack={() => { close(); }}
+                        onAccount={() => { setDemoParent("immersive"); setDemoPage("account"); }}
+                        onSample={(message) => setToast(message)}
+                      />
+                    )}
+                  </WideCard>
+                ) : demoPage === "account" ? (
+                  <DemoAccount
+                    id={demoId}
+                    followed={Boolean(demoFollow[demoId])}
+                    onFollow={() => setDemoFollow((prev) => ({ ...prev, [demoId]: !prev[demoId] }))}
+                    onBack={() => { back(); }}
+                  />
+                ) : (
+                  <DemoImmersive
+                    id={demoId}
+                    onBack={() => { close(); }}
+                    onAccount={() => { setDemoParent("immersive"); setDemoPage("account"); }}
+                    onSample={(message) => setToast(message)}
+                  />
+                )
               ) : null}
               {toast ? (
                 <View pointerEvents="none" style={{ position: "absolute", left: 20, right: 20, bottom: 40, alignItems: "center" }}>

@@ -1,12 +1,11 @@
 import { Image, Pressable, Text, View } from "react-native";
 import type { Measurable } from "../chrome";
 import { asMeasurable } from "../chrome";
-import { ENGLISH, INFO, STUDY, WAVEFORM, type DemoId } from "./data";
+import { demoSurface, ENGLISH, INFO, STUDY, WAVEFORM, type DemoId } from "./data";
 import { useRef } from "react";
 
 const INK = "#1C1B19";
 const CREAM = "#F3EFE7";
-const CLAY = "#D9774B";
 const AMBER = "#F5A623";
 const MONO = "monospace";
 
@@ -177,7 +176,7 @@ export function DemoCard({
 }) {
   const nodeRef = useRef<Measurable | null>(null);
   const ink = id !== "demo-study";
-  const backgroundColor = id === "demo-info" ? CREAM : id === "demo-english" ? CLAY : "#0F0F11";
+  const backgroundColor = demoSurface(id);
   const label = id === "demo-info" ? "Info Bot 样例封面" : id === "demo-english" ? "English Bot 样例封面" : "Study Bot 样例封面";
   return (
     <View style={{ height, backgroundColor }}>

@@ -183,6 +183,13 @@ export function demoById(id: string): DemoId | null {
   return (DEMO_IDS as readonly string[]).includes(id) ? id as DemoId : null;
 }
 
+/** Feed, immersive, and account chrome for one sample. Gutters darken this color. */
+export function demoSurface(id: DemoId): string {
+  if (id === "demo-info") return "#F3EFE7";
+  if (id === "demo-english") return "#D9774B";
+  return "#0F0F11";
+}
+
 const infoSource = `${INFO.title}\n${INFO.hook}\n${INFO.points.map((point) => point.text).join("\n")}\n${INFO.signals.map((item) => `${item.title}\n${item.body}`).join("\n")}`;
 
 export function assertDemoCopy(): void {
