@@ -77,6 +77,8 @@ echo "bundle bytes=$(wc -c < "$BUNDLE")"
 
 adb install -r "$APK"
 adb shell appops set io.github.felixzhu.qiandrive SYSTEM_ALERT_WINDOW allow || true
+adb shell am force-stop com.google.android.apps.nexuslauncher || true
+adb shell am force-stop com.android.launcher3 || true
 
 set +e
 light_status=0
