@@ -278,7 +278,7 @@ QbotFeed.mount(document.getElementById("tab-feed"), { feedUrl: "out/feed.json" }
 
 音频同时只播一条，视频也是。切到另一张卡、收到 `qbot:tab` 且目标不是 feed、页面被隐藏（`visibilitychange`）或进入 `pagehide` 时暂停。外壳若在 App 进后台时派发 `qbot:appstate`（`detail.state` 为 `background`、`inactive` 或 `hidden`），模块同样暂停。切回 feed 时重新按当前卡排版，位置保留。
 
-滑动松手时：位移超过视口高度的 15%，或速度超过 0.3px/ms，就翻到相邻那一张；否则吸附到最近的整张卡。判断只在 `touchstart` / `touchend` 上用被动监听完成，纵向 touch 不调用 `preventDefault`，原生 `scroll-snap` 仍然保留。不把整条音频播放器排除在外：只有进度条和按钮不翻页，点在空白处或时间文字上仍会翻页。
+手指滑动不翻页。`touchstart` / `touchend` / `touchcancel` 仍是被动监听，纵向 touch 不调用 `preventDefault`，也不按位移或速度调用 `goTo`。落点只由原生滚动和 CSS snap 决定。滚动停下后（有 `scrollend` 就用它；没有则等滚动事件安静约 120ms）才按落点更新页码和顶栏，并暂停离开的音视频；这次同步不调用 `scrollTo`。圆点、目录、键盘和滚轮仍走 `goTo`。
 
 视频在卡片里点按播放，按文件原始宽高比显示，可暂停、拖动进度和全屏。`has_video` 为真但没有地址，或地址打不开时，卡片说明暂时不能播。
 

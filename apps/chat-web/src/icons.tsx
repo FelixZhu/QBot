@@ -12,6 +12,7 @@ export const BrandMark = ({ className }: { className?: string }) => (
   </svg>
 );
 export const IconMenu = () => <S><path d="M4 7h16M4 12h16M4 17h10" /></S>;
+export const IconBack = () => <S><path d="M15 5 8 12l7 7" /></S>;
 export const IconMic = ({ size = 24 }: { size?: number }) => (
   <S size={size}><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21" /></S>
 );

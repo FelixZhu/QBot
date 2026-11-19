@@ -130,7 +130,7 @@ async function snap() { return ev(snapExpr()); }
 
 async function ready() {
   for (let i = 0; i < 50; i++) {
-    const ok = await ev(`!!(document.querySelector('#qbsAppearanceBtn') && document.querySelectorAll('.q-fcard').length >= 3 && document.querySelector('#chat-root') && document.querySelector('#chat-root').children.length)`);
+    const ok = await ev(`!!(document.querySelector('#qbsNav [data-qbs-tab="kb"]') && !document.querySelector('#qbsAppearanceBtn') && document.querySelectorAll('.q-fcard').length >= 3 && document.querySelector('#chat-root') && document.querySelector('#chat-root').children.length)`);
     if (ok) return;
     await sleep(200);
   }

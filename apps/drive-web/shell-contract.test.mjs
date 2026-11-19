@@ -49,6 +49,13 @@ const backBranch = template.slice(template.indexOf("if(window.qbotShell&&qbotShe
 assert.match(backBranch, /closeShellOverlay\(\)/);
 assert.equal(backBranch.includes("qbotFeed.back"), false);
 
+const touchEnd = sliceFn(feedJs, "onTouchEnd()", "onWheel(");
+assert.equal(touchEnd.includes("goTo("), false, "touchend must not page");
+assert.equal(feedJs.includes("function snapToNearest"), false);
+const settle = sliceFn(feedJs, "settleFromScroll()", "armSettle()");
+assert.equal(settle.includes("scrollTo"), false);
+assert.equal(settle.includes("scrollTop"), false);
+
 const FEED = JSON.stringify({
   cards: [{
     id: "ext",
@@ -64,6 +71,47 @@ const FEED = JSON.stringify({
   }]
 });
 
+const SCROLL_FEED = JSON.stringify({
+  cards: [
+    {
+      id: "one",
+      bot: "Info Bot",
+      type: "digest",
+      time: "2026-01-05T08:24:00+08:00",
+      title: "第一张",
+      summary: "",
+      media: { kind: "none" },
+      open_url: "",
+      private: false,
+      data: { date: "2026-01-05", highlights: [{ title: "甲" }] }
+    },
+    {
+      id: "two",
+      bot: "English Bot",
+      type: "english",
+      time: "2026-01-06T07:57:00+08:00",
+      title: "第二张",
+      summary: "",
+      media: { kind: "video", url: "/fixtures/synthetic-lesson.mp4", width: 320, height: 180 },
+      open_url: "",
+      private: false,
+      data: { expression: "second card", meaning: "第二张", has_video: true }
+    },
+    {
+      id: "three",
+      bot: "Study Bot",
+      type: "study",
+      time: "2026-01-07T10:00:00+08:00",
+      title: "第三张",
+      summary: "",
+      media: { kind: "none" },
+      open_url: "/reader.html",
+      private: false,
+      data: { course: "示例", day: 1, total: 3, brief: "第三张" }
+    }
+  ]
+});
+
 function startServer() {
   const types = { ".js": "text/javascript", ".html": "text/html", ".json": "application/json", ".css": "text/css" };
   const server = createServer((req, res) => {
@@ -71,6 +119,29 @@ function startServer() {
     if (url === "/contract-feed.json") {
       res.writeHead(200, { "content-type": "application/json" });
       res.end(FEED);
+      return;
+    }
+    if (url === "/scroll-feed.json") {
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(SCROLL_FEED);
+      return;
+    }
+    if (url === "/reader.html") {
+      res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+      res.end("<!doctype html><meta charset=\"utf-8\"><p>阅读回位</p>");
+      return;
+    }
+    if (url === "/scroll.html") {
+      res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+      res.end(`<!doctype html><meta charset="utf-8">
+<link rel="stylesheet" href="/tokens.css">
+<link rel="stylesheet" href="/layout.css">
+<link rel="stylesheet" href="/components.css">
+<link rel="stylesheet" href="/feed.css">
+<style>html,body,#root{height:100%;margin:0}</style>
+<div id="root"></div>
+<script src="/feed.js"></script>
+<script>QbotFeed.mount(document.getElementById("root"), {feedUrl: location.origin + "/scroll-feed.json"});</script>`);
       return;
     }
     if (url === "/contract.html") {
@@ -102,6 +173,7 @@ const chrome = spawn(chromeBin, [
   "--user-data-dir=/tmp/chrome-shell-contract",
   "--no-first-run",
   "--disable-gpu",
+  "--autoplay-policy=no-user-gesture-required",
   urlSafe()
 ], { stdio: "ignore" });
 
@@ -210,6 +282,202 @@ try {
   assert.equal(noShell.opened, true, "without a shell the page opens in the feed");
   assert.equal(noShell.back, true);
   assert.equal(noShell.detail, false);
+
+  await call("Emulation.setDeviceMetricsOverride", {
+    width: 390, height: 844, deviceScaleFactor: 1, mobile: true
+  });
+  await call("Page.navigate", { url: `http://127.0.0.1:${port}/scroll.html` });
+  let cardsReady = false;
+  for (let i = 0; i < 40; i++) {
+    cardsReady = await ev(`(() => {
+      const track = document.querySelector(".q-feed");
+      const cards = document.querySelectorAll(".q-fcard");
+      return !!(track && track.clientHeight > 200 && cards.length === 3 && Math.abs(cards[0].offsetHeight - track.clientHeight) < 2);
+    })()`);
+    if (cardsReady) break;
+    await new Promise((r) => setTimeout(r, 150));
+  }
+  assert.equal(cardsReady, true, "scroll fixture did not lay out one card per viewport");
+  await ev(`(() => {
+    const orig = Element.prototype.scrollTo;
+    window.__feedScrollTo = [];
+    Element.prototype.scrollTo = function (a, b) {
+      if (this.classList && this.classList.contains("q-feed")) {
+        const top = a && typeof a === "object" ? a.top : b;
+        const behavior = a && typeof a === "object" ? (a.behavior || "auto") : "auto";
+        window.__feedScrollTo.push({ top: top, behavior: behavior, from: this.scrollTop });
+      }
+      return orig.apply(this, arguments);
+    };
+    return true;
+  })()`);
+
+  async function place(i) {
+    await ev(`(() => {
+      const track = document.querySelector(".q-feed");
+      const card = document.querySelector('.q-fcard[data-i="${i}"]');
+      track.scrollTop = card.offsetTop;
+      track.dispatchEvent(new Event("scrollend"));
+      return true;
+    })()`);
+    await new Promise((r) => setTimeout(r, 160));
+  }
+  function touchPoint(elVar, y) {
+    return `new Touch({ identifier: 1, target: ${elVar}, clientX: 40, clientY: ${y}, pageX: 40, pageY: ${y} })`;
+  }
+
+  const longDrag = await ev(`(() => new Promise((resolve) => {
+    const track = document.querySelector(".q-feed");
+    const before = window.__feedScrollTo.length;
+    const h = track.clientHeight;
+    track.scrollTop = 0;
+    track.dispatchEvent(new Event("scrollend"));
+    const start = ${touchPoint("track", 500)};
+    track.dispatchEvent(new TouchEvent("touchstart", { bubbles: true, cancelable: true, touches: [start], targetTouches: [start], changedTouches: [start] }));
+    track.scrollTop = Math.round(h * 0.95);
+    const end = ${touchPoint("track", 40)};
+    track.dispatchEvent(new TouchEvent("touchend", { bubbles: true, cancelable: true, touches: [], targetTouches: [], changedTouches: [end] }));
+    track.dispatchEvent(new Event("scrollend"));
+    setTimeout(() => {
+      const buttons = Array.prototype.slice.call(document.querySelectorAll(".feed-pager button"));
+      const cur = document.querySelector('.feed-pager button[aria-current="true"]');
+      resolve({
+        h: h,
+        top: track.scrollTop,
+        index: buttons.indexOf(cur),
+        added: window.__feedScrollTo.slice(before)
+      });
+    }, 250);
+  }))()`);
+  assert.deepEqual(longDrag.added, [], "long drag must not call scrollTo: " + JSON.stringify(longDrag));
+  assert.ok(longDrag.top < longDrag.h * 1.5, "long drag skipped two cards: " + JSON.stringify(longDrag));
+  assert.equal(longDrag.index, 1, "long drag pager: " + JSON.stringify(longDrag));
+  assert.equal(longDrag.index, Math.round(longDrag.top / longDrag.h), "pager and position diverged: " + JSON.stringify(longDrag));
+
+  const shortDrag = await ev(`(() => new Promise((resolve) => {
+    const track = document.querySelector(".q-feed");
+    const before = window.__feedScrollTo.length;
+    const h = track.clientHeight;
+    track.scrollTop = 0;
+    track.dispatchEvent(new Event("scrollend"));
+    const start = ${touchPoint("track", 400)};
+    track.dispatchEvent(new TouchEvent("touchstart", { bubbles: true, cancelable: true, touches: [start], targetTouches: [start], changedTouches: [start] }));
+    track.scrollTop = Math.round(h * 0.08);
+    const end = ${touchPoint("track", 340)};
+    track.dispatchEvent(new TouchEvent("touchend", { bubbles: true, cancelable: true, touches: [], targetTouches: [], changedTouches: [end] }));
+    track.dispatchEvent(new Event("scrollend"));
+    setTimeout(() => {
+      const buttons = Array.prototype.slice.call(document.querySelectorAll(".feed-pager button"));
+      const cur = document.querySelector('.feed-pager button[aria-current="true"]');
+      resolve({
+        h: h,
+        top: track.scrollTop,
+        index: buttons.indexOf(cur),
+        added: window.__feedScrollTo.slice(before)
+      });
+    }, 250);
+  }))()`);
+  assert.deepEqual(shortDrag.added, [], "short drag compensated with scrollTo: " + JSON.stringify(shortDrag));
+  assert.equal(shortDrag.index, Math.round(shortDrag.top / shortDrag.h), "short drag pager: " + JSON.stringify(shortDrag));
+  assert.ok(shortDrag.top < shortDrag.h * 0.5, "short drag left the first card: " + JSON.stringify(shortDrag));
+
+  await place(0);
+  const wheel = await ev(`(() => new Promise((resolve) => {
+    const track = document.querySelector(".q-feed");
+    const before = window.__feedScrollTo.length;
+    track.dispatchEvent(new WheelEvent("wheel", { deltaY: 120, bubbles: true, cancelable: true }));
+    const started = Date.now();
+    (function wait() {
+      const buttons = Array.prototype.slice.call(document.querySelectorAll(".feed-pager button"));
+      const cur = document.querySelector('.feed-pager button[aria-current="true"]');
+      const card = document.querySelector('.q-fcard[data-i="1"]');
+      const index = buttons.indexOf(cur);
+      if (index === 1 && card && Math.abs(track.scrollTop - card.offsetTop) < 3) {
+        resolve({ index: index, added: window.__feedScrollTo.slice(before) });
+        return;
+      }
+      if (Date.now() - started > 2000) {
+        resolve({ index: index, top: track.scrollTop, added: window.__feedScrollTo.slice(before), timeout: true });
+        return;
+      }
+      setTimeout(wait, 40);
+    })();
+  }))()`);
+  assert.equal(wheel.timeout, undefined, "wheel did not land: " + JSON.stringify(wheel));
+  assert.equal(wheel.added.length, 1, "wheel scrollTo count: " + JSON.stringify(wheel));
+  assert.equal(wheel.added[0].behavior, "smooth");
+
+  await place(2);
+  const saved = await ev(`(() => {
+    const track = document.querySelector(".q-feed");
+    return {
+      top: track.scrollTop,
+      label: document.querySelector('.feed-pager button[aria-current="true"]').getAttribute("aria-label")
+    };
+  })()`);
+  await ev(`document.querySelector('.q-fcard[data-i="2"] .q-primary').click()`);
+  let reader = false;
+  for (let i = 0; i < 30; i++) {
+    reader = await ev(`!!(document.querySelector(".feed-reader") && document.querySelector(".feed-reader").innerText.includes("阅读回位"))`);
+    if (reader) break;
+    await new Promise((r) => setTimeout(r, 100));
+  }
+  assert.equal(reader, true, "study page did not open");
+  const restored = await ev(`(() => {
+    const back = window.qbotFeed.back();
+    const track = document.querySelector(".q-feed");
+    return {
+      back: back,
+      top: track.scrollTop,
+      label: document.querySelector('.feed-pager button[aria-current="true"]').getAttribute("aria-label"),
+      detail: !!document.querySelector(".feed-detail")
+    };
+  })()`);
+  assert.equal(restored.back, true);
+  assert.equal(restored.detail, false);
+  assert.equal(restored.label, saved.label);
+  assert.ok(Math.abs(restored.top - saved.top) < 2, JSON.stringify({ saved, restored }));
+
+  await place(1);
+  await ev(`document.querySelector('.q-fcard[data-i="1"] .q-video-play').click()`);
+  let playing = false;
+  for (let i = 0; i < 30; i++) {
+    playing = await ev(`(() => { const v = document.querySelector('.q-fcard[data-i="1"] video'); return !!(v && !v.paused); })()`);
+    if (playing) break;
+    await new Promise((r) => setTimeout(r, 100));
+  }
+  assert.equal(playing, true, "video did not start");
+  const pausedByCard = await ev(`(() => new Promise((resolve) => {
+    const track = document.querySelector(".q-feed");
+    const h = track.clientHeight;
+    const start = ${touchPoint("track", 500)};
+    track.dispatchEvent(new TouchEvent("touchstart", { bubbles: true, cancelable: true, touches: [start], targetTouches: [start], changedTouches: [start] }));
+    track.scrollTop = h * 2;
+    const end = ${touchPoint("track", 40)};
+    track.dispatchEvent(new TouchEvent("touchend", { bubbles: true, cancelable: true, touches: [], targetTouches: [], changedTouches: [end] }));
+    track.dispatchEvent(new Event("scrollend"));
+    setTimeout(() => {
+      const buttons = Array.prototype.slice.call(document.querySelectorAll(".feed-pager button"));
+      const cur = document.querySelector('.feed-pager button[aria-current="true"]');
+      const v = document.querySelector('.q-fcard[data-i="1"] video');
+      resolve({ index: buttons.indexOf(cur), paused: !v || v.paused });
+    }, 200);
+  }))()`);
+  assert.equal(pausedByCard.index, 2, JSON.stringify(pausedByCard));
+  assert.equal(pausedByCard.paused, true, JSON.stringify(pausedByCard));
+
+  await place(1);
+  await ev(`document.querySelector('.q-fcard[data-i="1"] .q-video-play').click()`);
+  let playingAgain = false;
+  for (let i = 0; i < 30; i++) {
+    playingAgain = await ev(`(() => { const v = document.querySelector('.q-fcard[data-i="1"] video'); return !!(v && !v.paused); })()`);
+    if (playingAgain) break;
+    await new Promise((r) => setTimeout(r, 100));
+  }
+  assert.equal(playingAgain, true, "video did not restart");
+  await ev(`window.dispatchEvent(new CustomEvent("qbot:tab", { detail: { tab: "kb" } }))`);
+  assert.equal(await ev(`document.querySelector('.q-fcard[data-i="1"] video').paused`), true, "leaving the tab did not pause");
+
   console.log("shell contract passed");
 } finally {
   try { chrome.kill(); } catch (e) {}

@@ -1,0 +1,49 @@
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import test from "node:test";
+
+const app = readFileSync(new URL("../../chat-web/src/App.tsx", import.meta.url), "utf8");
+const css = readFileSync(new URL("../../chat-web/src/chat.css", import.meta.url), "utf8");
+const template = readFileSync(new URL("../template.html", import.meta.url), "utf8");
+
+test("the conversation home does not ship the design samples as data", () => {
+  for (const sample of ["健康助手", "英语陪练", "学习助手", "灵感助手", "资讯助手", "AI Infra", "出差 · 上海", "周五 14:00", "CONVERSATIONS", "initialMessages"]) {
+    assert.equal(app.includes(sample), false, sample);
+  }
+  assert.match(app, /还没有会话/);
+  assert.match(app, /搜索对话/);
+  assert.match(app, /打开 QBot/);
+  assert.match(app, /qbs-in-chat/);
+  assert.match(app, /screen === "list"/);
+});
+
+test("list, bubble, and composer sizes follow the approved spec", () => {
+  assert.match(css, /#FAF9F6/);
+  assert.match(css, /#1C1B19/);
+  assert.match(css, /#8A8781/);
+  assert.match(css, /#EAE7E1/);
+  assert.match(css, /#D9774B/);
+  assert.match(css, /min-height:80px/);
+  assert.match(css, /\.qc-conv \.av\{width:48px;height:48px/);
+  assert.match(css, /font-size:16px/);
+  assert.match(css, /font-size:14px/);
+  assert.match(css, /\.qc-conv \.tm\{flex:none;font-size:12px/);
+  assert.match(css, /max-width:78%/);
+  assert.match(css, /\.qc-bubble\{max-width:78%;padding:12px/);
+  assert.match(css, /min-height:calc\(56px \+ env\(safe-area-inset-bottom\)\)/);
+  assert.match(css, /height:calc\(56px \+ env\(safe-area-inset-top\)\)/);
+  assert.match(css, /\.qc-search\{[^}]*height:40px/);
+  assert.equal(css.includes("woff"), false);
+  assert.equal(css.includes("Microsoft YaHei"), false);
+});
+
+test("an open chat hides the shared bar only while the chat tab is showing", () => {
+  assert.match(css, /\.qbs:has\(#panel-chat:not\(\[hidden\]\)\)\.qbs-in-chat \.qbs-nav\{display:none\}/);
+  assert.match(css, /\.qbs-item\{font-size:12px\}/);
+  assert.match(template, /data-qbs-tab="chat"/);
+  assert.match(template, /data-qbs-tab="feed"/);
+  assert.match(template, /data-qbs-tab="kb"/);
+  assert.match(template, /主动服务/);
+  assert.match(template, /知识库/);
+  assert.match(template, /window\.qbotChat&&window\.qbotChat\.back\(\)/);
+});

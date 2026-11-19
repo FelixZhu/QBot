@@ -213,6 +213,9 @@ def main():
                 problems = accept_site.accept_trees(repo, expect, accept_site.SOURCE_COPIES)
                 problems += accept_site.copies_match_source(repo, HERE)
                 problems += accept_site.copied_inputs(repo, os.path.join(PINS, "inputs.sha256"))
+                problems += accept_site.check_generated(
+                    repo, CHAT_DIST, os.path.join(HERE, "template.html"),
+                    os.path.join(staging, "out"))
             finally:
                 shutil.rmtree(expect, ignore_errors=True)
             if problems:
