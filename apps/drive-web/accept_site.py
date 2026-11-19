@@ -130,11 +130,15 @@ def accept_trees(built_root, expected_root, source_checked=()):
     expected = files_in(expected_root)
     built_ver = version_of(built_root)
     expected_ver = version_of(expected_root)
+    generated = set(GENERATED_OUTPUTS)
     for rel in sorted(set(expected) - set(built)):
+        if rel in generated:
+            continue
         problems.append("missing %s" % rel)
     for rel in sorted(set(built) - set(expected)):
+        if rel in generated:
+            continue
         problems.append("extra %s" % rel)
-    generated = set(GENERATED_OUTPUTS)
     for rel in sorted(set(built) & set(expected)):
         if rel in source_checked or rel in generated:
             continue
@@ -162,7 +166,11 @@ def copies_match_source(built_root, source_root, names=SOURCE_COPIES):
 
 def fetch_tree(dest, origin, pins):
     os.makedirs(dest, exist_ok=True)
+    generated = set(GENERATED_OUTPUTS)
     for digest, rel in read_sums(pins):
+        # Page and chat files are produced by this build. Do not borrow them.
+        if rel in generated or rel.startswith("chat/"):
+            continue
         path = os.path.join(dest, rel)
         os.makedirs(os.path.dirname(path), exist_ok=True)
         url = origin.rstrip("/") + "/" + quote(rel, safe="/")

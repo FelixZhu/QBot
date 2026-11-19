@@ -2,12 +2,9 @@
 """Build-only entry for the tested public site.
 
 Downloads the pinned public inputs, checks their SHA256, and runs
-refresh_site.py without --push. Fonts, feed media, and the chat bundle are
-not stored in this source tree. When apps/chat-web still matches
-pins/chat-web.sha256, the published chat bundle is reused so the page
-version stamp stays comparable to the tested candidate. A chat-source
-change rebuilds the bundle and is recorded as a provenance difference,
-not as a behavior result.
+refresh_site.py without --push. Fonts and feed media are not stored in
+this source tree. chat/chat.js and chat/chat.css are built from
+apps/chat-web and are not downloaded from the live site.
 
 Does not enable GitHub Pages, publish, or read OSS credentials.
 """
@@ -55,7 +52,8 @@ def sha256(path):
 def fetch_inputs(staging, origin, from_dir):
     sys.path.insert(0, HERE)
     import accept_site
-    inputs = read_sums(os.path.join(PINS, "inputs.sha256"))
+    inputs = [(digest, rel) for digest, rel in read_sums(os.path.join(PINS, "inputs.sha256"))
+              if not rel.startswith("chat/")]
     for digest, rel in inputs:
         dest = os.path.join(staging, rel)
         os.makedirs(os.path.dirname(dest), exist_ok=True)
@@ -147,15 +145,11 @@ def main():
             "--feed-out", os.path.join(staging, "out"),
             "--fonts", os.path.join(staging, "fonts"),
         ]
+        # The chat bundle is always built from apps/chat-web. A matching
+        # source pin is recorded, but it does not reuse a downloaded bundle.
+        chat_mode = "rebuilt"
         if matched:
-            shutil.rmtree(CHAT_DIST, ignore_errors=True)
-            os.makedirs(CHAT_DIST, exist_ok=True)
-            for name in ("chat.js", "chat.css"):
-                shutil.copy2(os.path.join(staging, "chat", name), os.path.join(CHAT_DIST, name))
-            cmd.append("--no-chat-build")
-            chat_mode = "pinned-public-bundle"
-        else:
-            chat_mode = "rebuilt"
+            drifted = None
         subprocess.run(cmd, check=True)
         problems = scan_output(repo)
         if problems:
