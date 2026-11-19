@@ -304,6 +304,301 @@ html,body{height:100%;overflow:hidden;overscroll-behavior:none}
 @media (min-width:600px){
   .qbs-overlay{left:72px}
 }
+/* 主动服务 · 6 课竖向 Feed。只作用于 #pf-root，字体用系统栈，不引入字体文件。 */
+#pf-root{
+  --pf-sans:"Microsoft YaHei","PingFang SC","Noto Sans CJK SC",sans-serif;
+  --pf-mono:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+  --pf-am:#F5A623;--pf-cream:#F4F1EA;--pf-dim:rgba(244,241,234,.62);
+  --pf-top:calc(48px + env(safe-area-inset-top));
+  flex:1 1 auto;height:100%;min-height:0;position:relative;overflow:hidden;
+  background:#0B0B0F;color:var(--pf-cream);font-family:var(--pf-sans);
+}
+#pf-root button{font-family:inherit}
+#pf-root [hidden]{display:none!important}
+#pf-root .pf-mono{font-family:var(--pf-mono)}
+#pf-root .pf-am{color:var(--pf-am)}
+#panel-feed #tab-feed{background:#0B0B0F}
+#pf-root .pf-top{
+  position:absolute;top:0;left:0;right:0;z-index:5;height:var(--pf-top);
+  padding:env(safe-area-inset-top) 8px 0;display:flex;align-items:flex-end;justify-content:space-between;
+}
+#pf-root .pf-sp{width:44px;flex:none}
+#pf-root .pf-tabs{display:flex;gap:22px;align-items:center;height:44px;font-size:16px;color:var(--pf-dim)}
+#pf-root .pf-tabs button{height:44px;padding:0;color:inherit;background:none;border:0}
+#pf-root .pf-tabs button.is-on{color:var(--pf-cream);font-weight:700;box-shadow:inset 0 -2px 0 var(--pf-cream)}
+#pf-root .pf-ib{width:44px;height:44px;display:flex;align-items:center;justify-content:center;color:var(--pf-cream);padding:0}
+#pf-root .pf-feed{
+  position:absolute;inset:0;height:auto;z-index:1;
+  overflow-x:hidden;overflow-y:auto;scroll-snap-type:y mandatory;
+  overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-x pan-y;scrollbar-width:none;
+}
+#pf-root .pf-feed::-webkit-scrollbar,#pf-root .pf-h::-webkit-scrollbar{display:none}
+#pf-root .pf-slide{
+  position:relative;height:100%;min-height:100%;scroll-snap-align:start;scroll-snap-stop:always;
+  overflow:hidden;background:#0B0B0F;color:var(--pf-cream);touch-action:pan-x pan-y;
+}
+#pf-root .pf-grid{
+  background-image:linear-gradient(rgba(255,255,255,.045) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.045) 1px,transparent 1px);
+  background-size:26px 26px;background-color:#0B0B0F;
+}
+#pf-root .pf-main{
+  position:absolute;top:calc(var(--pf-top) + 6px);left:16px;right:72px;bottom:108px;
+  display:flex;flex-direction:column;gap:12px;min-height:0;
+}
+#pf-root .pf-head{display:flex;flex-direction:column;gap:10px;flex:none}
+#pf-root .pf-hdr{display:flex;align-items:center;justify-content:space-between;gap:8px}
+#pf-root .pf-pill{
+  display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border:1px solid rgba(245,166,35,.45);
+  border-radius:999px;font-size:12px;color:var(--pf-am);white-space:nowrap;
+}
+#pf-root .pf-day{font-size:12px;color:var(--pf-dim);letter-spacing:.08em;white-space:nowrap}
+#pf-root .pf-segs{display:flex;gap:2px}
+#pf-root .pf-seg{flex:1;height:3px;border-radius:2px;background:rgba(244,241,234,.15)}
+#pf-root .pf-seg-f{background:rgba(244,241,234,.7)}
+#pf-root .pf-seg-a{background:var(--pf-am)}
+#pf-root .pf-h1{margin:4px 0 0;font-size:34px;line-height:1.16;font-weight:700;letter-spacing:-.01em}
+#pf-root .pf-kw{font-family:var(--pf-mono);font-weight:700;color:var(--pf-am)}
+#pf-root .pf-sub{margin:0;font-size:14px;line-height:1.5;color:rgba(244,241,234,.72)}
+#pf-root .pf-panel{
+  flex:1;min-height:0;overflow:auto;padding:12px;border:1px solid rgba(255,255,255,.1);
+  border-radius:14px;background:rgba(11,11,15,.82);
+}
+#pf-root .pf-dash{margin-top:10px;padding-top:8px;border-top:1px dashed rgba(255,255,255,.12)}
+#pf-root .pf-stack{display:flex;gap:8px}
+#pf-root .pf-stk{flex:1;min-width:0}
+#pf-root .pf-slab{font-size:9px;color:var(--pf-dim);margin-bottom:6px;letter-spacing:.08em}
+#pf-root .pf-row{height:20px;border-radius:5px;margin-bottom:3px;font-size:11.5px;line-height:20px;padding:0 8px;white-space:nowrap;overflow:hidden}
+#pf-root .pf-r1{background:rgba(244,241,234,.16)}
+#pf-root .pf-r2{background:rgba(244,241,234,.1)}
+#pf-root .pf-r3{background:rgba(245,166,35,.22);border:1px solid rgba(245,166,35,.5);line-height:18px}
+#pf-root .pf-r4{background:var(--pf-am);color:#141413;font-weight:700}
+#pf-root .pf-brs{width:68px;position:relative;margin-top:18px;flex:none}
+#pf-root .pf-br{position:absolute;left:0;width:8px;border:1.5px solid rgba(244,241,234,.4);border-left:0;border-radius:0 5px 5px 0}
+#pf-root .pf-br span{position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:10px;color:var(--pf-dim);white-space:nowrap}
+#pf-root .pf-br1{top:0;height:43px}
+#pf-root .pf-br2{top:46px;height:63px;border-color:rgba(245,166,35,.7)}
+#pf-root .pf-br2 span{color:var(--pf-am)}
+#pf-root .pf-rail{
+  position:absolute;right:4px;bottom:16px;z-index:3;display:flex;flex-direction:column;align-items:center;gap:12px;
+}
+#pf-root .pf-av{position:relative;width:48px;height:48px;border-radius:50%;border:2px solid var(--pf-cream);background:#F3EBDD;padding:0;margin-bottom:4px}
+#pf-root .pf-av svg{width:100%;height:100%;display:block;border-radius:50%}
+#pf-root .pf-plus{
+  position:absolute;bottom:-8px;left:50%;margin-left:-9px;width:18px;height:18px;border-radius:50%;
+  background:var(--pf-am);color:#141413;font-size:14px;line-height:18px;font-weight:700;
+}
+#pf-root .pf-rb{
+  display:flex;flex-direction:column;align-items:center;gap:2px;min-width:48px;min-height:44px;
+  font-size:12px;color:var(--pf-cream);padding:0;
+}
+#pf-root .pf-rb svg{width:28px;height:28px}
+#pf-root .pf-check{color:var(--pf-am)}
+#pf-root .pf-ring{
+  width:36px;height:36px;border-radius:50%;border:2px solid var(--pf-am);
+  display:flex;align-items:center;justify-content:center;
+}
+#pf-root .pf-ring svg{width:20px;height:20px}
+#pf-root .pf-rb.on{color:var(--pf-am)}
+#pf-root .pf-rb.on:not(.pf-check) svg{fill:currentColor}
+#pf-root .pf-check.on .pf-ring{background:var(--pf-am);color:#141413}
+#pf-root .pf-sm{gap:8px}
+#pf-root .pf-sm .pf-av{width:44px;height:44px}
+#pf-root .pf-cap{position:absolute;left:16px;right:76px;bottom:12px;z-index:3;display:flex;flex-direction:column;gap:6px}
+#pf-root .pf-chip{
+  align-self:flex-start;display:flex;align-items:center;gap:8px;max-width:100%;min-height:34px;padding:4px 10px;
+  border-radius:6px;background:rgba(255,255,255,.12);font-size:12px;color:var(--pf-cream);text-align:left;
+}
+#pf-root .pf-chip span{white-space:normal;line-height:1.35}
+#pf-root .pf-au{font-size:16px;font-weight:700}
+#pf-root .pf-ds{font-size:14px;line-height:1.45;color:rgba(244,241,234,.88)}
+#pf-root .pf-ds b{font-weight:700}
+#pf-root .pf-ml{font-size:11px;letter-spacing:.12em;color:var(--pf-dim)}
+#pf-root .pf-bh{font-size:26px;font-weight:700;line-height:1.25;margin:0}
+#pf-root .pf-poster{
+  position:relative;margin-top:2px;height:196px;border-radius:12px;background:#17171d;
+  border:1px solid rgba(255,255,255,.1);padding:26px 12px 34px;overflow:hidden;flex:none;
+}
+#pf-root .pf-vtag{
+  position:absolute;top:8px;left:10px;display:inline-flex;align-items:center;gap:5px;
+  font-size:10px;color:var(--pf-dim);background:rgba(0,0,0,.5);padding:3px 7px;border-radius:4px;
+}
+#pf-root .pf-badge{
+  display:inline-flex;align-items:center;font-family:var(--pf-mono);font-size:10px;line-height:1;
+  padding:3px 5px;border-radius:3px;border:1px solid rgba(245,166,35,.7);color:var(--pf-am);letter-spacing:.04em;
+}
+#pf-root .pf-bars{display:flex;flex-direction:column;gap:6px}
+#pf-root .pf-brow{display:flex;justify-content:space-between;gap:8px;font-size:12.5px;margin-bottom:4px}
+#pf-root .pf-trk{height:14px;border-radius:6px;background:rgba(244,241,234,.08)}
+#pf-root .pf-fill{height:14px;border-radius:6px;background:var(--pf-am)}
+#pf-root .pf-fill-g{background:rgba(244,241,234,.55)}
+#pf-root .pf-call{
+  align-self:center;margin:0 auto;padding:5px 10px;background:rgba(0,0,0,.6);border-radius:4px;
+  font-size:13px;display:flex;gap:8px;align-items:center;width:max-content;max-width:100%;
+}
+#pf-root .pf-tbc{
+  font-style:normal;font-family:var(--pf-mono);font-size:9px;line-height:1;padding:2px 4px;border-radius:3px;
+  border:1px solid rgba(244,241,234,.28);color:rgba(244,241,234,.55);letter-spacing:.04em;white-space:nowrap;
+}
+#pf-root .pf-vctl{
+  position:absolute;left:10px;right:10px;bottom:8px;display:flex;align-items:center;gap:8px;font-size:10px;color:var(--pf-dim);
+}
+#pf-root .pf-vp{width:24px;height:24px;border-radius:50%;background:var(--pf-am);color:#141413;display:flex;align-items:center;justify-content:center;padding:0}
+#pf-root .pf-vl{flex:1;height:3px;background:rgba(244,241,234,.18);border-radius:2px;position:relative}
+#pf-root .pf-vl i{display:block;width:21%;height:3px;background:var(--pf-am);border-radius:2px}
+#pf-root .pf-chips{display:flex;flex-wrap:wrap;gap:6px}
+#pf-root .pf-chips span{font-size:11.5px;padding:4px 9px;border-radius:999px;border:1px solid rgba(244,241,234,.2);color:rgba(244,241,234,.8)}
+#pf-root .pf-fcard{
+  flex:none;padding:12px;border-radius:14px;background:#17171d;border:1px solid rgba(245,166,35,.35);
+  display:flex;flex-direction:column;gap:8px;
+}
+#pf-root .pf-fr{display:flex;gap:10px;align-items:center}
+#pf-root .pf-ringw{position:relative;width:48px;height:48px;flex:none}
+#pf-root .pf-rn{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:14px}
+#pf-root .pf-ft{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+#pf-root .pf-s12{font-size:12px;color:var(--pf-dim)}
+#pf-root .pf-t16{font-size:15px;font-weight:700;line-height:1.25}
+#pf-root .pf-x{width:32px;height:32px;color:var(--pf-dim);padding:0}
+#pf-root .pf-ask{
+  display:flex;align-items:center;gap:6px;padding:8px 10px;border-radius:8px;background:rgba(245,166,35,.12);
+  font-size:12px;color:var(--pf-cream);text-align:left;width:100%;
+}
+#pf-root .pf-ask-t{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#pf-root .pf-btns{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+#pf-root .pf-btns button{height:44px;border-radius:10px;display:flex;align-items:center;justify-content:center;gap:6px;font-size:15px}
+#pf-root .pf-b1{background:var(--pf-am);color:#141413;font-weight:700}
+#pf-root .pf-b2{border:1px solid rgba(244,241,234,.3);color:var(--pf-cream);font-weight:500}
+#pf-root .pf-vprog{position:absolute;left:0;right:0;bottom:0;height:2px;background:rgba(244,241,234,.15);z-index:3}
+#pf-root .pf-vprog i{display:block;height:2px;width:38%;background:var(--pf-am)}
+#pf-root .pf-slide-c .pf-stage{position:absolute;top:var(--pf-top);left:0;right:0;bottom:268px}
+#pf-root .pf-slide-c .pf-rail{bottom:8px;gap:4px}
+#pf-root .pf-slide-c .pf-cap{bottom:8px}
+#pf-root .pf-h{height:100%;display:flex;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;overscroll-behavior-x:contain;touch-action:pan-x;scrollbar-width:none}
+#pf-root .pf-page{
+  flex:0 0 100%;width:100%;height:100%;scroll-snap-align:start;scroll-snap-stop:always;
+  background:#fff;color:#141413;display:flex;flex-direction:column;overflow:auto;
+}
+#pf-root .pf-abody{padding:16px 18px 0;display:flex;flex-direction:column;gap:10px;flex:1}
+#pf-root .pf-am1{display:flex;justify-content:space-between;font-size:11px;letter-spacing:.14em;color:#5E5D59}
+#pf-root .pf-num{display:flex;align-items:flex-end;gap:12px}
+#pf-root .pf-big{font-size:64px;line-height:.9;font-weight:700;letter-spacing:-.04em}
+#pf-root .pf-nc{display:flex;flex-direction:column;gap:6px;padding-bottom:4px}
+#pf-root .pf-tag{align-self:flex-start;padding:3px 8px;border-radius:4px;background:var(--pf-am);color:#141413;font-size:12px;font-weight:700}
+#pf-root .pf-nsub{font-size:13px;color:#5E5D59}
+#pf-root .pf-page h2{margin:0;font-size:22px;line-height:1.3;font-weight:700}
+#pf-root .pf-spec{padding:10px 12px;border-radius:10px;background:#FAF8F2;border:1px solid #ECEAE4}
+#pf-root .pf-spl{display:flex;justify-content:space-between;font-size:10.5px;color:#5E5D59}
+#pf-root .pf-spbar{position:relative;height:12px;border-radius:6px;margin:6px 0;background:linear-gradient(90deg,#E4E1D8 0%,#F5C46B 55%,#F5A623 80%,#141413 100%)}
+#pf-root .pf-ptr{position:absolute;top:-3px;width:4px;height:18px;border-radius:2px;background:#141413;margin-left:-2px;border:1px solid #fff}
+#pf-root .pf-sptx{display:flex;justify-content:space-between;gap:10px;font-size:12px}
+#pf-root .pf-sptx div{display:flex;flex-direction:column;gap:1px}
+#pf-root .pf-sptx .is-r{text-align:right}
+#pf-root .pf-sptx span{font-size:10.5px;color:#5E5D59}
+#pf-root .pf-ol{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:8px}
+#pf-root .pf-ol li{display:flex;gap:10px;align-items:flex-start}
+#pf-root .pf-n{flex:none;width:24px;height:24px;border-radius:6px;background:var(--pf-am);font-size:11px;font-weight:600;display:flex;align-items:center;justify-content:center}
+#pf-root .pf-lt{font-size:13px;line-height:1.4}
+#pf-root .pf-lt em{font-style:normal;font-size:11.5px;color:#5E5D59}
+#pf-root .pf-afoot{height:64px;background:#141413;color:var(--pf-cream);padding:0 18px;display:flex;align-items:center;flex:none}
+#pf-root .pf-afoot .pf-s13{font-size:13px}
+#pf-root .pf-fp{display:flex;gap:3px;margin-top:8px}
+#pf-root .pf-fp i{height:3px;background:rgba(244,241,234,.7);border-radius:2px;flex:7}
+#pf-root .pf-fp b{height:3px;background:rgba(244,241,234,.15);border-radius:2px;flex:21}
+#pf-root .pf-dots{position:absolute;left:0;right:0;bottom:246px;display:flex;justify-content:center;gap:6px;z-index:3}
+#pf-root .pf-d{width:4px;height:4px;border-radius:2px;background:rgba(244,241,234,.4)}
+#pf-root .pf-d.is-on{width:16px;background:var(--pf-am)}
+#pf-root .pf-ph h2{font-size:28px}
+#pf-root .pf-ph p{margin:0;font-size:15px;line-height:1.6;color:#3b3a37}
+#pf-root .pf-pgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+#pf-root .pf-pcard{position:relative;padding:8px 10px;border-radius:10px;border:1px solid rgba(255,255,255,.1);background:rgba(244,241,234,.05)}
+#pf-root .pf-wide{grid-column:1/3;padding-left:46px}
+#pf-root .pf-pn{font-size:10px;color:var(--pf-am)}
+#pf-root .pf-phrow{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
+#pf-root .pf-pic{width:28px;height:28px;border-radius:8px;background:rgba(245,166,35,.14);color:var(--pf-am);display:flex;align-items:center;justify-content:center}
+#pf-root .pf-wide .pf-phrow{position:absolute;left:10px;top:8px;margin:0}
+#pf-root .pf-wide .pf-pn{position:absolute;right:10px;top:8px}
+#pf-root .pf-pnm{font-size:13px;font-weight:700}
+#pf-root .pf-pex{font-size:10.5px;color:var(--pf-dim);margin-top:2px;line-height:1.35}
+#pf-root .pf-q3{display:flex;align-items:center;justify-content:space-between;font-size:12px;gap:4px}
+#pf-root .pf-q3 span{padding:5px 8px;border-radius:999px;border:1px solid rgba(245,166,35,.45);color:var(--pf-am)}
+#pf-root .pf-q3 i{font-style:normal;color:var(--pf-dim)}
+#pf-root .pf-code{border-radius:10px;background:#07070A;border:1px solid rgba(255,255,255,.08);overflow:hidden}
+#pf-root .pf-cdh{display:flex;align-items:center;gap:5px;padding:8px 10px;border-bottom:1px solid rgba(255,255,255,.07);font-size:10.5px;color:var(--pf-dim)}
+#pf-root .pf-dt{width:7px;height:7px;border-radius:50%;background:rgba(244,241,234,.2)}
+#pf-root .pf-cdh em{font-style:normal;margin-left:8px}
+#pf-root .pf-pre{margin:0;padding:10px 12px 12px;font-family:var(--pf-mono);font-size:11.5px;line-height:1.6;color:#E8E4DA;white-space:pre-wrap}
+#pf-root .pf-k{color:var(--pf-am)}
+#pf-root .pf-hl{color:#FFD58A;background:rgba(245,166,35,.14);border-radius:3px}
+#pf-root .pf-growth{margin-top:10px;padding-top:8px;border-top:1px dashed rgba(255,255,255,.12)}
+#pf-root .pf-gl{display:flex;justify-content:space-between;font-size:9px;color:var(--pf-dim);letter-spacing:.08em;margin-bottom:6px}
+#pf-root .pf-gb{display:flex;align-items:flex-end;gap:2px;height:28px}
+#pf-root .pf-gb i{flex:1;background:rgba(245,166,35,.85);border-radius:1.5px 1.5px 0 0}
+#pf-root .pf-gt{font-size:12px;line-height:1.45;color:rgba(244,241,234,.78);margin-top:6px}
+#pf-root .pf-hit{font-size:10px;color:var(--pf-dim);margin:6px 0 0}
+#pf-root .pf-scrim{position:absolute;inset:0;background:rgba(0,0,0,.55);z-index:6}
+#pf-root .pf-sheet{
+  position:absolute;left:0;right:0;bottom:0;top:18%;z-index:7;background:#fff;color:#141413;
+  border-radius:16px 16px 0 0;display:flex;flex-direction:column;transform:translateY(var(--pf-dy,0px));
+}
+#pf-root .pf-sheet.is-drag{transition:none}
+#pf-root .pf-handle{width:36px;height:4px;border-radius:2px;background:#D9D7D0;margin:8px auto 0;touch-action:none;cursor:grab}
+#pf-root .pf-sh{padding:10px 16px 0;display:flex;flex-direction:column;gap:6px;touch-action:none}
+#pf-root .pf-shr{display:flex;align-items:center;justify-content:space-between}
+#pf-root .pf-dtag{padding:3px 8px;border-radius:4px;background:var(--pf-am);color:#141413;font-size:12px;font-weight:600}
+#pf-root .pf-sheet h2{margin:0;font-size:20px;line-height:1.35;font-weight:700}
+#pf-root .pf-meta{font-size:12px;color:#5E5D59;line-height:1.45}
+#pf-root .pf-tabs2{display:flex;gap:18px;border-bottom:1px solid #ECEAE4;padding:0 16px}
+#pf-root .pf-tabs2 button{height:44px;border:0;border-bottom:3px solid transparent;background:none;color:#5E5D59;font-size:15px;display:flex;align-items:center;gap:4px;padding:0}
+#pf-root .pf-tabs2 button.is-on{border-bottom-color:var(--pf-am);font-weight:700;color:#141413}
+#pf-root .pf-sbody{flex:1;min-height:0;overflow:auto;padding:12px 16px 8px;display:flex;flex-direction:column;gap:12px;-webkit-overflow-scrolling:touch}
+#pf-root .pf-secs{margin:0;padding:0;list-style:none;display:flex;flex-direction:column}
+#pf-root .pf-secs li{display:flex;gap:10px;align-items:center;padding:8px 0}
+#pf-root .pf-c{width:28px;height:28px;border-radius:50%;border:1.5px solid #141413;font-size:12px;display:flex;align-items:center;justify-content:center;flex:none}
+#pf-root .pf-c.is-on{background:#141413;color:var(--pf-cream)}
+#pf-root .pf-m{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+#pf-root .pf-m b{font-size:15px}
+#pf-root .pf-m em{font-style:normal;font-size:12px;color:#5E5D59}
+#pf-root .pf-du{font-size:12px;color:#5E5D59;white-space:nowrap}
+#pf-root .pf-vrow{display:flex;gap:12px;align-items:center}
+#pf-root .pf-thumb{
+  position:relative;width:116px;height:66px;border-radius:8px;background:#141413;color:var(--pf-cream);
+  display:flex;align-items:center;justify-content:center;flex:none;padding:0;
+}
+#pf-root .pf-pb{width:32px;height:32px;border-radius:50%;background:var(--pf-am);color:#141413;display:flex;align-items:center;justify-content:center}
+#pf-root .pf-dur{position:absolute;right:6px;bottom:4px;font-size:10px}
+#pf-root .pf-thumb .pf-badge{position:absolute;left:6px;top:4px}
+#pf-root .pf-vt{display:flex;flex-direction:column;gap:3px}
+#pf-root .pf-vt b{font-size:14px;line-height:1.4}
+#pf-root .pf-vt em{font-style:normal;font-size:12px;color:#5E5D59}
+#pf-root .pf-aibox{padding:12px;border-radius:12px;background:#FDF5E4;display:flex;flex-direction:column;gap:8px}
+#pf-root .pf-aih{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:700;color:#6B4600}
+#pf-root .pf-qchips{display:flex;flex-wrap:wrap;gap:6px}
+#pf-root .pf-qchips button{padding:6px 10px;border-radius:999px;border:1px solid #E8D3A6;background:#fff;font-size:12px;color:#141413;text-align:left}
+#pf-root .pf-reply{margin:0;padding:8px 10px;border-radius:8px;background:#fff;border:1px dashed #E8D3A6;font-size:13px;line-height:1.5;color:#141413}
+#pf-root .pf-sfoot{padding:10px 16px calc(12px + env(safe-area-inset-bottom));border-top:1px solid #ECEAE4;display:grid;grid-template-columns:1fr 1fr;gap:10px;background:#fff}
+#pf-root .pf-sfoot button{height:46px;border-radius:10px;font-size:15px;font-weight:700}
+#pf-root .pf-o{border:1px solid #141413;background:#fff;color:#141413}
+#pf-root .pf-p{border:0;background:var(--pf-am);color:#141413}
+#pf-root .pf-quiz{flex:1;min-height:0;overflow:auto;padding:16px;display:flex;flex-direction:column;gap:12px}
+#pf-root .pf-quiz-q{margin:0;font-size:18px;line-height:1.45;font-weight:700}
+#pf-root .pf-reveal{align-self:flex-start;min-height:44px;padding:0 14px;border-radius:10px;border:1px solid #141413;background:#fff;font-weight:700}
+#pf-root .pf-quiz-a{margin:0;padding:12px;border-radius:10px;background:#FDF5E4;font-size:15px;line-height:1.5}
+#pf-root .pf-follow{
+  position:absolute;left:0;right:0;top:var(--pf-top);bottom:0;z-index:4;background:#0B0B0F;
+  display:flex;align-items:center;justify-content:center;text-align:center;padding:24px;
+}
+#pf-root .pf-follow b{display:block;font-size:20px;margin-bottom:8px}
+#pf-root .pf-follow p{margin:0 0 16px;color:var(--pf-dim);line-height:1.5}
+#pf-root .pf-follow button{min-height:44px;padding:0 16px;border-radius:10px;background:var(--pf-am);color:#141413;font-weight:700}
+#pf-root .pf-toast{
+  position:absolute;left:50%;bottom:24px;transform:translateX(-50%);z-index:8;
+  max-width:calc(100% - 32px);padding:8px 12px;border-radius:8px;background:rgba(0,0,0,.82);
+  color:var(--pf-cream);font-size:13px;text-align:center;
+}
+#pf-root .pf-poster-lg{
+  height:180px;border-radius:12px;background:#141413;color:var(--pf-cream);display:flex;align-items:center;justify-content:center;
+  position:relative;
+}
+#pf-root .pf-note{font-size:13px;line-height:1.5;color:#5E5D59;margin:0}
 </style>
 <link rel="stylesheet" href="chat/chat.css?v=__VERSION__">
 </head>
@@ -316,7 +611,7 @@ html,body{height:100%;overflow:hidden;overscroll-behavior:none}
   <button class="qbs-item" data-qbs-tab="kb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 5.5A1.5 1.5 0 0 1 6 4h4.5L12 6h6a1.5 1.5 0 0 1 1.5 1.5v11A1.5 1.5 0 0 1 18 20H6a1.5 1.5 0 0 1-1.5-1.5z"/><path d="M8.5 11.5h7M8.5 15h4.5"/></svg><span>知识库</span></button>
 </nav>
 <section class="qbs-panel" id="panel-chat"><div id="chat-root"></div></section>
-<section class="qbs-panel" id="panel-feed" hidden><div id="tab-feed"><div class="qbs-empty"><svg viewBox="0 0 32 32" aria-hidden="true"><rect x="4" y="6.5" width="17" height="19" rx="6.5" fill="var(--text-1)"/><circle cx="25.5" cy="21.5" r="3.2" fill="var(--accent)"/></svg><b>主动服务即将上线</b><span>QBot 会在这里主动推送：AI 日报、每日英语、学习进度。</span></div></div></section>
+<section class="qbs-panel" id="panel-feed" hidden><div id="tab-feed"><div id="pf-root" class="pf feed-root"></div></div></section>
 <script>
 /* Pick the starting tab before the drive script renders, so the drive never lays out hidden. */
 (function(){
@@ -980,11 +1275,14 @@ armAway();
   function css(u){var l=document.createElement("link");l.rel="stylesheet";l.href=u+"?v="+V;document.head.appendChild(l)}
   function js(u,cb){var s=document.createElement("script");s.src=u+"?v="+V;if(cb)s.onload=cb;document.body.appendChild(s)}
   exists("feed.css").then(function(ok){if(ok)css("feed.css")});
-  /* 主动服务: feed.js exposes QbotFeed.mount(el,{feedUrl}); reads the site copy out/feed.json (feed.js only falls back from OSS on localhost); switch to OSS once feed/feed.json is uploaded. */
-  exists("feed.js").then(function(ok){if(ok)js("feed.js",function(){
-    if(window.QbotFeed&&QbotFeed.mount)QbotFeed.mount(document.getElementById("tab-feed"),{feedUrl:"out/feed.json"});
-    markScrollers();
-  })});
+  /* 主动服务 Tab 是 6 课竖向 Feed（#pf-root）。feed.js 仍加载，供契约测试使用，但不要挂进 #tab-feed，否则会清掉这 6 课。 */
+  exists("feed.js").then(function(ok){
+    function arm(){
+      if(window.QbotLessons&&QbotLessons.holdBack)QbotLessons.holdBack();
+      markScrollers();
+    }
+    if(ok)js("feed.js",arm);else arm();
+  });
   Promise.all([exists("kb.js"),exists("kb.css")]).then(function(r){
     if(!r[0]){kbPanel.classList.remove("kb-pending");return}  /* fallback: the existing drive UI stays as the 知识库 tab */
     if(r[1])css("kb.css");
@@ -998,6 +1296,642 @@ armAway();
     });
   });
 })();
+</script>
+<script>
+/* 主动服务内测：6 课竖向 Feed。feed.js 仍会加载，但不挂进这个 Tab。 */
+(function (global) {
+  var root = document.getElementById("pf-root");
+  if (!root) return;
+
+  var SANS = "Microsoft YaHei, PingFang SC, Noto Sans CJK SC, sans-serif";
+  var MONO = "ui-monospace, SFMono-Regular, Menlo, Consolas, Liberation Mono, monospace";
+
+  function svg(inner, w, fill) {
+    return '<svg aria-hidden="true" width="' + (w || 24) + '" height="' + (w || 24) + '" viewBox="0 0 24 24" fill="' + (fill || "none") + '" stroke="' + (fill ? "none" : "currentColor") + '" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' + inner + "</svg>";
+  }
+  var ICON = {
+    search: svg('<circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/>', 22),
+    heart: svg('<path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/>', 28),
+    comment: svg('<path d="M4 5h16v11H9l-5 4z"/>', 28),
+    star: svg('<path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9 6.8 19.6l1-5.8L3.5 9.7l5.9-.9z"/>', 28),
+    share: svg('<path d="M14 5l6 6-6 6M20 11H10a6 6 0 0 0-6 6v1"/>', 28),
+    check: svg('<path d="M5 12.5l4.5 4.5L19 7.5"/>', 20, "none").replace('stroke="none"', 'stroke="currentColor" stroke-width="2.2"'),
+    doc: svg('<path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5M10 13h6M10 17h6"/>', 16),
+    play: svg('<path d="M8 5l11 7-11 7z"/>', 12, "currentColor"),
+    spark: svg('<path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/>', 14, "currentColor"),
+    x: svg('<path d="M6 6l12 12M18 6L6 18"/>', 20),
+    chev: svg('<path d="M9 6l6 6-6 6"/>', 14)
+  };
+  var AV = '<svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="24" fill="#F3EBDD"/><path d="M12 29c-1-8 4-15 12-15s13 6 12 14c-.7 5.7-6 8-12.4 8-6.4 0-10.8-1.6-11.6-7z" fill="#111"/><circle cx="31.5" cy="17.5" r="3.4" fill="#D9774B"/></svg>';
+
+  function esc(s) {
+    return String(s).replace(/[&<>"]/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c];
+    });
+  }
+  function pad(n) { return (n < 10 ? "0" : "") + n; }
+  function dayLabel(n) { return "DAY " + pad(n) + " / 30"; }
+
+  var LESSONS = [
+    {
+      day: 1, kind: "cover", kicker: "AI Agent · 30天精读",
+      titleHtml: '<span class="pf-kw">Agent</span> 在<br>「想→做→看」<br>中循环',
+      sub: "大脑是 LLM，眼睛是上下文，手脚是工具",
+      chip: "精读《深入理解 AI Agent》· 引言及 1.1",
+      author: "@Study Bot · AI Agent 每日一课",
+      desc: "今天搞懂 3 件事：大脑、眼睛、手脚各是什么",
+      tags: "#AIAgent #ReAct",
+      sheetTitle: "Agent = LLM + 上下文 + 工具",
+      meta: "精读《深入理解 AI Agent》· 引言及 1.1 · 讲义约 8 分钟 · 视频 3:20 · 时长示意",
+      points: [
+        ["大脑是 LLM", "想：模型思考，决定下一步做什么", "2 分钟"],
+        ["眼睛是上下文", "固定前缀 + 不断增长的执行轨迹", "3 分钟"],
+        ["手脚是工具", "最大杠杆：扩大它看到的和能做的", "3 分钟"]
+      ],
+      videoTitle: "动画：一次 想→做→看 循环",
+      asks: [
+        ["拿掉「工具返回结果」会怎样？", "看不到做了什么、做成没有，只能盲目重复。"],
+        ["上下文由哪几段组成？", "固定前缀（系统提示和工具定义）加上不断增长的执行轨迹。"]
+      ],
+      quiz: ["从上下文里拿掉「工具返回结果」，Agent 会怎样？", "看不到做了什么、做成没有，只能盲目重复。"]
+    },
+    {
+      day: 2, kind: "video", kicker: "HARNESS · TERMINAL BENCH",
+      titleHtml: "同一模型，差距在 Harness",
+      chip: "",
+      author: "@Study Bot · AI Agent 每日一课",
+      desc: "同一个模型，只改 Harness 就能差近 14 分",
+      tags: "#AIAgent #Harness",
+      sheetTitle: "Model 与 Harness 的分界",
+      meta: "1.x Harness · 小节号待核 · 讲义约 8 分钟 · 视频 3:20 · 时长示意",
+      points: [
+        ["Agent = 模型 + Harness", "边界以内、模型以外、不含环境", "要点"],
+        ["Harness 五件套", "上下文管理、工具接口、约束、验证、纠正", "要点"],
+        ["一层层变大", "提示工程 ⊂ 上下文工程 ⊂ Harness 工程 ⊂ Loop 工程 ⊂ Graph 工程", "要点"]
+      ],
+      videoTitle: "同一模型，只改 Harness",
+      floatTitle: "Model 与 Harness 的分界",
+      floatSub: "3 个要点 · 讲义约 8 分钟 · 视频 3:20 · 时长示意",
+      chips: ["上下文管理", "工具接口", "约束", "验证", "纠正"],
+      asks: [
+        ["浏览器算不算 Harness？", "不算，属于环境；云端权限检查服务反而算。"],
+        ["五件套是哪五件？", "上下文管理、工具接口、约束、验证、纠正。"]
+      ],
+      quiz: ["用户的浏览器算不算 Harness？", "不算，属于环境；云端权限检查服务反而算。"]
+    },
+    {
+      day: 3, kind: "carousel",
+      chip: "完整讲义 + 3 分钟视频",
+      author: "@Study Bot · AI Agent 每日一课",
+      desc: "已有 bash 和 Python，还要单独写「付款」工具吗？",
+      tags: "#AIAgent #工具",
+      sheetTitle: "工具五分类与「模型即 Agent」",
+      meta: "第 1 章 · 工具分类与模型即 Agent · 小节号待核 · 时长示意",
+      points: [
+        ["五类工具", "感知、执行、协作、事件触发、用户沟通", "要点"],
+        ["「模型即 Agent」", "调哪个工具的决策搬进参数，工具仍在 Harness 执行", "要点"],
+        ["三条学习路径", "上下文临时适应、更新外部文档和程序、更新模型参数", "要点"]
+      ],
+      videoTitle: "通用工具和专用工具",
+      asks: [
+        ["还要单独写「付款」工具吗？", "要。金额、校验、审批固定下来。"],
+        ["五类工具是什么？", "感知、执行、协作、事件触发、用户沟通。"]
+      ],
+      quiz: ["有 bash 和 Python 了，还要单独写「付款」工具吗？", "要，金额、校验、审批固定下来。"]
+    },
+    {
+      day: 4, kind: "gates", kicker: "AI Agent · 30天精读",
+      titleHtml: '提示词拦不住，<br><span class="pf-am">硬约束</span>才安全',
+      sub: "只在系统提示里写「不许全额退款」，够吗？",
+      chip: "精读《深入理解 AI Agent》· 编排与护栏",
+      author: "@Study Bot · AI Agent 每日一课",
+      desc: "提示词只能降概率，要在执行层、数据层硬拦",
+      tags: "#AIAgent #护栏",
+      sheetTitle: "编排方式与三层护栏",
+      meta: "第 1 章 · 编排与护栏 · 时长示意",
+      points: [
+        ["三种编排", "单次调用、固定工作流、自主 Agent，可混用", "要点"],
+        ["三层护栏", "上下文层、执行层、数据层，越往后越难绕过", "要点"],
+        ["拉人进来", "连续失败超阈值，或高风险操作", "要点"]
+      ],
+      videoTitle: "三道闸门：全额退款停在哪一层",
+      asks: [
+        ["只写「不许全额退款」够吗？", "不够，要在执行层或数据层硬拦，比如退款工具设上限。"],
+        ["哪一层最难绕过？", "数据层。越往后越难绕过。"]
+      ],
+      quiz: ["只在系统提示写「不许全额退款」够吗？", "不够，要在执行层或数据层硬拦，比如退款工具设上限。"]
+    },
+    {
+      day: 5, kind: "patterns", kicker: "AI Agent · 30天精读",
+      titleHtml: '<span class="pf-am">五个模式</span><br>贯穿整本书',
+      chip: "精读《深入理解 AI Agent》· 第 1 章设计模式小结",
+      author: "@Study Bot · AI Agent 每日一课",
+      desc: "拆任何 Agent 产品，先问这三件事",
+      tags: "#AIAgent #设计模式",
+      sheetTitle: "五个贯穿全书的设计模式",
+      meta: "第 1 章 · 设计模式小结与思考题 · 时长示意",
+      points: [
+        ["提议者-审核者", "Agent 写，人或另一模型审", "要点"],
+        ["渐进式披露，只增不改", "需要时再展开；记录只追加，不覆盖", "要点"],
+        ["边界、保留、最小 diff", "修好目标且不改坏旧的；只改一行，出错就撤回", "要点"]
+      ],
+      videoTitle: "五个模式怎么落在产品上",
+      asks: [
+        ["为什么要边界集和保留集？", "边界集验证修好目标问题，保留集防止改坏原来好的；只有边界集易过拟合。"],
+        ["拆产品先问什么？", "看到什么、能做什么、怎么验证。"]
+      ],
+      quiz: ["为什么同时要边界集和保留集？", "边界集验证修好目标问题，保留集防止改坏原来好的；只有边界集易过拟合。"]
+    },
+    {
+      day: 6, kind: "code", kicker: "AI Agent · 30天精读",
+      titleHtml: 'Agent 框架<br>就是管好<br><span class="pf-am">消息列表</span>',
+      chip: "精读《深入理解 AI Agent》· 2.1",
+      author: "@Study Bot · AI Agent 每日一课",
+      desc: "第 30 步时，第 1 步的信息为什么还在？",
+      tags: "#AIAgent #上下文",
+      sheetTitle: "上下文决定能力上限",
+      meta: "2.1 · 实验 2-1 · 时长示意",
+      points: [
+        ["模型不记得上一步", "每轮重发整个上下文", "要点"],
+        ["工具结果要配对", "靠 tool_call_id 与请求配对，模型消息原样回传", "要点"],
+        ["当成天才新员工", "看不到的文档就等于不存在", "要点"]
+      ],
+      videoTitle: "消息列表怎么一圈圈变长",
+      asks: [
+        ["第 30 步时第 1 步为什么还在？", "每轮都重发完整消息列表；代价是上下文变长、成本延迟上涨，引出 KV 缓存。"],
+        ["工具结果怎么对上请求？", "靠 tool_call_id 配对，模型消息原样回传。"]
+      ],
+      quiz: ["第 30 步时第 1 步的信息为什么还在？", "每轮都重发完整消息列表；代价是上下文变长、成本延迟上涨，引出 KV 缓存。"]
+    }
+  ];
+
+  function segs(day) {
+    var html = "";
+    for (var i = 1; i <= 30; i++) {
+      var c = "pf-seg";
+      if (i < day) c += " pf-seg-f";
+      else if (i === day) c += " pf-seg-a";
+      html += '<i class="' + c + '"></i>';
+    }
+    return '<div class="pf-segs" aria-hidden="true">' + html + "</div>";
+  }
+  function head(lesson) {
+    return '<div class="pf-head"><div class="pf-hdr"><div class="pf-pill">' + ICON.spark + "<span>" + esc(lesson.kicker) + "</span></div>"
+      + '<div class="pf-day pf-mono">' + dayLabel(lesson.day) + "</div></div>"
+      + segs(lesson.day)
+      + '<h1 class="pf-h1">' + lesson.titleHtml + "</h1>"
+      + (lesson.sub ? '<p class="pf-sub">' + esc(lesson.sub) + "</p>" : "")
+      + "</div>";
+  }
+  function rail(day, sm) {
+    var rows = [
+      ["like", "点赞", ICON.heart],
+      ["comment", "评论", ICON.comment],
+      ["star", "收藏", ICON.star],
+      ["check", "打卡", ICON.check],
+      ["share", "分享", ICON.share]
+    ];
+    var html = '<div class="pf-rail' + (sm ? " pf-sm" : "") + '">'
+      + '<button type="button" class="pf-av" data-act="plus" aria-label="关注，演示">' + AV + '<span class="pf-plus">+</span></button>';
+    rows.forEach(function (a) {
+      var inner = a[0] === "check" ? '<span class="pf-ring">' + a[2] + "</span><span>" + a[1] + "</span>" : a[2] + "<span>" + a[1] + "</span>";
+      html += '<button type="button" class="pf-rb' + (a[0] === "check" ? " pf-check" : "") + '" data-act="' + a[0] + '" data-day="' + day + '" aria-pressed="false">' + inner + "</button>";
+    });
+    return html + "</div>";
+  }
+  function cap(lesson) {
+    var chip = lesson.chip
+      ? '<button type="button" class="pf-chip" data-act="notes" data-day="' + lesson.day + '">' + ICON.doc + "<span>" + esc(lesson.chip) + "</span></button>"
+      : "";
+    return '<div class="pf-cap">' + chip + '<div class="pf-au">' + esc(lesson.author) + '</div><div class="pf-ds">' + esc(lesson.desc) + " <b>" + esc(lesson.tags) + "</b></div></div>";
+  }
+  function frame(lesson, inner, cls) {
+    return '<section class="pf-slide ' + (cls || "pf-grid") + '" data-day="' + lesson.day + '" data-i="' + (lesson.day - 1) + '"><div class="pf-main">' + inner + "</div>" + rail(lesson.day) + cap(lesson) + "</section>";
+  }
+
+  var LOOP = '<svg viewBox="0 0 282 112" width="100%" height="112" aria-hidden="true">'
+    + '<defs><marker id="pfAhA" viewBox="0 0 8 8" refX="6" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L8 4 0 8z" fill="#F5A623"/></marker>'
+    + '<marker id="pfAh" viewBox="0 0 8 8" refX="6" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L8 4 0 8z" fill="rgba(244,241,234,.6)"/></marker></defs>'
+    + '<g font-family="' + SANS + '" font-size="12" fill="#F4F1EA">'
+    + '<rect x="0" y="2" width="126" height="34" rx="9" fill="rgba(244,241,234,.08)" stroke="rgba(244,241,234,.2)"/>'
+    + '<rect x="156" y="2" width="126" height="34" rx="9" fill="rgba(245,166,35,.16)" stroke="#F5A623"/>'
+    + '<rect x="156" y="76" width="126" height="34" rx="9" fill="rgba(244,241,234,.08)" stroke="rgba(244,241,234,.2)"/>'
+    + '<rect x="0" y="76" width="126" height="34" rx="9" fill="rgba(244,241,234,.08)" stroke="rgba(244,241,234,.2)"/>'
+    + '<text x="34" y="24">模型思考</text><text x="190" y="24" font-weight="700" fill="#F5A623">调用工具</text>'
+    + '<text x="178" y="98">环境返回结果</text><text x="18" y="98" font-size="11">结果追加进上下文</text></g>'
+    + '<g font-family="' + MONO + '" font-size="10" font-weight="600">'
+    + '<circle cx="17" cy="19" r="9" fill="rgba(244,241,234,.14)"/><text x="17" y="22.5" text-anchor="middle" fill="#F4F1EA">1</text>'
+    + '<circle cx="173" cy="19" r="9" fill="#F5A623"/><text x="173" y="22.5" text-anchor="middle" fill="#141413">2</text>'
+    + '<circle cx="173" cy="93" r="9" fill="rgba(244,241,234,.14)"/><text x="173" y="96.5" text-anchor="middle" fill="#F4F1EA">3</text>'
+    + '<circle cx="17" cy="93" r="9" fill="rgba(244,241,234,.14)"/><text x="17" y="96.5" text-anchor="middle" fill="#F4F1EA">4</text></g>'
+    + '<path d="M128 19H154" stroke="#F5A623" stroke-width="1.6" fill="none" marker-end="url(#pfAhA)"/>'
+    + '<path d="M219 38V74" stroke="rgba(244,241,234,.55)" stroke-width="1.6" fill="none" marker-end="url(#pfAh)"/>'
+    + '<path d="M154 93H128" stroke="rgba(244,241,234,.55)" stroke-width="1.6" fill="none" marker-end="url(#pfAh)"/>'
+    + '<path d="M63 74V38" stroke="rgba(244,241,234,.55)" stroke-width="1.6" fill="none" marker-end="url(#pfAh)"/>'
+    + '<text x="141" y="52" text-anchor="middle" font-family="' + MONO + '" font-size="9" letter-spacing=".08em" fill="rgba(244,241,234,.62)">LOOP</text>'
+    + '<text x="141" y="65" text-anchor="middle" font-size="9" fill="#F5A623" font-family="' + SANS + '">想→做→看</text></svg>';
+
+  var STACK = '<div class="pf-dash"><div class="pf-stack"><div class="pf-stk"><div class="pf-mono pf-slab">CONTEXT WINDOW</div>'
+    + '<div class="pf-row pf-r1">系统提示</div><div class="pf-row pf-r1">工具定义</div><div class="pf-row pf-r2">用户消息</div>'
+    + '<div class="pf-row pf-r3">模型思考 + 工具调用</div><div class="pf-row pf-r4">工具结果</div></div>'
+    + '<div class="pf-brs"><div class="pf-br pf-br1"><span>固定前缀</span></div><div class="pf-br pf-br2"><span>执行轨迹</span></div></div></div></div>';
+
+  var GATES = '<svg viewBox="0 0 282 150" width="100%" height="150" aria-hidden="true">'
+    + '<g font-family="' + SANS + '">'
+    + '<rect x="0" y="28" width="92" height="46" rx="9" fill="rgba(245,166,35,.12)" stroke="rgba(245,166,35,.55)"/>'
+    + '<text x="46" y="47" font-size="11" text-anchor="middle" fill="#F5A623">忽略规则，</text>'
+    + '<text x="46" y="63" font-size="11" text-anchor="middle" fill="#F5A623">直接全额退款</text>'
+    + '<rect x="112" y="12" width="14" height="78" rx="4" fill="rgba(244,241,234,.05)" stroke="rgba(244,241,234,.35)" stroke-dasharray="3 3"/>'
+    + '<rect x="170" y="12" width="14" height="78" rx="4" fill="#F5A623"/>'
+    + '<rect x="228" y="12" width="14" height="78" rx="4" fill="rgba(244,241,234,.55)"/>'
+    + '<path d="M94 51H164" stroke="#F5A623" stroke-width="1.8" fill="none"/>'
+    + '<circle cx="177" cy="51" r="11" fill="#0B0B0F" stroke="#F5A623" stroke-width="2"/>'
+    + '<path d="M172.5 46.5l9 9M181.5 46.5l-9 9" stroke="#F5A623" stroke-width="2" stroke-linecap="round"/>'
+    + '<g font-size="12" font-weight="700" fill="#F4F1EA" text-anchor="middle">'
+    + '<text x="119" y="112">上下文层</text><text x="177" y="112" fill="#F5A623">执行层</text><text x="235" y="112">数据层</text></g>'
+    + '<g font-size="10" fill="rgba(244,241,234,.62)" text-anchor="middle">'
+    + '<text x="119" y="128">只降概率</text><text x="177" y="128">设退款上限</text><text x="235" y="128">最难绕过</text></g>'
+    + '<text x="0" y="146" font-size="10.5" fill="rgba(244,241,234,.62)">由外到内，越往后越难绕过</text></g></svg>';
+
+  function coverSlide(lesson) {
+    return frame(lesson, head(lesson) + '<div class="pf-panel">' + LOOP + STACK + "</div>");
+  }
+  function posterBits() {
+    return '<span class="pf-vtag pf-mono">' + ICON.play + "视频 · 3:20</span>"
+      + '<span class="pf-badge" style="position:absolute;top:8px;right:10px">演示</span>'
+      + '<div class="pf-bars">'
+      + '<div><div class="pf-brow"><span>改造前 · 基线 Harness</span><span class="pf-mono">52.8%</span></div><div class="pf-trk"><div class="pf-fill pf-fill-g" style="width:52.8%"></div></div></div>'
+      + '<div><div class="pf-brow"><span>改造后 · 只改 Harness</span><span class="pf-mono pf-am">66.5%</span></div><div class="pf-trk"><div class="pf-fill" style="width:66.5%"></div></div></div>'
+      + '<div class="pf-call">模型没换，得分 +13.7 分 <i class="pf-tbc">待核原文</i></div></div>'
+      + '<div class="pf-vctl" aria-hidden="true"><button type="button" class="pf-vp" data-act="poster" aria-label="静态海报，演示">' + ICON.play + '</button><span class="pf-mono">0:42</span><div class="pf-vl"><i></i></div><span class="pf-mono">3:20</span></div>';
+  }
+  function videoSlide(lesson) {
+    var chips = lesson.chips.map(function (c) { return "<span>" + esc(c) + "</span>"; }).join("");
+    var inner = '<div class="pf-mono pf-ml">' + esc(lesson.kicker) + '</div><h1 class="pf-bh">' + esc(lesson.titleHtml) + "</h1>"
+      + '<div class="pf-poster" data-act="poster">' + posterBits() + "</div>"
+      + '<div class="pf-chips">' + chips + "</div>"
+      + '<section class="pf-fcard"><div class="pf-fr"><div class="pf-ringw" aria-hidden="true"><svg width="48" height="48" viewBox="0 0 48 48"><circle cx="24" cy="24" r="20" fill="none" stroke="rgba(244,241,234,.14)" stroke-width="4"/><circle cx="24" cy="24" r="20" fill="none" stroke="#F5A623" stroke-width="4" stroke-linecap="round" stroke-dasharray="8.4 125.7" transform="rotate(-90 24 24)"/></svg><div class="pf-rn pf-mono">02</div></div>'
+      + '<div class="pf-ft"><div class="pf-s12">今日一课 · Day 02 / 30</div><div class="pf-t16">' + esc(lesson.floatTitle) + '</div><div class="pf-s12">' + esc(lesson.floatSub) + "</div></div>"
+      + '<button type="button" class="pf-x" data-act="dismiss" aria-label="收起这张卡">' + ICON.x + "</button></div>"
+      + '<button type="button" class="pf-ask" data-act="ask" data-day="2">' + ICON.spark + '<span class="pf-ask-t">问 AI 助教：浏览器算不算 Harness？</span><span class="pf-badge">模拟</span>' + ICON.chev + "</button>"
+      + '<div class="pf-btns"><button type="button" class="pf-b1" data-act="notes" data-day="2">' + ICON.doc + "看讲义</button>"
+      + '<button type="button" class="pf-b2" data-act="poster">' + ICON.play + "完整视频</button></div></section>";
+    return '<section class="pf-slide" data-day="2" data-i="1" style="background:#101014"><div class="pf-main">' + inner + "</div>" + rail(2) + cap(lesson) + '<div class="pf-vprog" aria-hidden="true"><i></i></div></section>';
+  }
+  function carouselSlide(lesson) {
+    var page1 = '<article class="pf-page"><div class="pf-abody">'
+      + '<div class="pf-am1 pf-mono"><span>AI AGENT DAILY</span><span data-pf="pager">1 / 2</span></div>'
+      + '<div class="pf-num"><div class="pf-big pf-mono">03</div><div class="pf-nc"><span class="pf-tag">今日一课</span><span class="pf-nsub pf-mono">/ 30 天精读</span></div></div>'
+      + "<h2>通用工具探索，专用工具守底线</h2>"
+      + '<div class="pf-spec"><div class="pf-spl pf-mono"><span>通用 · 探索</span><span>专用 · 守底线</span></div>'
+      + '<div class="pf-spbar"><div class="pf-ptr" style="left:10%"></div><div class="pf-ptr" style="left:90%"></div></div>'
+      + '<div class="pf-sptx"><div><b>bash · Python</b><span>什么都能试</span></div><div class="is-r"><b>付款 · 删除 · 发送 · 部署</b><span>金额、校验、审批固定死</span></div></div></div>'
+      + '<ol class="pf-ol"><li><span class="pf-n pf-mono">01</span><span class="pf-lt"><b>五类工具</b><br><em>感知 · 执行 · 协作 · 事件触发 · 用户沟通</em></span></li>'
+      + '<li><span class="pf-n pf-mono">02</span><span class="pf-lt"><b>「模型即 Agent」</b><br><em>调哪个工具的决策搬进参数，工具仍在 Harness 执行</em></span></li>'
+      + '<li><span class="pf-n pf-mono">03</span><span class="pf-lt"><b>三条学习路径</b><br><em>上下文适应 · 更新外部文档程序 · 更新模型参数</em></span></li></ol></div>'
+      + '<div class="pf-afoot"><div><div class="pf-s13">左滑看下一页 · 后页为占位</div><div class="pf-fp"><i></i><b></b></div></div></div></article>';
+    var page2 = '<article class="pf-page pf-ph"><div class="pf-abody">'
+      + '<div class="pf-am1 pf-mono"><span>AI AGENT DAILY</span><span>2 / 2</span></div>'
+      + "<h2>第 2 页 · 占位</h2>"
+      + "<p>课纲这一课只够写下第 1 页。这里不补没核对过的后页。</p>"
+      + '<p><span class="pf-badge">占位</span></p></div>'
+      + '<div class="pf-afoot"><div class="pf-s13">占位 · 没有更多正文</div></div></article>';
+    return '<section class="pf-slide pf-slide-c" data-day="3" data-i="2">'
+      + '<div class="pf-stage"><div class="pf-h" data-pf="h">' + page1 + page2 + "</div></div>"
+      + '<div class="pf-dots" data-pf="dots"><i class="pf-d is-on"></i><i class="pf-d"></i></div>'
+      + rail(3, true) + cap(lesson) + "</section>";
+  }
+  function gatesSlide(lesson) {
+    var panel = '<div class="pf-panel"><div class="pf-mono pf-slab">3 layers of guardrails</div>' + GATES
+      + '<div class="pf-hit"><span class="pf-am">HUMAN-IN-LOOP</span> 连续失败超阈值 · 高风险操作，拉人进来</div></div>';
+    return frame(lesson, head(lesson) + panel);
+  }
+  function patternsSlide(lesson) {
+    var cards = [
+      ["01", "提议者-审核者", "Agent 写，人或另一个模型审"],
+      ["02", "渐进式披露", "需要时再展开更多"],
+      ["03", "只增不改", "记录只追加，不覆盖"],
+      ["04", "边界集 + 保留集", "修好目标，不改坏旧的"]
+    ];
+    var html = '<div class="pf-pgrid">';
+    cards.forEach(function (c) {
+      html += '<div class="pf-pcard"><div class="pf-phrow"><div class="pf-pic" aria-hidden="true">' + ICON.spark + '</div><div class="pf-pn pf-mono">' + c[0] + "</div></div>"
+        + '<div class="pf-pnm">' + esc(c[1]) + '</div><div class="pf-pex">' + esc(c[2]) + "</div></div>";
+    });
+    html += '<div class="pf-pcard pf-wide"><div class="pf-phrow"><div class="pf-pic" aria-hidden="true">' + ICON.spark + '</div></div><div class="pf-pn pf-mono">05</div>'
+      + '<div class="pf-pnm">最小 diff + 可回滚</div><div class="pf-pex">只改一行，出错就撤回</div></div></div>'
+      + '<div class="pf-dash pf-q3"><span>看到什么</span><i>→</i><span>能做什么</span><i>→</i><span>怎么验证</span></div>';
+    return frame(lesson, head(lesson) + '<div class="pf-panel">' + html + "</div>");
+  }
+  function bars() {
+    var html = "";
+    for (var i = 0; i < 30; i++) html += '<i style="height:' + Math.max(3, Math.round(3 + (i * i) / 38)) + 'px"></i>';
+    return html;
+  }
+  function codeSlide(lesson) {
+    var code = '<div class="pf-code"><div class="pf-cdh pf-mono"><span class="pf-dt"></span><span class="pf-dt"></span><span class="pf-dt"></span><em>agent_loop.py</em></div>'
+      + '<pre class="pf-pre"><span class="pf-k">while</span> <span class="pf-k">True</span>:\n  resp = llm(<span class="pf-hl">messages</span>, tools)\n  <span class="pf-hl">messages</span>.append(resp)\n  <span class="pf-k">if not</span> resp.tool_calls: <span class="pf-k">break</span>\n  <span class="pf-k">for</span> c <span class="pf-k">in</span> resp.tool_calls:\n    <span class="pf-hl">messages</span>.append(\n        tool_result(c.id, run(c)))</pre></div>'
+      + '<div class="pf-growth"><div class="pf-gl pf-mono"><span>STEP 1</span><span>STEP 30</span></div><div class="pf-gb">' + bars() + '</div>'
+      + '<div class="pf-gt">每轮重发整个 <span class="pf-am pf-mono">messages</span>：越来越长，成本涨</div></div>';
+    return frame(lesson, head(lesson) + '<div class="pf-panel">' + code + "</div>");
+  }
+
+  var builders = { cover: coverSlide, video: videoSlide, carousel: carouselSlide, gates: gatesSlide, patterns: patternsSlide, code: codeSlide };
+  var slides = LESSONS.map(function (lesson) { return builders[lesson.kind](lesson); }).join("");
+
+  root.innerHTML = ''
+    + '<div class="pf-top"><span class="pf-sp"></span><div class="pf-tabs" role="tablist" aria-label="关注和推荐">'
+    + '<button type="button" data-act="follow" role="tab" aria-selected="false">关注</button>'
+    + '<button type="button" data-act="rec" class="is-on" role="tab" aria-selected="true">推荐</button></div>'
+    + '<button type="button" class="pf-ib" data-act="search" aria-label="搜索，演示">' + ICON.search + "</button></div>"
+    + '<div class="pf-feed q-feed scroller" data-pf="feed" tabindex="0" aria-label="六课竖向 Feed，上下滑动切换">' + slides + "</div>"
+    + '<div class="pf-follow" data-pf="follow" hidden><div><b>关注</b><p>演示 · 还没有关注的人。</p><button type="button" data-act="rec">返回推荐</button></div></div>'
+    + '<div class="pf-scrim" data-pf="scrim" hidden></div>'
+    + '<section class="pf-sheet" data-pf="sheet" hidden aria-label="讲义">'
+    + '<div class="pf-handle" data-pf="handle" aria-hidden="true"></div>'
+    + '<div class="pf-sh" data-pf="grab"><div class="pf-shr"><span class="pf-dtag pf-mono" data-pf="daytag"></span>'
+    + '<button type="button" class="pf-ib" data-act="close" aria-label="关闭讲义" style="color:#5E5D59">' + ICON.x + "</button></div>"
+    + '<h2 data-pf="title"></h2><div class="pf-meta" data-pf="meta"></div></div>'
+    + '<div class="pf-tabs2" role="tablist"><button type="button" data-act="tab" data-tab="note" class="is-on">讲义</button>'
+    + '<button type="button" data-act="tab" data-tab="video">视频</button>'
+    + '<button type="button" data-act="tab" data-tab="ai">' + ICON.spark + " 问 AI</button></div>"
+    + '<div class="pf-sbody scroller" data-pf="sbody"></div>'
+    + '<div class="pf-quiz" data-pf="quiz" hidden><div class="pf-badge">30 秒</div><p class="pf-quiz-q" data-pf="question"></p>'
+    + '<button type="button" class="pf-reveal" data-act="reveal">显示答案</button><p class="pf-quiz-a" data-pf="answer" hidden></p></div>'
+    + '<div class="pf-sfoot"><button type="button" class="pf-o" data-act="quiz">30 秒小测 · 1 题</button>'
+    + '<button type="button" class="pf-p" data-act="start">开始学习</button></div></section>'
+    + '<div class="pf-toast" data-pf="toast" role="status" hidden></div>';
+
+  var feed = root.querySelector("[data-pf=feed]");
+  var sheet = root.querySelector("[data-pf=sheet]");
+  var scrim = root.querySelector("[data-pf=scrim]");
+  var follow = root.querySelector("[data-pf=follow]");
+  var toastEl = root.querySelector("[data-pf=toast]");
+  var sbody = root.querySelector("[data-pf=sbody]");
+  var quizEl = root.querySelector("[data-pf=quiz]");
+  var hScroller = root.querySelector("[data-pf=h]");
+  var state = { sheet: 0, tab: "note", quiz: false, answer: false, follow: false };
+  var toastTimer = 0;
+  var reacts = loadReacts();
+
+  function loadReacts() {
+    try {
+      var data = JSON.parse(localStorage.getItem("qbot-pf-react") || "{}");
+      return { like: data.like || {}, star: data.star || {}, check: data.check || {} };
+    } catch (e) {
+      return { like: {}, star: {}, check: {} };
+    }
+  }
+  function saveReacts() {
+    try { localStorage.setItem("qbot-pf-react", JSON.stringify(reacts)); } catch (e) {}
+  }
+  function toast(msg) {
+    toastEl.hidden = false;
+    toastEl.textContent = msg;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { toastEl.hidden = true; }, 1800);
+  }
+  function lessonByDay(day) {
+    for (var i = 0; i < LESSONS.length; i++) if (LESSONS[i].day === day) return LESSONS[i];
+    return LESSONS[0];
+  }
+  function currentIndex() {
+    var slides = feed.querySelectorAll(".pf-slide");
+    var h = feed.clientHeight || 1;
+    var i = Math.round(feed.scrollTop / h);
+    if (i < 0) i = 0;
+    if (i > slides.length - 1) i = slides.length - 1;
+    return i;
+  }
+  function go(i) {
+    var slide = feed.querySelectorAll(".pf-slide")[i];
+    if (!slide) return;
+    feed.scrollTo({ top: slide.offsetTop, behavior: "smooth" });
+  }
+  function paintReacts() {
+    root.querySelectorAll(".pf-rb").forEach(function (btn) {
+      var act = btn.getAttribute("data-act");
+      var day = btn.getAttribute("data-day");
+      var on = !!(reacts[act] && reacts[act][day]);
+      btn.classList.toggle("on", on);
+      btn.setAttribute("aria-pressed", on ? "true" : "false");
+    });
+  }
+  function pointsHtml(lesson) {
+    return "<ol class=\"pf-secs\">" + lesson.points.map(function (p, i) {
+      return '<li><span class="pf-c pf-mono' + (i === 0 ? " is-on" : "") + '">' + pad(i + 1) + '</span><span class="pf-m"><b>'
+        + esc(p[0]) + "</b><em>" + esc(p[1]) + '</em></span><span class="pf-du">' + esc(p[2]) + "</span></li>";
+    }).join("") + "</ol>";
+  }
+  function chipsHtml(lesson) {
+    return lesson.asks.map(function (a, i) {
+      return '<button type="button" data-act="chip" data-i="' + i + '">' + esc(a[0]) + "</button>";
+    }).join("");
+  }
+  function videoRow(lesson) {
+    return '<div class="pf-vrow"><button type="button" class="pf-thumb" data-act="poster" aria-label="静态海报，演示"><span class="pf-badge">演示</span><span class="pf-pb">'
+      + ICON.play + '</span><span class="pf-dur pf-mono">3:20</span></button><span class="pf-vt"><b>' + esc(lesson.videoTitle)
+      + "</b><em>静态海报 · 演示 · 不能播放</em></span></div>";
+  }
+  function aiBox(lesson) {
+    return '<div class="pf-aibox"><div class="pf-aih">' + ICON.spark + "模拟 · AI 助教 · 读完可以问问</div><div class=\"pf-qchips\">"
+      + chipsHtml(lesson) + '</div><p class="pf-reply" data-pf="reply" hidden></p></div>';
+  }
+  function paintSheet() {
+    var lesson = lessonByDay(state.sheet);
+    root.querySelector("[data-pf=daytag]").textContent = dayLabel(lesson.day);
+    root.querySelector("[data-pf=title]").textContent = lesson.sheetTitle;
+    root.querySelector("[data-pf=meta]").textContent = lesson.meta;
+    root.querySelectorAll("[data-act=tab]").forEach(function (btn) {
+      var on = btn.getAttribute("data-tab") === state.tab;
+      btn.classList.toggle("is-on", on);
+      btn.setAttribute("aria-selected", on ? "true" : "false");
+    });
+    quizEl.hidden = !state.quiz;
+    sbody.hidden = !!state.quiz;
+    if (state.quiz) {
+      root.querySelector("[data-pf=question]").textContent = lesson.quiz[0];
+      var ans = root.querySelector("[data-pf=answer]");
+      ans.hidden = !state.answer;
+      ans.textContent = state.answer ? "答案 · " + lesson.quiz[1] : "";
+      return;
+    }
+    var html = "";
+    if (state.tab === "note") html = pointsHtml(lesson) + videoRow(lesson) + aiBox(lesson);
+    else if (state.tab === "video") html = '<div class="pf-poster-lg"><span class="pf-badge">演示</span><span class="pf-pb">' + ICON.play + "</span></div><p class=\"pf-note\">静态海报，演示。这里没有视频文件，点播放也不会开始。</p>" + videoRow(lesson);
+    else html = aiBox(lesson) + '<p class="pf-note">回答是写在页面里的模拟，没有发给模型。</p>';
+    sbody.innerHTML = html;
+  }
+  function openSheet(day, tab) {
+    state.sheet = day;
+    state.tab = tab || "note";
+    state.quiz = false;
+    state.answer = false;
+    sheet.hidden = false;
+    scrim.hidden = false;
+    sheet.style.setProperty("--pf-dy", "0px");
+    root.classList.add("is-sheet");
+    paintSheet();
+  }
+  function closeSheet() {
+    state.sheet = 0;
+    state.quiz = false;
+    state.answer = false;
+    sheet.hidden = true;
+    scrim.hidden = true;
+    root.classList.remove("is-sheet");
+  }
+  function setFollow(on) {
+    state.follow = on;
+    follow.hidden = !on;
+    root.querySelector("[data-act=follow]").classList.toggle("is-on", on);
+    root.querySelector("[data-act=follow]").setAttribute("aria-selected", on ? "true" : "false");
+    root.querySelector("[data-act=rec]").classList.toggle("is-on", !on);
+    root.querySelector("[data-act=rec]").setAttribute("aria-selected", on ? "false" : "true");
+  }
+  function showReply(i) {
+    var lesson = lessonByDay(state.sheet || (currentIndex() + 1));
+    var box = root.querySelector("[data-pf=reply]");
+    if (!box || !lesson.asks[i]) return;
+    box.hidden = false;
+    box.textContent = "模拟 · " + lesson.asks[i][1];
+  }
+  function back() {
+    if (state.follow) { setFollow(false); return true; }
+    if (state.sheet) {
+      if (state.quiz) {
+        state.quiz = false;
+        state.answer = false;
+        paintSheet();
+        return true;
+      }
+      closeSheet();
+      return true;
+    }
+    if (currentIndex() > 0) { go(0); return true; }
+    return false;
+  }
+  function holdBack() {
+    var legacy = global.qbotFeed;
+    var api = {
+      back: back,
+      closeDetail: function () {
+        if (legacy && legacy !== api && typeof legacy.closeDetail === "function") {
+          try { return legacy.closeDetail(); } catch (e) { return false; }
+        }
+        return false;
+      }
+    };
+    global.qbotFeed = api;
+  }
+
+  root.addEventListener("click", function (e) {
+    var btn = e.target.closest("[data-act]");
+    if (!btn || !root.contains(btn)) return;
+    var act = btn.getAttribute("data-act");
+    var day = +(btn.getAttribute("data-day") || state.sheet || (currentIndex() + 1));
+    if (act === "like" || act === "star" || act === "check") {
+      if (reacts[act][day]) delete reacts[act][day];
+      else reacts[act][day] = 1;
+      saveReacts();
+      paintReacts();
+      return;
+    }
+    if (act === "comment" || act === "share" || act === "plus" || act === "search") {
+      toast("演示 · 没有接通");
+      return;
+    }
+    if (act === "poster") { toast("演示 · 静态海报，没有视频"); return; }
+    if (act === "notes") { openSheet(day, "note"); return; }
+    if (act === "ask") { openSheet(day, "ai"); return; }
+    if (act === "dismiss") {
+      var card = btn.closest(".pf-fcard");
+      if (card) card.hidden = true;
+      return;
+    }
+    if (act === "follow") { setFollow(true); return; }
+    if (act === "rec") { setFollow(false); return; }
+    if (act === "close") { closeSheet(); return; }
+    if (act === "tab") {
+      state.tab = btn.getAttribute("data-tab");
+      state.quiz = false;
+      paintSheet();
+      return;
+    }
+    if (act === "quiz") {
+      state.quiz = true;
+      state.answer = false;
+      paintSheet();
+      return;
+    }
+    if (act === "reveal") {
+      state.answer = true;
+      paintSheet();
+      return;
+    }
+    if (act === "start") {
+      reacts.check[day] = 1;
+      saveReacts();
+      paintReacts();
+      toast("演示 · 已在本机打卡");
+      return;
+    }
+    if (act === "chip") {
+      state.tab = "ai";
+      state.quiz = false;
+      paintSheet();
+      showReply(+(btn.getAttribute("data-i") || 0));
+    }
+  });
+
+  if (hScroller) {
+    hScroller.addEventListener("scroll", function () {
+      var w = hScroller.clientWidth || 1;
+      var page = Math.round(hScroller.scrollLeft / w);
+      var dots = root.querySelectorAll("[data-pf=dots] .pf-d");
+      for (var i = 0; i < dots.length; i++) dots[i].classList.toggle("is-on", i === page);
+      var label = hScroller.querySelector("[data-pf=pager]");
+      if (label && page === 0) label.textContent = "1 / 2";
+    }, { passive: true });
+  }
+
+  var drag = null;
+  sheet.addEventListener("pointerdown", function (e) {
+    if (e.button !== undefined && e.button !== 0) return;
+    if (e.target.closest("button")) return;
+    var onGrab = e.target.closest("[data-pf=handle], [data-pf=grab]");
+    if (!onGrab) return;
+    drag = { y: e.clientY, id: e.pointerId };
+    sheet.classList.add("is-drag");
+    if (sheet.setPointerCapture) { try { sheet.setPointerCapture(e.pointerId); } catch (err) {} }
+  });
+  sheet.addEventListener("pointermove", function (e) {
+    if (!drag || e.pointerId !== drag.id) return;
+    var dy = Math.max(0, e.clientY - drag.y);
+    sheet.style.setProperty("--pf-dy", dy + "px");
+  });
+  function endDrag(e) {
+    if (!drag || (e && e.pointerId !== drag.id)) return;
+    var dy = parseFloat(sheet.style.getPropertyValue("--pf-dy")) || 0;
+    drag = null;
+    sheet.classList.remove("is-drag");
+    if (dy > 72) closeSheet();
+    else sheet.style.setProperty("--pf-dy", "0px");
+  }
+  sheet.addEventListener("pointerup", endDrag);
+  sheet.addEventListener("pointercancel", endDrag);
+  scrim.addEventListener("click", closeSheet);
+
+  global.addEventListener("qbot:tab", function (e) {
+    if (!e.detail || e.detail.tab === "feed") return;
+    if (state.sheet) closeSheet();
+    if (state.follow) setFollow(false);
+  });
+
+  paintReacts();
+  holdBack();
+  global.QbotLessons = { holdBack: holdBack, back: back };
+})(window);
 </script>
 <script type="module" src="chat/chat.js?v=__VERSION__"></script>
 </body>
