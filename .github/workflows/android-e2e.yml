@@ -1,0 +1,128 @@
+name: android-e2e
+
+on:
+  pull_request:
+    paths:
+      - "apps/qbot-app/**"
+      - ".github/workflows/android-e2e.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  emulator:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      EXPO_NO_TELEMETRY: "1"
+      EXPO_NO_DOTENV: "1"
+      EXPO_NO_DEV_MENU: "1"
+      MAESTRO_DRIVER_STARTUP_TIMEOUT: "180000"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/qbot-app/package-lock.json
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - uses: android-actions/setup-android@v4
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          test -e /dev/kvm
+
+      - name: Install Android SDK packages
+        run: |
+          set -euo pipefail
+          timeout 180 bash -c 'yes | sdkmanager --licenses >/dev/null' || true
+          sdkmanager --install \
+            "platforms;android-37" \
+            "build-tools;37.0.0" \
+            "platform-tools" \
+            "ndk;27.1.12297006" \
+            "cmake;3.30.5"
+
+      - name: Install app dependencies
+        working-directory: apps/qbot-app
+        run: npm ci --no-audit --no-fund
+
+      - name: Install Maestro
+        run: |
+          export MAESTRO_VERSION=2.12.1
+          curl -fsSL "https://get.maestro.mobile.dev" | bash
+          echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
+
+      - name: Prebuild the debug Android project
+        working-directory: apps/qbot-app
+        run: |
+          set -euo pipefail
+          npx expo prebuild --platform android --no-install
+          sed -i 's/^org.gradle.jvmargs=.*/org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g -Dfile.encoding=UTF-8/' android/gradle.properties
+
+      - name: Assemble debug APK
+        working-directory: apps/qbot-app/android
+        run: ./gradlew :app:assembleDebug -PreactNativeArchitectures=x86_64 --stacktrace
+
+      - name: Start Metro
+        working-directory: apps/qbot-app
+        run: |
+          set -euo pipefail
+          setsid npx expo start --localhost --port 8081 > "$RUNNER_TEMP/metro.log" 2>&1 < /dev/null &
+          for _ in $(seq 1 60); do
+            if curl -sf http://127.0.0.1:8081/status >/dev/null; then
+              echo "metro ready"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "metro did not start"
+          cat "$RUNNER_TEMP/metro.log"
+          exit 1
+
+      - name: Warm the debug bundle
+        run: |
+          setsid curl -fL --retry 3 --retry-delay 5 --max-time 180 \
+            -o "$RUNNER_TEMP/android-bundle.js" \
+            "http://127.0.0.1:8081/.expo/.virtual-metro-entry.bundle?platform=android&dev=true&lazy=true&minify=false&app=io.github.felixzhu.qiandrive&modulesOnly=false&runModule=true" \
+            > "$RUNNER_TEMP/bundle-warm.log" 2>&1 < /dev/null &
+
+      - name: Run Maestro on an emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          cores: 2
+          ram-size: 3072M
+          disable-animations: true
+          emulator-boot-timeout: 900
+          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -no-metrics
+          script: bash apps/qbot-app/e2e/run-emulator.sh
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: qbot-android-e2e
+          if-no-files-found: warn
+          path: |
+            apps/qbot-app/e2e/artifacts
+            ${{ runner.temp }}/metro.log
+            ${{ runner.temp }}/bundle-warm.log
