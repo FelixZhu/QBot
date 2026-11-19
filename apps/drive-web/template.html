@@ -321,11 +321,12 @@ html,body{height:100%;overflow:hidden;overscroll-behavior:none}
 /* Pick the starting tab before the drive script renders, so the drive never lays out hidden. */
 (function(){
   /* Reload and the app's ?v= refresh are a new start: conversation list.
-     A shared #/file link without that reload query still opens 知识库. */
+     A shared #/ link without that reload query still opens 知识库.
+     #/ is the library root; a longer #/file link opens that file. */
   var hash=window.__qbHash||"";
   var nav=null;try{nav=performance.getEntriesByType("navigation")[0]}catch(e){}
   var fresh=!!(nav&&nav.type==="reload")||/(?:^|[?&])v=\d+/.test(location.search);
-  var deep=!fresh&&hash.indexOf("#/")===0&&hash!=="#/"&&hash.indexOf("#/~home")!==0;
+  var deep=!fresh&&hash.indexOf("#/")===0&&hash.indexOf("#/~home")!==0;
   if(fresh&&hash){
     try{history.replaceState({qbot:"tab",tab:"chat"},"",location.pathname+location.search)}catch(e){}
     hash="";
