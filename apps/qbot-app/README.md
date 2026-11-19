@@ -17,7 +17,7 @@ npx expo start
 python3 apps/qbot-app/preflight_home.py
 ```
 
-打包正式 APK 需要原来的上传签名。不要把密钥库或 `EXPO_TOKEN` 写进仓库。付费的 EAS 构建不在这一版里触发：
+打包正式 APK 需要原来的上传签名。不要把密钥库或打包令牌写进仓库。付费的 EAS 构建不在这一版里触发：
 
 ```bash
 npx eas-cli@latest build -p android --profile preview --non-interactive
