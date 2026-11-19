@@ -63,7 +63,7 @@ appId: io.github.felixzhu.qiandrive
 - assertNotVisible: "同一模型，差距在 Harness"
 - takeScreenshot:
     path: light-feed-scrolled-up
-- tapOn: "中循环"
+- tapOn: "DAY 01 / 30，轻点进入"
 - extendedWaitUntil:
     visible: "返回信息流"
     timeout: 15000

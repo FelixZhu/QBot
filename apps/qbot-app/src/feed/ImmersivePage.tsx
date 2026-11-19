@@ -184,7 +184,7 @@ function LoopArticle() {
   const nodes = [
     { n: "01", label: "模型思考" },
     { n: "02", label: "调用工具" },
-    { n: "04", label: `结果${LOOP_NODE_4}` },
+    { n: "04", label: LOOP_NODE_4 },
     { n: "03", label: "环境返回结果" },
   ];
   return (

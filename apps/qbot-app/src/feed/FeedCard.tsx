@@ -9,7 +9,7 @@ import {
 } from "./lessons";
 import { AM, AccountBar, BG, CREAM, DIM, GridLines, INK, MONO, Title, asMeasurable, type Measurable } from "./chrome";
 
-const NODE_LABELS = ["模型思考", "调用工具", `结果${LOOP_NODE_4}`, "环境返回结果"];
+const NODE_LABELS = ["模型思考", "调用工具", LOOP_NODE_4, "环境返回结果"];
 const NODE_NUMS = ["1", "2", "4", "3"];
 
 function Segments({ day }: { day: number }) {
