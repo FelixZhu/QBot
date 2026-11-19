@@ -1,5 +1,3 @@
-import type { ChatModelAdapter } from "@assistant-ui/react-native";
-
 export type DemoId = "info" | "english" | "study";
 export type DemoLine = { role: "user" | "assistant"; text: string };
 export type Demo = {
@@ -76,28 +74,4 @@ export function localReply(id: DemoId, text: string): string {
   return text.includes("差别")
     ? "演示回复：聊天机器人停在一句回答。Agent 会自己选择下一步，并使用工具完成目标。这是概念示例。"
     : "演示回复：生活例子：你说“订一张去示例城的票”，Agent 会查时刻、比较方案，再把结果交给你确认。没有接通 Study Bot。";
-}
-
-function textOf(message: { content: unknown }): string {
-  const content = message.content;
-  if (typeof content === "string") return content;
-  if (!Array.isArray(content)) return "";
-  return content.map((part) => {
-    if (!part || typeof part !== "object") return "";
-    const record = part as { type?: string; text?: string };
-    return record.type === "text" && typeof record.text === "string" ? record.text : "";
-  }).join("");
-}
-
-/** Local script only. Yields the full reply; nothing is sent to a model or network. */
-export function createDemoAdapter(id: DemoId): ChatModelAdapter {
-  return {
-    async *run({ messages }) {
-      const last = messages[messages.length - 1];
-      const reply = localReply(id, last ? textOf(last) : "");
-      const mid = Math.max(1, Math.ceil(reply.length / 2));
-      yield { content: [{ type: "text", text: reply.slice(0, mid) }] };
-      yield { content: [{ type: "text", text: reply }] };
-    },
-  };
 }

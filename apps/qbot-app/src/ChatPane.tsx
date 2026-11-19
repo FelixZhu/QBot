@@ -16,8 +16,11 @@ import {
   useAui,
   useLocalRuntime,
 } from "@assistant-ui/react-native";
+import { deviceChatStorage } from "./chat/deviceStorage";
+import { createDemoHistory } from "./chat/history";
+import { createLocalTransport } from "./chat/local";
+import { toModelAdapter } from "./chat/transport";
 import {
-  createDemoAdapter,
   filterDemos,
   type Demo,
   type DemoId,
@@ -176,7 +179,9 @@ function Suggestions({ demo, colors }: { demo: Demo; colors: Palette }) {
 }
 
 function ThreadBody({ demo, colors, onBack, showBack }: { demo: Demo; colors: Palette; onBack: () => void; showBack: boolean }) {
-  const adapter = useMemo(() => createDemoAdapter(demo.id), [demo.id]);
+  const transport = useMemo(() => createLocalTransport(demo.id), [demo.id]);
+  const adapter = useMemo(() => toModelAdapter(transport), [transport]);
+  const history = useMemo(() => createDemoHistory(deviceChatStorage, demo.id), [demo.id]);
   const initialMessages = useMemo(
     () => demo.messages.map((line, index) => ({
       id: `${demo.id}-${index}`,
@@ -185,7 +190,7 @@ function ThreadBody({ demo, colors, onBack, showBack }: { demo: Demo; colors: Pa
     })),
     [demo],
   );
-  const runtime = useLocalRuntime(adapter, { initialMessages });
+  const runtime = useLocalRuntime(adapter, { initialMessages, adapters: { history } });
   return (
     <AssistantRuntimeProvider runtime={runtime}>
       <KeyboardAvoidingView style={{ flex: 1, backgroundColor: colors.bg }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
@@ -315,7 +320,7 @@ export function ChatEmpty({ colors }: { colors: Palette }) {
     <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: 24, backgroundColor: colors.bg }}>
       <Text style={{ fontSize: 16, fontWeight: "600", color: colors.text }}>选择一个演示会话</Text>
       <Text style={{ marginTop: 8, fontSize: 14, lineHeight: 22, color: colors.muted, textAlign: "center" }}>
-        回复只在这台设备上生成，刷新或重开后，新输入的句子不会保留。
+        回复只在这台设备上生成，重开后仍留在这台设备上。没有接通真实助手。
       </Text>
     </View>
   );
