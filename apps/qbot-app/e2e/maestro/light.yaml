@@ -202,7 +202,7 @@ appId: io.github.felixzhu.qiandrive
     path: light-feed-demo-study
 - tapOn: "Study Bot 样例封面"
 - extendedWaitUntil:
-    visible: "手算锚点"
+    visible: "手算锚点 · N = 8B"
     timeout: 8000
 - assertVisible: "演示"
 - assertVisible: "模拟"
