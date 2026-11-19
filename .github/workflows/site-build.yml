@@ -49,6 +49,9 @@ jobs:
       - name: Real Feed and shell back contract
         run: node apps/drive-web/shell-contract.test.mjs
 
+      - name: Local conversation thread proof
+        run: node apps/drive-web/im-thread.browser.mjs
+
       - name: Source commit excludes fonts, generated feed output, and test clips
         run: |
           python3 - << 'PY'
