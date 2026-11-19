@@ -153,6 +153,7 @@ function EnglishBody({ onSample }: { onSample: (message: string) => void }) {
   const [playing, setPlaying] = useState(false);
   return (
     <View style={{ gap: 10 }}>
+      <Text style={{ alignSelf: "flex-start", color: INK, fontFamily: MONO, fontSize: 11, borderWidth: 1, borderColor: INK, borderRadius: 3, overflow: "hidden", paddingHorizontal: 4, paddingVertical: 2 }}>模拟</Text>
       <Text style={{ color: INK, fontSize: 32, lineHeight: 36, fontWeight: "900" }}>{ENGLISH.phrase}</Text>
       <Text style={{ color: INK, fontSize: 16, fontWeight: "700" }}>{ENGLISH.meaning}</Text>
       <View style={{ backgroundColor: CREAM, borderRadius: 24, padding: 16, gap: 10 }}>
@@ -188,8 +189,9 @@ function EnglishBody({ onSample }: { onSample: (message: string) => void }) {
         <Text style={{ color: INK, fontFamily: MONO, fontSize: 10, letterSpacing: 1 }}>口头练习</Text>
         <Text style={{ color: INK, fontSize: 14, lineHeight: 22 }}>{ENGLISH.practice}</Text>
         <View style={{ flexDirection: "row", gap: 8 }}>
-          <Pressable accessibilityRole="button" accessibilityLabel="跟读短对话，模拟" onPress={() => onSample("样例 · 跟读没有接通")} style={{ flex: 1, height: 46, borderRadius: 23, backgroundColor: INK, alignItems: "center", justifyContent: "center" }}>
-            <Text style={{ color: CREAM, fontWeight: "700" }}>跟读短对话  模拟</Text>
+          <Pressable accessibilityRole="button" accessibilityLabel="跟读短对话，模拟" onPress={() => onSample("样例 · 跟读没有接通")} style={{ flex: 1, height: 46, borderRadius: 23, backgroundColor: INK, alignItems: "center", justifyContent: "center", flexDirection: "row", gap: 6 }}>
+            <Text style={{ color: CREAM, fontWeight: "700" }}>跟读短对话</Text>
+            <Text style={{ color: CREAM, fontFamily: MONO, fontSize: 11, borderWidth: 1, borderColor: CREAM, borderRadius: 3, overflow: "hidden", paddingHorizontal: 4 }}>模拟</Text>
           </Pressable>
           <Pressable accessibilityRole="button" onPress={() => onSample("样例 · 口头练习没有接通")} style={{ flex: 1, height: 46, borderRadius: 23, borderWidth: 1.5, borderColor: INK, backgroundColor: CREAM, alignItems: "center", justifyContent: "center" }}>
             <Text style={{ color: INK, fontWeight: "700" }}>口头练习</Text>
