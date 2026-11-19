@@ -51,8 +51,9 @@ appId: io.github.felixzhu.qiandrive
     direction: UP
     timeout: 40000
     speed: 40
-    visibilityPercentage: 80
-- assertVisible: "设计演示"
+    visibilityPercentage: 40
+- assertVisible: "家人 · 照片，寄来一小片周末，虚构演示"
+- assertNotVisible: "人物与内容均为虚构 · 没有真实邀请"
 - takeScreenshot:
     path: light-feed-scrolled-up
 - scrollUntilVisible:
