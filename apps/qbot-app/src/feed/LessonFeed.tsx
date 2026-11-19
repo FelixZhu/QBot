@@ -4,11 +4,15 @@ import {
   Dimensions,
   FlatList,
   Modal,
+  Text,
   View,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { FeedCard } from "./FeedCard";
 import { ImmersivePage, type ImmersiveMode } from "./ImmersivePage";
+import { DemoCard } from "./demo/DemoCard";
+import { DemoAccount, DemoImmersive } from "./demo/DemoPages";
+import { DEMO_IDS, demoById, type DemoId } from "./demo/data";
 import { LESSONS, LESSON_IDS, lessonById, type Lesson } from "./lessons";
 import {
   EMPTY_FEED_MEMORY,
@@ -30,6 +34,15 @@ function modeFor(lesson: Lesson): ImmersiveMode {
   return lesson.kind === "video" ? "video" : "article";
 }
 
+type FeedRow = { key: string; lesson?: Lesson; demo?: DemoId };
+
+const ROWS: FeedRow[] = [
+  ...LESSONS.map((lesson) => ({ key: lesson.id, lesson })),
+  ...DEMO_IDS.map((id) => ({ key: id, demo: id })),
+];
+
+const KNOWN_IDS = [...LESSON_IDS, ...DEMO_IDS];
+
 export function LessonFeed({
   active,
   onBackReady,
@@ -39,7 +52,7 @@ export function LessonFeed({
   onBackReady: (back: () => boolean) => void;
   onCover: (covered: boolean) => void;
 }) {
-  const listRef = useRef<FlatList<Lesson>>(null);
+  const listRef = useRef<FlatList<FeedRow>>(null);
   const writes = useRef<Promise<void>>(Promise.resolve());
   const indexRef = useRef(0);
   const anchor = useRef(0);
@@ -52,6 +65,11 @@ export function LessonFeed({
   const [followed, setFollowed] = useState(false);
   const [scrollable, setScrollable] = useState(true);
   const [openId, setOpenId] = useState<string | null>(null);
+  const [demoId, setDemoId] = useState<DemoId | null>(null);
+  const [demoPage, setDemoPage] = useState<"immersive" | "account">("immersive");
+  const [demoParent, setDemoParent] = useState<"feed" | "immersive">("feed");
+  const [demoFollow, setDemoFollow] = useState<Record<string, boolean>>({});
+  const [toast, setToast] = useState("");
   const [mode, setMode] = useState<ImmersiveMode>("article");
   const [origin, setOrigin] = useState<Rect>(EMPTY_RECT);
   const lesson = openId ? lessonById(openId) : null;
@@ -59,7 +77,7 @@ export function LessonFeed({
 
   useEffect(() => {
     let alive = true;
-    readFeedMemory(AsyncStorage, LESSON_IDS).then((next) => {
+    readFeedMemory(AsyncStorage, KNOWN_IDS).then((next) => {
       if (!alive) return;
       setMemory(next);
       setHydrated(true);
@@ -70,19 +88,20 @@ export function LessonFeed({
   useEffect(() => {
     if (!hydrated) return;
     const snapshot = memory;
-    writes.current = enqueueFeedWrite(writes.current, () => writeFeedMemory(AsyncStorage, snapshot, LESSON_IDS));
+    writes.current = enqueueFeedWrite(writes.current, () => writeFeedMemory(AsyncStorage, snapshot, KNOWN_IDS));
   }, [hydrated, memory]);
 
   useEffect(() => {
     if (!hydrated) return;
-    const id = LESSONS[index]?.id;
+    const row = ROWS[index];
+    const id = row?.lesson?.id ?? row?.demo;
     if (!id) return;
     setMemory((prev) => rememberRead(prev, id));
   }, [hydrated, index]);
 
   const settle = useCallback((next: number) => {
     if (height <= 0) return;
-    const clamped = Math.max(0, Math.min(LESSONS.length - 1, next));
+    const clamped = Math.max(0, Math.min(ROWS.length - 1, next));
     indexRef.current = clamped;
     anchor.current = clamped;
     setIndex(clamped);
@@ -99,41 +118,49 @@ export function LessonFeed({
     onCover(false);
   }, [onCover]);
 
+  const covered = Boolean(openId || demoId);
+
   const close = useCallback(() => {
-    if (!openId || closing.current) return false;
+    if ((!openId && !demoId) || closing.current) return false;
     closing.current = true;
     onCover(false);
     Animated.timing(progress, { toValue: 0, duration: 300, useNativeDriver: false }).start(({ finished }) => {
-      if (finished) finishClose();
-      else closing.current = false;
+      if (finished) {
+        setDemoId(null);
+        finishClose();
+      } else closing.current = false;
     });
     return true;
-  }, [finishClose, onCover, openId, progress]);
+  }, [demoId, finishClose, onCover, openId, progress]);
 
   const back = useCallback(() => {
-    if (openId) return close();
+    if (demoId && demoPage === "account" && demoParent === "immersive") {
+      setDemoPage("immersive");
+      return true;
+    }
+    if (openId || demoId) return close();
     if (indexRef.current > 0) {
       settle(0);
       return true;
     }
     return false;
-  }, [close, openId, settle]);
+  }, [close, demoId, demoPage, demoParent, openId, settle]);
 
   useEffect(() => { onBackReady(back); }, [back, onBackReady]);
 
   useEffect(() => {
-    if (active || !openId) return;
+    if (active || (!openId && !demoId)) return;
     progress.setValue(0);
     finishClose();
-  }, [active, finishClose, openId, progress]);
+  }, [active, demoId, finishClose, openId, progress]);
 
   useEffect(() => {
-    if (!openId) return;
+    if (!openId && !demoId) return;
     progress.setValue(0);
     const animation = Animated.timing(progress, { toValue: 1, duration: 300, useNativeDriver: false });
     animation.start();
     return () => animation.stop();
-  }, [openId, progress]);
+  }, [demoId, openId, progress]);
 
   const openFrom = (id: string, node: Measurable | null) => {
     const begin = (rect: Rect) => {
@@ -162,12 +189,12 @@ export function LessonFeed({
       {height > 0 ? (
         <FlatList
           ref={listRef}
-          data={LESSONS}
-          keyExtractor={(item) => item.id}
+          data={ROWS}
+          keyExtractor={(item) => item.key}
           pagingEnabled
           directionalLockEnabled
           showsVerticalScrollIndicator={false}
-          scrollEnabled={scrollable && !openId}
+          scrollEnabled={scrollable && !covered}
           decelerationRate="fast"
           snapToInterval={height}
           snapToAlignment="start"
@@ -180,7 +207,7 @@ export function LessonFeed({
           getItemLayout={(_, itemIndex) => ({ length: height, offset: height * itemIndex, index: itemIndex })}
           onScrollBeginDrag={() => { anchor.current = indexRef.current; }}
           onScrollEndDrag={(event) => {
-            const next = nextFeedPage(anchor.current, event.nativeEvent.contentOffset.y, height, LESSONS.length);
+            const next = nextFeedPage(anchor.current, event.nativeEvent.contentOffset.y, height, ROWS.length);
             settle(next);
           }}
           onMomentumScrollEnd={(event) => {
@@ -189,29 +216,81 @@ export function LessonFeed({
               listRef.current?.scrollToOffset({ offset: target, animated: false });
             }
           }}
-          renderItem={({ item, index: itemIndex }) => (
+          renderItem={({ item, index: itemIndex }) => item.lesson ? (
             <FeedCard
-              lesson={item}
+              lesson={item.lesson}
               height={height}
-              active={active && itemIndex === index && !openId}
+              active={active && itemIndex === index && !covered}
               followed={followed}
               onFollow={() => setFollowed((value) => !value)}
-              onOpen={(node) => openFrom(item.id, node)}
+              onOpen={(node) => openFrom(item.lesson?.id ?? "", node)}
+            />
+          ) : (
+            <DemoCard
+              id={item.demo ?? "demo-info"}
+              height={height}
+              followed={Boolean(demoFollow[item.demo ?? ""])}
+              onFollow={() => {
+                const id = item.demo ?? "";
+                setDemoFollow((prev) => ({ ...prev, [id]: !prev[id] }));
+              }}
+              onOpen={(node) => {
+                const id = demoById(item.demo ?? "");
+                if (!id) return;
+                setDemoPage("immersive");
+                setDemoParent("feed");
+                openFrom(id, node);
+                setDemoId(id);
+                setOpenId(null);
+              }}
+              onAccount={() => {
+                const id = demoById(item.demo ?? "");
+                if (!id) return;
+                setOrigin({ x: 0, y: 0, w: screen.width, h: screen.height });
+                setDemoPage("account");
+                setDemoParent("feed");
+                setDemoId(id);
+                setOpenId(null);
+                onCover(true);
+              }}
             />
           )}
         />
       ) : null}
-      <Modal visible={lesson !== null} transparent animationType="none" statusBarTranslucent onRequestClose={() => { close(); }} navigationBarTranslucent>
+      <Modal visible={lesson !== null || demoId !== null} transparent animationType="none" statusBarTranslucent onRequestClose={() => { back(); }} navigationBarTranslucent>
         <View style={{ flex: 1 }} pointerEvents="box-none">
-          {lesson ? (
+          {lesson || demoId ? (
             <Animated.View style={{ position: "absolute", overflow: "hidden", left: frame.left, top: frame.top, width: frame.width, height: frame.height, borderRadius: frame.radius, backgroundColor: BG }}>
-              <ImmersivePage
-                lesson={lesson}
-                mode={lesson.day === 1 ? mode : modeFor(lesson)}
-                onMode={setMode}
-                onClose={() => { close(); }}
-                onDismiss={() => setMemory((prev) => dismissCard(prev, lesson.id))}
-              />
+              {lesson ? (
+                <ImmersivePage
+                  lesson={lesson}
+                  mode={lesson.day === 1 ? mode : modeFor(lesson)}
+                  onMode={setMode}
+                  onClose={() => { close(); }}
+                  onDismiss={() => setMemory((prev) => dismissCard(prev, lesson.id))}
+                />
+              ) : null}
+              {demoId && demoPage === "immersive" ? (
+                <DemoImmersive
+                  id={demoId}
+                  onBack={() => { close(); }}
+                  onAccount={() => { setDemoParent("immersive"); setDemoPage("account"); }}
+                  onSample={(message) => setToast(message)}
+                />
+              ) : null}
+              {demoId && demoPage === "account" ? (
+                <DemoAccount
+                  id={demoId}
+                  followed={Boolean(demoFollow[demoId])}
+                  onFollow={() => setDemoFollow((prev) => ({ ...prev, [demoId]: !prev[demoId] }))}
+                  onBack={() => { back(); }}
+                />
+              ) : null}
+              {toast ? (
+                <View pointerEvents="none" style={{ position: "absolute", left: 20, right: 20, bottom: 40, alignItems: "center" }}>
+                  <Text style={{ color: "#F3EFE7", backgroundColor: "rgba(0,0,0,0.82)", overflow: "hidden", paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8 }}>{toast}</Text>
+                </View>
+              ) : null}
             </Animated.View>
           ) : null}
         </View>
