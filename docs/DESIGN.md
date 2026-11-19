@@ -167,7 +167,7 @@ QBot 是 Qian 的私人助理：安静、可靠、先给结论。观感追求克
 
 ### 7.2 主动服务
 
-- 一屏一卡，`scroll-snap-type: y mandatory` 且 `scroll-snap-stop: always`。`#panel-feed` 保持 `overflow: hidden`。纵向 touch 上不要 `preventDefault`（只在鼠标滚轮和键盘翻页时拦截）。松手时位移超过视口高度的 15%，或速度超过 0.3px/ms，就翻到相邻一张。手势排除只覆盖进度条和按钮；音频条的空白处和时间文字仍可滑动翻页。
+- 一屏一卡，`scroll-snap-type: y mandatory` 且 `scroll-snap-stop: always`。`#panel-feed` 保持 `overflow: hidden`。纵向 touch 不 `preventDefault`，也不在 `touchend` 里翻页。页码在滚动停下后跟上落点。滚轮和键盘仍一次翻一张。
 - 全宽只有一条 44px 顶栏：左侧「主动服务 · Bot 名」，右侧短时间（今天/昨天 HH:mm，本周「周X HH:mm」，更早「M月D日 HH:mm」）和「⋯」。卡片上不再重复头像、来源、日期和类型角标，标题只出现一次。正文左右内边距 20px，从顶部排，不垂直居中。
 - 宽度 ≥ 600px：左边按 Bot 分组的目录，右边仍是竖滑卡片，共用上面这一条顶栏，目录不再单独做一条。目录高亮跟着当前卡走，点目录跳到对应卡。
 - 卡片顺序：AI 日报（`digest`）在前，然后是每日英语、接着学；最近 7 天的公开新文件合并成**一张**卡，最多列出 5 个文件，超过则显示「还有 N 个」。没有符合条件的文件时不生成文件卡。主按钮文案是「打开知识库」；点某一行先 `qbotKb.open(key)`，失败再 `qbotTab("kb")`。

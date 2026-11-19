@@ -440,10 +440,10 @@
       track.appendChild(cardEl(c, i));
     });
     track.addEventListener("scroll", onScroll, { passive: true });
-    track.addEventListener("scrollend", snapToNearest, { passive: true });
+    track.addEventListener("scrollend", onScrollEnd, { passive: true });
     track.addEventListener("keydown", onKey);
     track.addEventListener("wheel", onWheel, { passive: false });
-    /* Measure only — never preventDefault on vertical touch. */
+    /* Passive only. A finger never calls preventDefault or goTo. */
     track.addEventListener("touchstart", onTouchStart, { passive: true });
     track.addEventListener("touchend", onTouchEnd, { passive: true });
     track.addEventListener("touchcancel", onTouchCancel, { passive: true });
@@ -780,7 +780,7 @@
     if (!track || typeof IntersectionObserver === "undefined") return;
     var cards = $all(".q-fcard", track);
     state.observer = new IntersectionObserver(function (entries) {
-      if (state.detail || state._paging) return;
+      if (state.detail || state._paging || state._touch) return;
       var best = null, ratio = 0;
       entries.forEach(function (en) {
         if (en.intersectionRatio > ratio) { ratio = en.intersectionRatio; best = en.target; }
@@ -801,72 +801,53 @@
     return Math.max(0, Math.min(state.visible.length - 1, i));
   }
 
-  function snapToNearest() {
-    if (state._paging || state.detail) return;
+  /* Sync the pager to wherever native snap already stopped.
+     Does not scroll. Call only after the finger is up and motion has settled. */
+  function settleFromScroll() {
+    if (state._paging || state.detail || state._touch) return;
     var i = nearestIndex();
     if (i !== state.index) setIndex(i, true);
-    var track = $(".feed-stage .q-feed");
-    var card = track && $all(".q-fcard", track)[i];
-    if (!track || !card) return;
-    var top = card.offsetTop;
-    var delta = Math.abs(track.scrollTop - top);
-    if (delta <= 1) {
-      if (delta) track.scrollTop = top;
-      return;
-    }
-    track.scrollTo({ top: top, behavior: delta < 24 ? "auto" : "smooth" });
+  }
+
+  function armSettle() {
+    clearTimeout(state._snapTimer);
+    state._snapTimer = setTimeout(settleFromScroll, 120);
   }
 
   function onScroll() {
-    if (state.detail) return;
-    clearTimeout(state._snapTimer);
-    state._snapTimer = setTimeout(snapToNearest, 80);
-  }
-
-  function touchFrom(e, id) {
-    var list = e.changedTouches || e.touches;
-    if (!list || !list.length) return null;
-    if (id == null) return list[0];
-    for (var i = 0; i < list.length; i++) {
-      if (list[i].identifier === id) return list[i];
+    if (state.detail || state._touch || state._paging) {
+      clearTimeout(state._snapTimer);
+      return;
     }
-    return null;
+    armSettle();
   }
 
-  /* Progress track and buttons only. A swipe on the player padding or the time text still flips. */
-  function isTouchControl(node) {
-    return !!(node && node.closest && node.closest("button, a, input, textarea, select, .q-track, .rail, .q-video-bar, .feed-pager, .feed-list, .feed-detail, .feed-menu"));
+  function onScrollEnd() {
+    clearTimeout(state._snapTimer);
+    if (state.detail) return;
+    if (state._paging) {
+      state._paging = false;
+      clearTimeout(state._pageTimer);
+    }
+    settleFromScroll();
   }
 
-  function onTouchStart(e) {
-    var t = touchFrom(e);
-    if (!t) return;
-    state._touch = {
-      id: t.identifier,
-      y: t.clientY,
-      at: Date.now(),
-      ignore: isTouchControl(e.target)
-    };
+  function onTouchStart() {
+    clearTimeout(state._snapTimer);
+    state._touch = true;
   }
 
   function onTouchCancel() {
-    state._touch = null;
+    state._touch = false;
+    if (!state.detail) armSettle();
   }
 
-  function onTouchEnd(e) {
-    var start = state._touch;
-    state._touch = null;
-    if (!start || start.ignore || state.detail) return;
-    var t = touchFrom(e, start.id) || touchFrom(e);
-    if (!t) return;
-    var track = $(".feed-stage .q-feed");
-    var h = (track && track.clientHeight) || window.innerHeight || 1;
-    var dy = t.clientY - start.y;
-    var dt = Math.max(1, Date.now() - start.at);
-    var speed = Math.abs(dy) / dt;
-    var flick = Math.abs(dy) > h * 0.15 || speed > 0.3;
-    if (flick) goTo(state.index + (dy < 0 ? 1 : -1));
-    else snapToNearest();
+  function onTouchEnd() {
+    state._touch = false;
+    if (state.detail) return;
+    /* Browsers without scrollend settle once this quiet timer wins.
+       Scroll events during the fling keep resetting it, so it does not run mid-gesture. */
+    armSettle();
   }
 
   function onWheel(e) {
@@ -935,10 +916,16 @@
     if (!track || !card) return;
     var top = card.offsetTop;
     state._paging = true;
+    clearTimeout(state._snapTimer);
     if (behavior === "smooth") track.scrollTo({ top: top, behavior: "smooth" });
     else track.scrollTop = top;
     clearTimeout(state._pageTimer);
-    state._pageTimer = setTimeout(function () { state._paging = false; }, 480);
+    /* scrollend ends the guard. This only covers browsers that never fire it. */
+    state._pageTimer = setTimeout(function () {
+      if (!state._paging) return;
+      state._paging = false;
+      if (!state._touch && !state.detail) settleFromScroll();
+    }, behavior === "smooth" ? 700 : 0);
   }
 
   function layoutFeed(behavior, force) {
@@ -1502,6 +1489,7 @@
     if (state._onHide) { window.removeEventListener("pagehide", state._onHide); state._onHide = null; }
     if (state._onApp) { window.removeEventListener("qbot:appstate", state._onApp); state._onApp = null; }
     clearTimeout(state.toastTimer);
+    state._touch = false;
     clearTimeout(state._snapTimer);
     clearTimeout(state._pageTimer);
     clearTimeout(state._layoutTimer);

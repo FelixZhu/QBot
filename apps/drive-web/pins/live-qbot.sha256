@@ -1,4 +1,5 @@
-# Strict baseline: hashes fetched from https://felixzhu.github.io/QBot/ and checked on 2026-11-18.
+# Strict baseline: hashes fetched from https://felixzhu.github.io/QBot/.
+# kb.js rechecked 2026-11-19; the previous digest no longer matched Pages, and the new one matches apps/drive-web/kb.js.
 # qian-drive is not a fetch source. Borrowed public inputs keep their previous SHA256.
 # index.html, version.json, and shell-media.js are the bytes QBot actually serves.
 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  .nojekyll
@@ -17,7 +18,7 @@ e787f7056e83af964bd19ced3ab8e90591275233148bb5af6d572682a783d616  icons/icon-mas
 8e83a106bd5035409249f39cd26a11c3994e5381fb6d31b321fb3dd60071d15a  index.html
 930d722657ee4f0ab7daae37eb15c16aee5734617b50fcfcb3517dc722b69880  index.json
 c5dd608dbbed1311768129ad5094427cb5dd4536b0d05c4c44709a256688b0ff  kb.css
-8d6e1d89ae09e053afa03ee580757786901613c2a61dcf3bd5876b38be464428  kb.js
+c005255319971488645084484a940633d84a56089825aeefdec03c606480754c  kb.js
 2a7a6a6fafee791ef6086b26681b1a62534449d98624e9799ca487cecb918c04  layout.css
 d25f4f71af08b865a51764bb432ce0b956035f86a98f470126373eed710e0b56  manifest.json
 ec286c8613932e5268c29b5b8430d37ab5ca6fb20b1c09df29f8554c5fa662fd  manifest.webmanifest

@@ -661,9 +661,9 @@ try {
     })();
   }))()`);
   check("a short slow swipe on the time text does not flip", flick.small === "第 2 张", JSON.stringify(flick));
-  check("a flick faster than 0.3px/ms on the time text flips", flick.fast === "第 3 张", JSON.stringify(flick));
+  check("a touchend flick without native scrolling does not page", flick.fast === "第 2 张", JSON.stringify(flick));
   check("a swipe on the progress track does not flip", flick.onTrack === "第 2 张", JSON.stringify(flick));
-  check("a slow swipe past 15% of the viewport flips", flick.slowBig === "第 2 张", JSON.stringify(flick));
+  check("a slow touchend past 15% without native scrolling does not page", flick.slowBig === "第 1 张", JSON.stringify(flick));
 
   await go(2);
   await ev(`document.querySelector('.feed-root > .feed-top .qb-iconbtn').click()`);
