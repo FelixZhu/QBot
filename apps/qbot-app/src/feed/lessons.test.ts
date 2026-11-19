@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { test } from "node:test";
 import {
   CAROUSEL_PAGE_TWO_POINT,
@@ -20,7 +20,12 @@ import {
 
 const web = readFileSync(new URL("../../../drive-web/template.html", import.meta.url), "utf8");
 const lessonsSrc = readFileSync(new URL("./lessons.ts", import.meta.url), "utf8");
-const feedSrc = readFileSync(new URL("./LessonFeed.tsx", import.meta.url), "utf8");
+const feedDir = new URL("./", import.meta.url);
+const feedSrc = readdirSync(feedDir)
+  .filter((name) => name.endsWith(".tsx") && name !== "FeedPane.tsx")
+  .sort()
+  .map((name) => readFileSync(new URL(name, feedDir), "utf8"))
+  .join("\n");
 const appSrc = readFileSync(new URL("../../App.tsx", import.meta.url), "utf8");
 
 const locked = [
@@ -58,17 +63,31 @@ test("the six lessons keep the corrected web copy", () => {
 test("the proactive tab mounts the lesson feed, not the fictional cards", () => {
   assert.match(appSrc, /LessonFeed/);
   assert.equal(appSrc.includes("FeedPane"), false);
+  assert.match(appSrc, /#F5A623/);
+  assert.match(appSrc, /TAB_HEIGHT = 60/);
+  assert.match(appSrc, /fontSize: 11/);
+  assert.match(appSrc, /marginTop: 3/);
+  assert.match(appSrc, /size=\{24\}/);
   assert.match(feedSrc, /pagingEnabled/);
-  assert.match(feedSrc, /看讲义/);
-  assert.match(feedSrc, /tab === id && !quiz/);
-  assert.match(feedSrc, /showsVerticalScrollIndicator=\{false\}/);
-  assert.match(feedSrc, /marginTop: 8/);
+  assert.match(feedSrc, /nextFeedPage/);
+  assert.match(feedSrc, /rememberRead/);
+  assert.match(feedSrc, /Study Bot/);
+  assert.match(feedSrc, /关注/);
+  assert.match(feedSrc, /返回信息流/);
+  assert.match(feedSrc, /模拟/);
+  assert.match(feedSrc, /演示/);
   assert.match(feedSrc, /显示答案/);
   assert.match(feedSrc, /30 秒小测/);
-  const carousel = feedSrc.slice(feedSrc.indexOf("function CarouselPage"), feedSrc.indexOf("function CarouselSlide"));
+  assert.match(feedSrc, /showsVerticalScrollIndicator=\{false\}/);
+  assert.match(feedSrc, /marginTop: 8/);
+  assert.equal(feedSrc.includes("点赞"), false);
+  assert.equal(feedSrc.includes("看讲义"), false);
+  const carouselStart = feedSrc.indexOf("function CarouselPage");
+  const carouselEnd = feedSrc.indexOf("function CarouselSlide");
+  assert.equal(carouselStart >= 0 && carouselEnd > carouselStart, true);
+  const carousel = feedSrc.slice(carouselStart, carouselEnd);
   assert.equal(carousel.includes("ScrollView"), false);
   assert.match(carousel, /overflow: "hidden"/);
-  assert.match(feedSrc, /marginRight: RAIL/);
   assert.equal(feedSrc.includes("expo-video"), false);
   assert.equal(feedSrc.includes(".woff"), false);
   assert.equal(feedSrc.includes(".ttf"), false);

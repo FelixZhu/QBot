@@ -2,7 +2,7 @@
   "expo": {
     "name": "QBot",
     "slug": "qian-drive",
-    "version": "1.0.8",
+    "version": "1.0.9",
     "orientation": "default",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
@@ -20,7 +20,7 @@
       "predictiveBackGestureEnabled": false,
       "softwareKeyboardLayoutMode": "resize",
       "label": "QBot",
-      "versionCode": 10
+      "versionCode": 11
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -41,8 +41,18 @@
         }
       ],
       "expo-image",
-      "expo-video"
+      "expo-video",
+      "expo-updates"
     ],
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "enabled": true,
+      "url": "https://u.expo.dev/ef23ae82-73c0-4db5-b2d7-b2424f969697",
+      "fallbackToCacheTimeout": 0,
+      "checkAutomatically": "ON_LOAD"
+    },
     "extra": {
       "eas": {
         "projectId": "ef23ae82-73c0-4db5-b2d7-b2424f969697"

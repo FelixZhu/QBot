@@ -17,6 +17,8 @@ REQUIRED = (
     "light-feed-scrolled-down",
     "light-feed-scrolled-up",
     "light-feed-detail",
+    "light-feed-video",
+    "light-feed-game",
     "light-feed-restored",
     "light-kb",
     "light-chat-return",
