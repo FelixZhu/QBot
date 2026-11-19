@@ -2,7 +2,7 @@
   "expo": {
     "name": "QBot",
     "slug": "qian-drive",
-    "version": "1.0.5",
+    "version": "1.0.6",
     "orientation": "default",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
@@ -18,8 +18,9 @@
         "backgroundColor": "#F3EFE7"
       },
       "predictiveBackGestureEnabled": false,
+      "softwareKeyboardLayoutMode": "resize",
       "label": "QBot",
-      "versionCode": 7
+      "versionCode": 8
     },
     "web": {
       "favicon": "./assets/favicon.png"
