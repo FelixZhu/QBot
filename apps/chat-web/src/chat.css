@@ -7,7 +7,7 @@
   --im-text:#1C1B19;
   --im-muted:#8A8781;
   --im-line:#EAE7E1;
-  --im-accent:#D9774B;
+  --im-accent:#FF6A2B;
   --im-font:"PingFang SC","Hiragino Sans GB","Noto Sans SC","HarmonyOS Sans SC","Source Han Sans SC",sans-serif;
   height:100%;min-height:0;overflow:hidden;
   font-family:var(--im-font);color:var(--im-text);background:var(--im-bg);
@@ -19,7 +19,7 @@
 #chat-root *,#chat-root *::before,#chat-root *::after{box-sizing:border-box}
 :where(#chat-root) button,:where(#chat-root) input,:where(#chat-root) textarea{font-family:inherit;color:inherit}
 :where(#chat-root) button{background:none;border:0;padding:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
-#chat-root :focus-visible{outline:none;box-shadow:0 0 0 3px rgba(217,119,75,.35);border-radius:10px}
+#chat-root :focus-visible{outline:none;box-shadow:0 0 0 3px rgba(255,106,43,.35);border-radius:10px}
 
 /* Bottom bar: 12px labels, 24px icons. Hiding it is limited to an open chat on the 对话 tab,
    so 主动服务 and 知识库 keep the bar (and the wide rail). */
@@ -46,9 +46,9 @@
 .qc-conv{display:flex;align-items:stretch;gap:12px;width:100%;min-height:80px;padding:0 16px;text-align:left;background:transparent;border-radius:0}
 .qc-conv:active{background:rgba(28,27,25,.04)}
 :root[data-theme="dark"] .qc-conv:active{background:var(--fill)}
-.qc-conv .av{width:48px;height:48px;margin:16px 0;border-radius:12px;flex:none;display:grid;place-items:center;background:#fff;border:1px solid var(--im-line)}
-:root[data-theme="dark"] .qc-conv .av{background:var(--surface-raised)}
-.qc-conv .av svg{width:28px;height:28px}
+.qc-conv .av{width:48px;height:48px;margin:16px 0;border-radius:50%;overflow:hidden;flex:none;display:grid;place-items:center}
+:root[data-theme="dark"] .qc-conv .av{background:transparent}
+.qc-conv .av svg{width:48px;height:48px}
 .qc-conv .t{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;gap:2px;border-bottom:1px solid var(--im-line);padding:12px 0}
 .qc-conv .top{display:flex;align-items:baseline;gap:8px;min-width:0}
 .qc-conv .n{flex:1;min-width:0;font-size:16px;line-height:22px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -79,7 +79,8 @@
 .qc-bubble p{margin:0}
 .qc-row.queued .qc-bubble{opacity:.6}
 .qc-bot{display:flex;gap:8px;max-width:100%;align-items:flex-start}
-.qc-bot .av{width:24px;height:24px;flex:none;margin-top:2px}
+.qc-bot .av{width:24px;height:24px;border-radius:50%;overflow:hidden;flex:none;margin-top:2px}
+.qc-bot .av svg{width:24px;height:24px}
 .qc-bot .body{flex:0 1 auto;max-width:78%;min-width:0;padding:12px;border-radius:16px 16px 16px 4px;background:#fff;border:1px solid var(--im-line);white-space:pre-wrap}
 :root[data-theme="dark"] .qc-bot .body{background:var(--surface-raised)}
 .qc-ts{font-size:12px;line-height:18px;color:var(--im-muted);margin:4px 4px 16px 32px}
@@ -130,7 +131,7 @@ form.qc-composer{
 :root[data-theme="dark"] .qc-mic{background:var(--btn-primary-bg);color:var(--btn-primary-fg)}
 .qc-mic.rec{background:var(--im-accent);color:#fff}
 .qc-mic-hint{font-size:12px;line-height:18px;color:var(--im-muted);margin-top:4px}
-.qc-recbar{display:flex;align-items:center;gap:12px;min-height:44px;padding:0 16px;margin-bottom:8px;border-radius:22px;background:rgba(217,119,75,.12);color:#A94E27;font-size:13px}
+.qc-recbar{display:flex;align-items:center;gap:12px;min-height:44px;padding:0 16px;margin-bottom:8px;border-radius:22px;background:rgba(255,106,43,.12);color:#C24410;font-size:13px}
 .qc-recbar.cancel{background:rgba(28,27,25,.05);color:var(--im-muted)}
 .qc-recbar .wave{display:flex;align-items:center;gap:3px;flex:1;height:20px}
 .qc-recbar .wave i{width:3px;height:6px;border-radius:2px;background:var(--im-accent);animation:qc-wave .9s ease-in-out infinite}
@@ -143,7 +144,7 @@ form.qc-composer{
 :root[data-theme="dark"] .qc-field{background:var(--surface-raised)}
 .qc-field:focus{border-color:var(--im-accent)}
 .qc-field::placeholder{color:var(--im-muted)}
-.qc-send{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;flex:none;background:#1C1B19;color:#FAF9F6}
+.qc-send{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;flex:none;background:var(--im-accent);color:#fff}
 :root[data-theme="dark"] .qc-send{background:var(--btn-primary-bg);color:var(--btn-primary-fg)}
 .qc-send:disabled{opacity:.3}
 

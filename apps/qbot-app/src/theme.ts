@@ -10,6 +10,8 @@ export type Palette = {
   muted: string;
   line: string;
   accent: string;
+  /** Orange used for text and links. The fill accent is too light for small type. */
+  accentInk: string;
   bubbleMe: string;
   bubbleMeText: string;
   bubbleBot: string;
@@ -42,7 +44,8 @@ export const palette: Record<Scheme, Palette> = {
     text: "#1C1B19",
     muted: "#8A8781",
     line: "#EAE7E1",
-    accent: "#D9774B",
+    accent: "#FF6A2B",
+    accentInk: "#C24410",
     bubbleMe: "#1C1B19",
     bubbleMeText: "#FAF9F6",
     bubbleBot: "#FFFFFF",
@@ -57,7 +60,8 @@ export const palette: Record<Scheme, Palette> = {
     text: "#EDE8DF",
     muted: "#9A9386",
     line: "#34312C",
-    accent: "#E58A5E",
+    accent: "#FF6A2B",
+    accentInk: "#FF8A55",
     bubbleMe: "#EDE8DF",
     bubbleMeText: "#1C1B19",
     bubbleBot: "#2E2B27",
@@ -84,6 +88,9 @@ export type ChatChrome = {
   line: string;
   send: string;
   onSend: string;
+  /** Orange for short labels such as 立即发送. */
+  inkText: string;
+  pressed: string;
   ink: string;
   onInk: string;
   sheet: string;
@@ -108,8 +115,10 @@ export function chatChrome(scheme: Scheme): ChatChrome {
       userText: "#ECEBE6",
       composer: "#232322",
       line: "rgba(255,255,255,0.08)",
-      send: "#D9774B",
+      send: "#FF6A2B",
       onSend: "#FFFFFF",
+      inkText: "#FF8A55",
+      pressed: "#E85A1F",
       ink: "#F4F1EA",
       onInk: "#1C1B19",
       sheet: "#1F1F1E",
@@ -118,7 +127,7 @@ export function chatChrome(scheme: Scheme): ChatChrome {
       toast: "#3A3A38",
       toastText: "#F4F1EA",
       check: "#5FAF6A",
-      selection: "rgba(217,119,75,0.45)",
+      selection: "rgba(255,106,43,0.45)",
       icon: "#B7B7B2",
       disabled: "#5C5C58",
       soft: "#2A2A28",
@@ -132,8 +141,10 @@ export function chatChrome(scheme: Scheme): ChatChrome {
     userText: "#1F1E1D",
     composer: "#FFFFFF",
     line: "rgba(28,27,25,0.08)",
-    send: "#D9774B",
+    send: "#FF6A2B",
     onSend: "#FFFFFF",
+    inkText: "#C24410",
+    pressed: "#E85A1F",
     ink: "#1C1B19",
     onInk: "#FFFFFF",
     sheet: "#FFFFFF",
@@ -142,7 +153,7 @@ export function chatChrome(scheme: Scheme): ChatChrome {
     toast: "#323230",
     toastText: "#FFFFFF",
     check: "#5FAF6A",
-    selection: "rgba(217,119,75,0.35)",
+    selection: "rgba(255,106,43,0.35)",
     icon: "#6F6B64",
     disabled: "#C8C4BC",
     soft: "#F3F0E8",

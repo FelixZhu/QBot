@@ -234,17 +234,17 @@ function ChatMessage() {
         ) : null}
         {!mine && running && !text ? (
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-            <Text style={{ color: chrome.send, fontSize: 16, lineHeight: 24 }}>✻</Text>
+            <Text style={{ color: chrome.inkText, fontSize: 16, lineHeight: 24 }}>✻</Text>
             <Text accessibilityLiveRegion="polite" style={{ flex: 1, color: chrome.muted, fontSize: 16, lineHeight: 24 }}>正在回复</Text>
             <Pressable onPress={stop} accessibilityRole="button" accessibilityLabel="停止生成" hitSlop={8}>
-              <Text style={{ color: chrome.send, fontSize: 14, lineHeight: 20, fontWeight: "600" }}>停止</Text>
+              <Text style={{ color: chrome.inkText, fontSize: 14, lineHeight: 20, fontWeight: "600" }}>停止</Text>
             </Pressable>
           </View>
         ) : null}
         {cancelled ? <Text style={{ marginTop: 6, color: chrome.muted, fontSize: 13, lineHeight: 18 }}>已停止</Text> : null}
         {!mine && caption ? <Text style={{ marginTop: 8, color: chrome.muted, fontSize: 13, lineHeight: 18 }}>{caption}</Text> : null}
         <ErrorPrimitive.Root style={{ marginTop: 6 }}>
-          <ErrorPrimitive.Message style={{ color: chrome.send, fontSize: 13, lineHeight: 18 }} />
+          <ErrorPrimitive.Message style={{ color: chrome.inkText, fontSize: 13, lineHeight: 18 }} />
         </ErrorPrimitive.Root>
         {!mine && text && !running ? (
           <View style={{ marginTop: 12, gap: 8 }}>
@@ -372,17 +372,17 @@ function Composer({
               <Text style={{ color: chrome.muted, fontSize: 13, lineHeight: 18 }}>不发了</Text>
             </Pressable>
             <Pressable onPress={() => onSendNow(item.id)} accessibilityRole="button" accessibilityLabel="立即发送" hitSlop={6}>
-              <Text style={{ color: chrome.send, fontSize: 13, lineHeight: 18, fontWeight: "600" }}>立即发送</Text>
+              <Text style={{ color: chrome.inkText, fontSize: 13, lineHeight: 18, fontWeight: "600" }}>立即发送</Text>
             </Pressable>
           </View>
         </View>
       ))}
       {running && chromeState.action !== "stop" ? (
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 6 }}>
-          <Text style={{ color: chrome.send, fontSize: 15 }}>✻</Text>
+          <Text style={{ color: chrome.inkText, fontSize: 15 }}>✻</Text>
           <Text style={{ flex: 1, color: chrome.muted, fontSize: 14, lineHeight: 20 }}>正在回复</Text>
           <Pressable onPress={onStop} accessibilityRole="button" accessibilityLabel="停止生成" hitSlop={8}>
-            <Text style={{ color: chrome.send, fontSize: 14, lineHeight: 20, fontWeight: "600" }}>停止</Text>
+            <Text style={{ color: chrome.inkText, fontSize: 14, lineHeight: 20, fontWeight: "600" }}>停止</Text>
           </Pressable>
         </View>
       ) : null}
@@ -422,7 +422,7 @@ function Composer({
             <View style={{ flex: 1 }} />
             {running && chromeState.action === "send" ? (
               <Pressable onPress={onStop} accessibilityRole="button" accessibilityLabel="停止生成" hitSlop={8} style={{ marginRight: 12 }}>
-                <Text style={{ color: chrome.send, fontSize: 14, fontWeight: "600" }}>停止</Text>
+                <Text style={{ color: chrome.inkText, fontSize: 14, fontWeight: "600" }}>停止</Text>
               </Pressable>
             ) : null}
             <Pressable onPress={voice} accessibilityRole="button" accessibilityLabel="麦克风" accessibilityState={{ disabled: true }} hitSlop={8} style={{ marginRight: 8 }}>
@@ -556,7 +556,7 @@ function AddSheet({
               <Text style={{ color: chrome.muted, fontSize: 13, lineHeight: 18 }}>{LIBRARY_ONLY}</Text>
               {onLibrary ? (
                 <Pressable onPress={onLibrary} accessibilityRole="button" accessibilityLabel="打开知识库">
-                  <Text style={{ color: chrome.send, fontSize: 14, lineHeight: 20, fontWeight: "600" }}>打开知识库</Text>
+                  <Text style={{ color: chrome.inkText, fontSize: 14, lineHeight: 20, fontWeight: "600" }}>打开知识库</Text>
                 </Pressable>
               ) : null}
             </View>
@@ -607,7 +607,8 @@ export function ChatThreadSurface({
     text: chrome.text,
     muted: chrome.muted,
     line: chrome.line,
-    accent: chrome.send,
+    accent: chrome.inkText,
+    accentInk: chrome.inkText,
     bubbleMe: chrome.userBubble,
     bubbleMeText: chrome.userText,
     bubbleBot: "transparent",
