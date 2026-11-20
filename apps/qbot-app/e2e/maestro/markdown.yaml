@@ -15,7 +15,7 @@ appId: io.github.felixzhu.qiandrive
 - extendedWaitUntil:
     visible: "第一项"
     timeout: 15000
-- assertNotVisible: "第五格"
+- assertNotVisible: "很宽的一格内容用来横滑"
 - takeScreenshot:
     path: light-md-streaming
 - extendedWaitUntil:
@@ -28,9 +28,10 @@ appId: io.github.felixzhu.qiandrive
       - tapOn: "回到底部"
 - scrollUntilVisible:
     element:
-      text: "第五格"
+      text: "很宽的一格内容用来横滑"
     direction: DOWN
     timeout: 15000
+- assertVisible: "列一"
 - assertVisible: "说明"
 - takeScreenshot:
     path: light-md-done
@@ -49,7 +50,7 @@ appId: io.github.felixzhu.qiandrive
 - extendedWaitUntil:
     visible: "第一项"
     timeout: 15000
-- assertNotVisible: "第五格"
+- assertNotVisible: "很宽的一格内容用来横滑"
 - takeScreenshot:
     path: dark-md-streaming
 - extendedWaitUntil:
@@ -62,9 +63,10 @@ appId: io.github.felixzhu.qiandrive
       - tapOn: "回到底部"
 - scrollUntilVisible:
     element:
-      text: "第五格"
+      text: "很宽的一格内容用来横滑"
     direction: DOWN
     timeout: 15000
+- assertVisible: "列一"
 - takeScreenshot:
     path: dark-md-done
 - setDarkMode: disabled
