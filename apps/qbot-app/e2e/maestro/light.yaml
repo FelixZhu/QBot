@@ -11,18 +11,15 @@ appId: io.github.felixzhu.qiandrive
 
 - tapOn: "Qbot"
 - extendedWaitUntil:
-    visible: "回复，或按住说话|.*这句可以长按选择.*"
+    visible: "回复，或按住说话"
     timeout: 30000
 - scrollUntilVisible:
     element:
-      text: ".*这句可以长按选择.*"
+      text: ".*不是真实模型.*"
     direction: UP
     timeout: 20000
     speed: 40
-    visibilityPercentage: 40
-- extendedWaitUntil:
-    visible: ".*这句可以长按选择.*"
-    timeout: 30000
+    visibilityPercentage: 80
 - assertVisible: ".*不是真实模型.*"
 - assertNotVisible: "连接码"
 - assertNotVisible: "这一版没有带上服务器地址"
