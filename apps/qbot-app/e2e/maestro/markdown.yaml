@@ -1,0 +1,50 @@
+appId: io.github.felixzhu.qiandrive
+---
+- setDarkMode: disabled
+- launchApp:
+    clearState: true
+    stopApp: true
+- runFlow: wait-home.yaml
+- tapOn: "新对话"
+- extendedWaitUntil:
+    visible: "回复，或按住说话"
+    timeout: 30000
+- tapOn: "回复，或按住说话"
+- inputText: "展示格式"
+- tapOn: "发送"
+- extendedWaitUntil:
+    visible: "第一项"
+    timeout: 15000
+- assertNotVisible: "第五格"
+- takeScreenshot:
+    path: light-md-streaming
+- extendedWaitUntil:
+    visible: "第五格"
+    timeout: 15000
+- assertVisible: "说明"
+- takeScreenshot:
+    path: light-md-done
+- setDarkMode: enabled
+- launchApp:
+    clearState: true
+    stopApp: true
+- runFlow: wait-home.yaml
+- tapOn: "新对话"
+- extendedWaitUntil:
+    visible: "回复，或按住说话"
+    timeout: 30000
+- tapOn: "回复，或按住说话"
+- inputText: "展示格式"
+- tapOn: "发送"
+- extendedWaitUntil:
+    visible: "第一项"
+    timeout: 15000
+- assertNotVisible: "第五格"
+- takeScreenshot:
+    path: dark-md-streaming
+- extendedWaitUntil:
+    visible: "第五格"
+    timeout: 15000
+- takeScreenshot:
+    path: dark-md-done
+- setDarkMode: disabled
