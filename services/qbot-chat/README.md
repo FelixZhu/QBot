@@ -90,6 +90,12 @@ npm start
 
 An example unit is [`deploy/qbot-chat.service`](deploy/qbot-chat.service). Replace `ExecStart` with the absolute path of Node >= 24.9, not the Node 22 binary already on the host. Replace `After=` with the PostgreSQL unit that is already running. Set `QBOT_DSH_HOME` in the environment file to a mode 700 directory. Do not put `OPENROUTER_API_KEY` in the app or in git.
 
+## Upstream connection
+
+The DSH child starts with `--dns-result-order=ipv4first` and `--no-network-family-autoselection`, so a host that has an IPv6 answer but no IPv6 route does not stall the model request. A transport failure before any text is retried twice inside the same turn (`maxRetries: 2`). The phone is told to send again. The log line is `upstream error code=...` and does not include the model key.
+
+If `package-lock.json` did not change, restart the process after replacing these files. Do not run `npm ci` on a small host.
+
 ## Personal trial
 
 The default process still requires `QBOT_ACCESS_TOKEN`. Set `QBOT_PERSONAL_OPEN=1` in the private env file only for this one-person trial. That flag skips the bearer check on the existing chat and history routes. It does not open PostgreSQL, a shell, or any other route. Unset it to require the token again.
