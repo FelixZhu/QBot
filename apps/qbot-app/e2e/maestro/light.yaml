@@ -11,29 +11,15 @@ appId: io.github.felixzhu.qiandrive
 
 - tapOn: "Qbot"
 - extendedWaitUntil:
-    visible: "回复，或按住说话"
+    visible: ".*这句可以长按选择.*"
     timeout: 30000
-- scrollUntilVisible:
-    element:
-      text: ".*不是真实模型.*"
-    direction: UP
-    timeout: 20000
-    speed: 40
-    visibilityPercentage: 80
 - assertVisible: ".*不是真实模型.*"
 - assertNotVisible: "连接码"
 - assertNotVisible: "这一版没有带上服务器地址"
 - takeScreenshot:
     path: light-qbot-thread
 
-# The action row sits under the long reply, so bring the copy control on screen first.
-- scrollUntilVisible:
-    element:
-      text: "复制"
-    direction: DOWN
-    timeout: 15000
-    speed: 40
-    visibilityPercentage: 40
+# The button keeps the copy result after the two-second check fades.
 - tapOn:
     text: "复制"
     waitToSettleTimeoutMs: 0
@@ -42,13 +28,6 @@ appId: io.github.felixzhu.qiandrive
     timeout: 5000
 - takeScreenshot:
     path: light-chat-copied
-- scrollUntilVisible:
-    element:
-      text: ".*这句可以长按选择.*"
-    direction: UP
-    timeout: 15000
-    speed: 40
-    visibilityPercentage: 40
 
 - longPressOn: ".*这句可以长按选择.*"
 - extendedWaitUntil:
@@ -69,23 +48,16 @@ appId: io.github.felixzhu.qiandrive
       - tapOn: "Select all"
 - tapOn: "Qbot"
 
-- scrollUntilVisible:
-    element:
-      text: "第46点用来把正文撑开"
-    direction: DOWN
-    timeout: 20000
-    speed: 40
-    visibilityPercentage: 40
-- assertNotVisible: ".*这句可以长按选择.*"
+- swipe:
+    start: "50%,70%"
+    end: "50%,45%"
+    duration: 400
 - takeScreenshot:
     path: light-chat-scrolled
-- scrollUntilVisible:
-    element:
-      text: ".*这句可以长按选择.*"
-    direction: UP
-    timeout: 20000
-    speed: 40
-    visibilityPercentage: 40
+- swipe:
+    start: "50%,45%"
+    end: "50%,75%"
+    duration: 400
 
 - tapOn: "添加"
 - extendedWaitUntil:
@@ -141,15 +113,8 @@ appId: io.github.felixzhu.qiandrive
 - assertNotVisible: "返回会话列表"
 - tapOn: "Qbot"
 - extendedWaitUntil:
-    visible: "回复，或按住说话"
+    visible: "马上这句"
     timeout: 20000
-- scrollUntilVisible:
-    element:
-      text: "马上这句"
-    direction: DOWN
-    timeout: 20000
-    speed: 40
-    visibilityPercentage: 40
 - assertVisible: "已停止"
 - assertNotVisible: "An error occurred"
 - assertNotVisible: "服务器没有完成这条回复"
