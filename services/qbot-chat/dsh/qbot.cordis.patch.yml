@@ -35,7 +35,11 @@
             baseURL: !!js process.env.QBOT_OPENAI_BASE_URL || 'https://openrouter.ai/api/v1'
             retryPolicy:
               mode: normal
-              maxRetries: 0
+              maxRetries: 2
+              backoff:
+                initialDelayMs: 200
+                maxDelayMs: 800
+                jitterRatio: 0
             models:
               - id: deepseek/deepseek-v4.1-flash-1017
                 contextWindow: 1000000
