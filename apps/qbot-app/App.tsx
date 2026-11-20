@@ -70,6 +70,7 @@ function Shell() {
       : { phase: "checking" };
   const [keyboard, setKeyboard] = useState(false);
   const [webReady, setWebReady] = useState(false);
+  const [libraryReady, setLibraryReady] = useState(false);
   const [coverTabs, setCoverTabs] = useState(false);
   const tabOpacity = useRef(new Animated.Value(1)).current;
   const live = thread;
@@ -96,6 +97,11 @@ function Shell() {
     } catch {
       // Keep the embedded bundle.
     }
+  }, []);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setWebReady(true), 400);
+    return () => clearTimeout(timer);
   }, []);
 
   useEffect(() => {
@@ -155,6 +161,7 @@ function Shell() {
   }, [tab, thread, exitOrHint]);
 
   const openKb = () => {
+    console.log(`QBOT_TIMING kb-tap ${libraryReady ? "warm" : "cold"}`);
     setWebReady(true);
     setTab("kb");
     webRef.current?.show("kb");
@@ -219,6 +226,7 @@ function Shell() {
             dark={dark}
             backgroundColor={colors.canvas}
             onBackResult={onBackResult}
+            onReady={() => setLibraryReady(true)}
             onExternal={(url) => { Linking.openURL(url).catch(() => {}); }}
           />
         ) : null}

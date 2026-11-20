@@ -56,7 +56,7 @@ test("wide panes share one 38% width, clamped to 320–400", () => {
   assert.match(live, /maxWidth: READ_MAX/);
   assert.match(chat, /colors\.selected/);
   assert.match(chat, /QbotAvatar/);
-  assert.match(live, />Qbot</);
+  assert.match(live, />QBot</);
   assert.equal(chat.includes("Info Bot"), false);
 });
 

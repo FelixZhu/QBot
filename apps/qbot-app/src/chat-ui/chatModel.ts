@@ -147,15 +147,15 @@ export function composerChrome(input: {
     return { expanded: false, placeholder: "回复，或按住说话", action: "voice" };
   }
   if (input.attachments > 0) {
-    return { expanded: true, placeholder: "回复 Qbot", action: "held" };
+    return { expanded: true, placeholder: "回复 QBot", action: "held" };
   }
   if (input.text.trim()) {
-    return { expanded: true, placeholder: "回复 Qbot", action: "send" };
+    return { expanded: true, placeholder: "回复 QBot", action: "send" };
   }
   if (input.running) {
-    return { expanded: true, placeholder: "回复 Qbot", action: "stop" };
+    return { expanded: true, placeholder: "回复 QBot", action: "stop" };
   }
-  return { expanded: true, placeholder: "回复 Qbot", action: "voice" };
+  return { expanded: true, placeholder: "回复 QBot", action: "voice" };
 }
 
 /** Voice is not connected. Holding the composer must not produce a transcript. */
