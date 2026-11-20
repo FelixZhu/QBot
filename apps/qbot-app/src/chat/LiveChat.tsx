@@ -1,12 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { KeyboardAvoidingView, Platform, Pressable, Text, TextInput, View } from "react-native";
-import {
-  AssistantRuntimeProvider,
-  ComposerPrimitive,
-  MessagePrimitive,
-  ThreadPrimitive,
-  useLocalRuntime,
-} from "@assistant-ui/react-native";
+import { AssistantRuntimeProvider, useLocalRuntime } from "@assistant-ui/react-native";
+import { ChatThreadSurface } from "../chat-ui";
 import { liveBadge, liveNote } from "./connectionCopy";
 import { createServerHistory } from "./serverHistory";
 import { messageUrl } from "./serverClient";
@@ -148,54 +143,24 @@ function LiveThread({ colors, view, onEdit }: { colors: Palette; view: Extract<C
 }
 
 function LiveRuntime({ colors, view, onEdit }: { colors: Palette; view: Extract<ConnectionView, { phase: "ready" }>; onEdit: () => void }) {
-  const [streamError, setStreamError] = useState<string | null>(null);
   const transport = useMemo(() => createServerChatTransport({
     url: messageUrl(view.origin, view.conversationId),
     token: view.token,
-    onStart: () => setStreamError(null),
-    onError: setStreamError,
   }), [view.origin, view.conversationId, view.token]);
   const history = useMemo(() => createServerHistory(() => view.client.listMessages(view.conversationId)), [view.client, view.conversationId]);
   const adapter = useMemo(() => toModelAdapter(transport), [transport]);
   const runtime = useLocalRuntime(adapter, { adapters: { history } });
+  const listHeader = useMemo(() => (
+    <Text style={{ fontSize: 12, lineHeight: 18, color: colors.muted, textAlign: "center", marginBottom: 12 }}>{liveNote(view.session)}</Text>
+  ), [colors.muted, view.session]);
   return (
     <AssistantRuntimeProvider runtime={runtime}>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-        <ThreadPrimitive.Root style={{ flex: 1, alignItems: "center" }}>
-          <View style={{ flex: 1, width: "100%", maxWidth: READ_MAX }}>
-            <ThreadPrimitive.MessagesFlatList
-              autoScroll
-              keyboardShouldPersistTaps="handled"
-              style={{ flex: 1 }}
-              contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 12 }}
-              ListHeaderComponent={<Text style={{ fontSize: 12, lineHeight: 18, color: colors.muted, textAlign: "center", marginBottom: 12 }}>{liveNote(view.session)}</Text>}
-            >
-              {({ message }) => {
-                const mine = message.role === "user";
-                return (
-                  <MessagePrimitive.Root style={{ alignItems: mine ? "flex-end" : "flex-start", marginBottom: 12 }}>
-                    <View style={{ maxWidth: "78%", paddingHorizontal: 12, paddingVertical: 10, borderRadius: 16, backgroundColor: mine ? colors.bubbleMe : colors.bubbleBot, borderWidth: mine ? 0 : 1, borderColor: colors.line }}>
-                      <MessagePrimitive.Content renderText={({ part }) => (
-                        <Text style={{ fontSize: 15, lineHeight: 22, color: mine ? colors.bubbleMeText : colors.text }}>{part.text}</Text>
-                      )} />
-                    </View>
-                  </MessagePrimitive.Root>
-                );
-              }}
-            </ThreadPrimitive.MessagesFlatList>
-            {streamError ? <Text style={{ paddingHorizontal: 16, paddingBottom: 8, color: colors.accent, fontSize: 13 }}>{streamError}</Text> : null}
-            <ComposerPrimitive.Root style={{ flexDirection: "row", alignItems: "flex-end", gap: 8, paddingHorizontal: 16, paddingTop: 8, paddingBottom: 10, borderTopWidth: 1, borderTopColor: colors.line }}>
-              <ComposerPrimitive.Input placeholder="发消息…" placeholderTextColor={colors.muted} multiline style={{ flex: 1, minHeight: 40, maxHeight: 120, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.raised, color: colors.text, fontSize: 15 }} />
-              <ComposerPrimitive.Send accessibilityRole="button" accessibilityLabel="发送" style={{ width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center", backgroundColor: colors.bubbleMe }}>
-                <Text style={{ color: colors.bubbleMeText, fontSize: 14, fontWeight: "700" }}>发送</Text>
-              </ComposerPrimitive.Send>
-            </ComposerPrimitive.Root>
-            <Pressable accessibilityRole="button" accessibilityLabel="服务器设置" onPress={onEdit} style={{ alignItems: "center", paddingBottom: 8 }}>
-              <Text style={{ color: colors.muted, fontSize: 12 }}>服务器</Text>
-            </Pressable>
-          </View>
-        </ThreadPrimitive.Root>
-      </KeyboardAvoidingView>
+      <View style={{ flex: 1, width: "100%", maxWidth: READ_MAX, alignSelf: "center" }}>
+        <ChatThreadSurface colors={colors} listHeader={listHeader} bottomSafeArea="parent" />
+        <Pressable accessibilityRole="button" accessibilityLabel="服务器设置" onPress={onEdit} style={{ alignItems: "center", paddingBottom: 8 }}>
+          <Text style={{ color: colors.muted, fontSize: 12 }}>服务器</Text>
+        </Pressable>
+      </View>
     </AssistantRuntimeProvider>
   );
 }

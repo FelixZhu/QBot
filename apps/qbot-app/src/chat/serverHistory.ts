@@ -16,19 +16,41 @@ export function toRepository(messages: readonly ServerMessage[]): ExportedMessag
   for (const message of messages) {
     const id = message.id;
     const text = message.content || (message.status === "complete" ? "" : "服务器没有完成这条回复。");
-    items.push({
-      parentId,
-      message: {
-        id,
-        role: message.role,
-        createdAt: new Date(message.createdAt),
-        content: [{ type: "text", text }],
-        status: message.status === "complete"
-          ? { type: "complete", reason: "stop" }
-          : { type: "incomplete", reason: "error" },
-        metadata: { custom: { serverStatus: message.status } },
-      },
-    });
+    const createdAt = new Date(message.createdAt);
+    const metadata = { custom: { serverStatus: message.status } };
+    const content = [{ type: "text" as const, text }];
+    const item: ExportedMessageRepositoryItem = message.role === "user"
+      ? {
+        parentId,
+        message: {
+          id,
+          role: "user",
+          createdAt,
+          content,
+          attachments: [],
+          metadata: { custom: metadata.custom },
+        },
+      }
+      : {
+        parentId,
+        message: {
+          id,
+          role: "assistant",
+          createdAt,
+          content,
+          status: message.status === "complete"
+            ? { type: "complete", reason: "stop" }
+            : { type: "incomplete", reason: "error" },
+          metadata: {
+            unstable_state: null,
+            unstable_annotations: [],
+            unstable_data: [],
+            steps: [],
+            custom: metadata.custom,
+          },
+        },
+      };
+    items.push(item);
     parentId = id;
   }
   return { headId: parentId, messages: items };

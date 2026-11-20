@@ -117,7 +117,11 @@ export function createDshEngine(options: {
             poke();
           }
         }).catch((error: unknown) => {
-          failure = error instanceof Error ? error : new Error("模型上游中断");
+          const detail = error instanceof Error ? error.message : "";
+          const safe = detail.toLowerCase().includes("not found")
+            ? new Error("模型会话不在这台服务器上")
+            : error instanceof Error ? error : new Error("模型上游中断");
+          failure = safe;
           finished = true;
           poke();
         });

@@ -18,6 +18,7 @@ const SAFE_MESSAGES = new Set([
   "模型回复超过长度限制",
   "模型上游超时",
   "回复没有写入数据库",
+  "模型会话不在这台服务器上",
 ]);
 
 /** Client-visible text. Unknown errors stay generic so keys and prompts are not echoed. */

@@ -1,5 +1,8 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
+import { appendFileSync } from "node:fs";
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
@@ -53,8 +56,10 @@ test("the app reloads server history after the process restarts", { timeout: 30_
     PORT: "0",
     QBOT_FIXTURE_UPSTREAM: "1",
     QBOT_FIXTURE_UPSTREAM_URL: fixture.url,
+    QBOT_DSH_HOME: mkdtempSync(path.join(tmpdir(), "qbot-dsh-app-")),
   };
   await runNode(serverRoot, ["--experimental-strip-types", "src/migrate.ts"], env);
+  let createdId = "";
   const first = await startServer(serverRoot, env);
   try {
     const secrets = memorySecrets();
@@ -73,8 +78,10 @@ test("the app reloads server history after the process restarts", { timeout: 30_
     assert.equal(conversation?.includes(TOKEN), false);
     assert.equal(await secrets.get(TOKEN_KEY), TOKEN);
 
+    const created = await ready.client.createConversation();
+    createdId = created.id;
     const transport = createServerChatTransport({
-      url: messageUrl(ready.origin, ready.conversationId),
+      url: messageUrl(ready.origin, created.id),
       token: TOKEN,
     });
     const deltas: string[] = [];
@@ -85,10 +92,10 @@ test("the app reloads server history after the process restarts", { timeout: 30_
     assert.equal(hit?.authorization?.includes(TOKEN), false);
     const upstream = hit?.body as { model?: string; messages?: { role: string; content: string }[] };
     assert.equal(upstream.model, "deepseek/deepseek-v4.1-flash-1017");
-    assert.equal(upstream.messages?.[0]?.role, "system");
-    assert.equal(upstream.messages?.at(-1)?.content, "你好");
+    assert.equal(upstream.messages?.some((message) => message.role === "system" && message.content.includes("You have no tools")), true);
+    assert.equal(upstream.messages?.some((message) => message.content === "你好"), true);
 
-    const loaded = await createServerHistory(() => ready.client.listMessages(ready.conversationId)).load();
+    const loaded = await createServerHistory(() => ready.client.listMessages(created.id)).load();
     const texts = loaded.messages.map((item) => item.message.content[0]?.type === "text" ? item.message.content[0].text : "");
     assert.deepEqual(texts, ["你好", "夹具固定句"]);
   } finally {
@@ -107,7 +114,7 @@ test("the app reloads server history after the process restarts", { timeout: 30_
       url: `http://127.0.0.1:${second.port}`,
       token: "",
     });
-    const messages = await ready.client.listMessages(ready.conversationId);
+    const messages = await ready.client.listMessages(createdId);
     assert.equal(messages.some((message) => message.content === "夹具固定句" && message.status === "complete"), true);
     assert.equal(ready.session.upstream, "fixture");
   } finally {
@@ -160,7 +167,10 @@ function startServer(cwd: string, env: NodeJS.ProcessEnv): Promise<{ port: numbe
       clearTimeout(timer);
       resolve({ port: Number(match[1]), stop: () => child.kill("SIGTERM") });
     });
-    child.stderr.on("data", (chunk) => { buffer += String(chunk); });
+    child.stderr.on("data", (chunk) => {
+      buffer += String(chunk);
+      appendFileSync("/tmp/qbot-live-server.err", String(chunk));
+    });
     child.on("exit", (code) => {
       if (settled) return;
       settled = true;
