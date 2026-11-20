@@ -24,7 +24,7 @@ import {
   type ThreadMessage,
 } from "@assistant-ui/react-native";
 import { READ_MAX, type Palette } from "../theme";
-import { copyText } from "./copyText";
+import { clipboardAvailable, copyText } from "./copyText";
 import { distanceFromBottom, keyboardCover, showJumpToBottom } from "./layout";
 import { MarkdownBody } from "./MarkdownBody";
 
@@ -123,7 +123,7 @@ function ChatMessage({ colors }: { colors: Palette }) {
   const mine = role === "user";
   const running = status?.type === "running";
   const stopped = status?.type === "incomplete" && status.reason === "cancelled";
-  const showCopy = hasText && !running;
+  const showCopy = hasText && !running && clipboardAvailable();
   const showRetry = !mine && last && !running && (hasText || status?.type === "incomplete");
   const actionStyle = { fontSize: 13, lineHeight: 18, color: mine ? colors.bubbleMeText : colors.muted, paddingVertical: 4 };
   return (

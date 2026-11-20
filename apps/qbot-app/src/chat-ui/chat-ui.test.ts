@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { DEMOS } from "../demos.ts";
+import { acceptClipboardWrite, nativeClipboardReady } from "./clipboard.ts";
 import { distanceFromBottom, keyboardCover, showJumpToBottom } from "./layout.ts";
 import { openableHref, parseMarkdown } from "./markdown.ts";
 
@@ -47,6 +48,16 @@ test("links only open as http(s) or mailto", () => {
   assert.equal(openableHref("javascript:alert(1)"), null);
   assert.equal(openableHref("/relative"), null);
   assert.equal(openableHref("not a url"), null);
+});
+
+test("a copy control needs a native writer, and only a true result counts as copied", async () => {
+  assert.equal(nativeClipboardReady(null), false);
+  assert.equal(nativeClipboardReady(undefined), false);
+  assert.equal(nativeClipboardReady({}), false);
+  assert.equal(nativeClipboardReady({ setStringAsync: undefined }), false);
+  assert.equal(nativeClipboardReady({ setStringAsync: async () => true }), true);
+  await assert.rejects(() => acceptClipboardWrite(false));
+  await assert.doesNotReject(() => acceptClipboardWrite(true));
 });
 
 test("keyboard cover meets the keyboard top and stays put once the window already resized", () => {
