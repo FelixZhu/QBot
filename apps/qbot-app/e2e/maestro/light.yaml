@@ -19,10 +19,12 @@ appId: io.github.felixzhu.qiandrive
 - takeScreenshot:
     path: light-qbot-thread
 
-- tapOn: "复制"
+- tapOn:
+    text: "复制"
+    waitToSettleTimeoutMs: 0
 - extendedWaitUntil:
     visible: "已复制到剪贴板"
-    timeout: 8000
+    timeout: 5000
 - takeScreenshot:
     path: light-chat-copied
 
