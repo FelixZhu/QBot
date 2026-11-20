@@ -1,24 +1,6 @@
 import { Pressable, Text, View } from "react-native";
+import { QbotAvatar } from "./QbotAvatar";
 import type { Palette } from "./theme";
-
-function Mark({ size = 28 }: { size?: number }) {
-  const dot = Math.max(6, Math.round(size * 0.28));
-  return (
-    <View
-      style={{
-        width: size,
-        height: size,
-        borderRadius: Math.round(size * 0.28),
-        backgroundColor: "#1C1B19",
-        alignItems: "flex-end",
-        justifyContent: "flex-end",
-        padding: 3,
-      }}
-    >
-      <View style={{ width: dot, height: dot, borderRadius: dot, backgroundColor: "#D9774B" }} />
-    </View>
-  );
-}
 
 export function ChatList({
   colors,
@@ -49,13 +31,11 @@ export function ChatList({
           backgroundColor: selected ? colors.selected : pressed ? colors.press : "transparent",
         })}
       >
-        <View style={{ width: 48, height: 48, borderRadius: 12, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.raised, alignItems: "center", justifyContent: "center" }}>
-          <Mark />
-        </View>
+        <QbotAvatar size={48} />
         <View style={{ flex: 1, minWidth: 0, borderBottomWidth: 1, borderBottomColor: colors.line, paddingVertical: 14 }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
             <Text style={{ flex: 1, fontSize: 16, lineHeight: 22, fontWeight: "600", color: colors.text }}>Qbot</Text>
-            <Text style={{ fontSize: 12, lineHeight: 16, fontWeight: "600", color: colors.accent }}>{badge}</Text>
+            <Text style={{ fontSize: 12, lineHeight: 16, fontWeight: "600", color: colors.accentInk }}>{badge}</Text>
           </View>
           <Text style={{ marginTop: 2, fontSize: 14, lineHeight: 20, color: colors.muted }} numberOfLines={1}>个人对话</Text>
         </View>

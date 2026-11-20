@@ -32,8 +32,8 @@ test("wide panes share one 38% width, clamped to 320–400", () => {
   assert.ok(Math.abs(contained.height - (300 * 844) / 390) < 0.001);
   assert.equal(phoneFrame(0, 800).width, 0);
   assert.equal(gutterColor("#F5A623"), "#492f03");
-  assert.equal(demoSurface("demo-english"), "#D9774B");
-  assert.equal(gutterColor(demoSurface("demo-english")), "#3f1d0d");
+  assert.equal(demoSurface("demo-english"), "#FF6A2B");
+  assert.equal(gutterColor(demoSurface("demo-english")), "#4d1700");
   assert.equal(gutterColor(demoSurface("demo-info")), "#332b1a");
   assert.notEqual(gutterColor(demoSurface("demo-english")), gutterColor("#0B0B0F"));
   assert.equal(gutterColor("#FFFFFF"), "#262626");

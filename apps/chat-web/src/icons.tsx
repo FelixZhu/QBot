@@ -7,8 +7,10 @@ const S = ({ children, size = 24 }: { children: ReactNode; size?: number }) => (
 
 export const BrandMark = ({ className }: { className?: string }) => (
   <svg className={className} viewBox="0 0 32 32" aria-hidden="true">
-    <rect x="4" y="6.5" width="17" height="19" rx="6.5" fill="var(--text-1)" />
-    <circle cx="25.5" cy="21.5" r="3.2" fill="var(--accent)" />
+    <rect width="32" height="32" fill="#FF6A2B" />
+    <rect x="7" y="7.5" width="18" height="17" rx="7" fill="#FFFFFF" />
+    <rect x="11.6" y="13" width="2.6" height="5" rx="1.3" fill="#1C1B19" />
+    <rect x="17.8" y="13" width="2.6" height="5" rx="1.3" fill="#1C1B19" />
   </svg>
 );
 export const IconMenu = () => <S><path d="M4 7h16M4 12h16M4 17h10" /></S>;

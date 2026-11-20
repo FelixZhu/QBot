@@ -3,6 +3,7 @@ import { BackHandler, Platform, Pressable, Text, View } from "react-native";
 import { AssistantRuntimeProvider, useLocalRuntime } from "@assistant-ui/react-native";
 import { ChatThreadSurface } from "../chat-ui";
 import { ChatMark } from "../chat-ui/ChatMarks";
+import { QbotAvatar } from "../QbotAvatar";
 import { liveNote } from "./connectionCopy";
 import { createServerHistory } from "./serverHistory";
 import { messageUrl } from "./serverClient";
@@ -139,7 +140,10 @@ function ChatHeader({
             <ChatMark name="menu" color={chrome.text} size={20} />
           </Pressable>
         ) : <View style={{ width: 40 }} />}
-        <Text style={{ flex: 1, textAlign: "center", fontSize: 17, lineHeight: 24, fontWeight: "700", color: chrome.text }}>Qbot</Text>
+        <View style={{ flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 }}>
+          <QbotAvatar size={32} />
+          <Text style={{ fontSize: 17, lineHeight: 24, fontWeight: "700", color: chrome.text }}>Qbot</Text>
+        </View>
         <Pressable onPress={() => { void start(); }} disabled={view.phase !== "ready" || creating} accessibilityRole="button" accessibilityLabel="新对话" hitSlop={8} style={{ width: 40, height: 40, alignItems: "center", justifyContent: "center", opacity: view.phase === "ready" ? 1 : 0.4 }}>
           <ChatMark name="pencil" color={chrome.text} size={20} />
         </Pressable>
@@ -147,7 +151,7 @@ function ChatHeader({
           <ChatMark name="more" color={chrome.text} size={20} />
         </Pressable>
       </View>
-      {problem ? <Text style={{ color: chrome.send, fontSize: 13, lineHeight: 18, paddingHorizontal: 8 }}>{problem}</Text> : null}
+      {problem ? <Text style={{ color: chrome.inkText, fontSize: 13, lineHeight: 18, paddingHorizontal: 8 }}>{problem}</Text> : null}
       {more ? (
         <View style={{ marginHorizontal: 8, marginBottom: 8, borderRadius: 16, backgroundColor: chrome.composer, borderWidth: 1, borderColor: chrome.line, padding: 14, gap: 12 }}>
           <Text style={{ color: chrome.muted, fontSize: 13, lineHeight: 18 }}>{liveNote(view)}</Text>
