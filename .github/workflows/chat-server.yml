@@ -1,0 +1,66 @@
+name: chat-server
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:0.8.7-pg15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      # Throwaway passwords for this job's database container, not a deployment secret.
+      DATABASE_MIGRATE_URL: postgres://postgres:postgres@127.0.0.1:5432/qbot
+      DATABASE_URL: postgres://qbot:qbot@127.0.0.1:5432/qbot
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            services/qbot-chat/package-lock.json
+            apps/qbot-app/package-lock.json
+
+      - name: Create the least-privilege role and database
+        run: |
+          PGPASSWORD=postgres psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 <<'SQL'
+          CREATE ROLE qbot LOGIN PASSWORD 'qbot' NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT;
+          CREATE DATABASE qbot OWNER qbot ENCODING 'UTF8' LC_COLLATE 'C.UTF-8' LC_CTYPE 'C.UTF-8' TEMPLATE template0;
+          REVOKE ALL ON DATABASE qbot FROM PUBLIC;
+          GRANT CONNECT, TEMPORARY ON DATABASE qbot TO qbot;
+          SQL
+          PGPASSWORD=postgres psql -h 127.0.0.1 -U postgres -d qbot -v ON_ERROR_STOP=1 <<'SQL'
+          ALTER SCHEMA public OWNER TO qbot;
+          SQL
+
+      - name: Chat server
+        working-directory: services/qbot-chat
+        run: |
+          npm ci
+          npm run typecheck
+          npm test
+
+      - name: App chat client
+        working-directory: apps/qbot-app
+        run: |
+          npm ci --no-audit --no-fund
+          npm run typecheck
+          npm test
