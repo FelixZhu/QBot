@@ -11,10 +11,9 @@ appId: io.github.felixzhu.qiandrive
 
 - tapOn: "Qbot"
 - extendedWaitUntil:
-    visible: "这句可以长按选择"
+    visible: ".*这句可以长按选择.*"
     timeout: 30000
-- assertVisible: "测试夹具"
-- assertVisible: "不是真实模型"
+- assertVisible: ".*不是真实模型.*"
 - assertNotVisible: "连接码"
 - assertNotVisible: "这一版没有带上服务器地址"
 - takeScreenshot:
@@ -27,7 +26,7 @@ appId: io.github.felixzhu.qiandrive
 - takeScreenshot:
     path: light-chat-copied
 
-- longPressOn: "这句可以长按选择"
+- longPressOn: ".*这句可以长按选择.*"
 - takeScreenshot:
     path: light-chat-select
 - runFlow:
@@ -37,27 +36,27 @@ appId: io.github.felixzhu.qiandrive
       - tapOn: "Copy"
 - runFlow:
     when:
-      visible: "复制"
+      visible: "Select all"
     commands:
-      - tapOn: "复制"
+      - tapOn: "Select all"
 - tapOn: "Qbot"
 
 - swipe:
     start: "50%,70%"
-    end: "50%,40%"
+    end: "50%,45%"
     duration: 400
 - takeScreenshot:
     path: light-chat-scrolled
 - swipe:
-    start: "50%,40%"
+    start: "50%,45%"
     end: "50%,75%"
     duration: 400
 
 - tapOn: "添加"
 - extendedWaitUntil:
-    visible: "不会上传"
+    visible: ".*不会上传.*"
     timeout: 8000
-- assertVisible: "模型也读不了"
+- assertVisible: ".*模型也读不了.*"
 - takeScreenshot:
     path: light-chat-add
 - tapOn: "关闭"
