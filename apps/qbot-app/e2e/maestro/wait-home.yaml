@@ -22,6 +22,7 @@ appId: io.github.felixzhu.qiandrive
         timeout: 3000
         optional: true
 - assertVisible: "Qbot"
+- assertVisible: "个人对话"
 - assertNotVisible: "Info Bot，演示"
 - assertNotVisible: "English Bot，演示"
 - assertNotVisible: "Study Bot，演示"
