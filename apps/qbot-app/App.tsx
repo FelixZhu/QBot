@@ -20,7 +20,7 @@ import { LiveChat } from "./src/chat/LiveChat";
 import { liveBadge } from "./src/chat/connectionCopy";
 import { useServerConnection } from "./src/chat/useServerConnection";
 import { BookIcon, BubbleIcon, StarIcon } from "./src/TabIcons";
-import { isSplit, listPaneWidth, palette, resolveScheme } from "./src/theme";
+import { chatChrome, isSplit, listPaneWidth, palette, resolveScheme } from "./src/theme";
 import { LessonFeed } from "./src/feed/LessonFeed";
 import { pullUpdate } from "./src/updates";
 import { WebPane, type WebPaneHandle } from "./src/WebPane";
@@ -58,10 +58,17 @@ function Shell() {
   const [coverTabs, setCoverTabs] = useState(false);
   const tabOpacity = useRef(new Animated.Value(1)).current;
   const live = thread;
+  const inThread = tab === "chat" && thread;
+  const showTabs = !inThread && !(keyboard && tab === "chat");
+  const showList = tab === "chat" && (split || !live);
+  const showThread = tab === "chat" && (split || live);
+  const screenChrome = chatChrome(scheme);
+  const feedOn = tab === "feed" || coverTabs;
 
   useEffect(() => {
-    setBackgroundColorAsync(colors.canvas).catch(() => {});
-  }, [colors.canvas]);
+    const background = feedOn ? "#0B0B0F" : inThread ? screenChrome.canvas : colors.canvas;
+    setBackgroundColorAsync(background).catch(() => {});
+  }, [colors.canvas, feedOn, inThread, screenChrome.canvas]);
 
   useEffect(() => {
     // Native ON_LOAD also checks. This fetch does not reload; the next cold start picks it up.
@@ -138,13 +145,8 @@ function Shell() {
     webRef.current?.show("kb");
   };
 
-  const showTabs = !(keyboard && tab === "chat");
-  const showList = tab === "chat" && (split || !live);
-  const showThread = tab === "chat" && (split || live);
-
-  const feedOn = tab === "feed" || coverTabs;
   return (
-    <View style={{ flex: 1, backgroundColor: feedOn ? "#0B0B0F" : colors.canvas, paddingTop: insets.top }}>
+    <View style={{ flex: 1, backgroundColor: feedOn ? "#0B0B0F" : inThread ? screenChrome.canvas : colors.canvas, paddingTop: insets.top }}>
       <StatusBar style={feedOn ? "light" : colors.status} />
       <View style={{ flex: 1, position: "relative", flexDirection: split && tab === "chat" ? "row" : "column" }}>
         <View
@@ -158,7 +160,7 @@ function Shell() {
           />
         </View>
         {showList ? (
-          <View style={split ? { width: listWidth, borderRightWidth: 1, borderRightColor: colors.line } : { flex: 1 }}>
+          <View style={split ? { width: listWidth, borderRightWidth: 1, borderRightColor: colors.line, paddingBottom: thread && !showTabs ? insets.bottom : 0 } : { flex: 1 }}>
             <ChatList
               colors={colors}
               badge={liveBadge(connection.view)}
@@ -167,18 +169,24 @@ function Shell() {
             />
           </View>
         ) : null}
-        {showThread ? (
+        {thread ? (
+          <View
+            pointerEvents={showThread ? "auto" : "none"}
+            style={showThread ? { flex: 1, minWidth: 0 } : { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, opacity: 0, zIndex: -1 }}
+          >
+            <LiveChat
+              scheme={scheme}
+              showBack={!split}
+              onBack={() => setThread(false)}
+              view={connection.view}
+              onNewConversation={connection.startNewConversation}
+              onOpenLibrary={openKb}
+              active={showThread}
+            />
+          </View>
+        ) : showThread ? (
           <View style={{ flex: 1, minWidth: 0 }}>
-            {live ? (
-              <LiveChat
-                colors={colors}
-                showBack={!split}
-                onBack={() => setThread(false)}
-                view={connection.view}
-              />
-            ) : (
-              <ChatEmpty colors={colors} />
-            )}
+            <ChatEmpty colors={colors} />
           </View>
         ) : null}
         {webReady ? (

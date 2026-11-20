@@ -43,6 +43,7 @@ async function* postText(
       signal,
     });
   } catch (error) {
+    if (signal.aborted) throw aborted(error);
     throw report(error, token, onError);
   }
   if (!response.ok) {
@@ -53,6 +54,7 @@ async function* postText(
   try {
     yield* readAssistantDeltas(response, signal);
   } catch (error) {
+    if (signal.aborted) throw aborted(error);
     throw report(error, token, onError);
   }
 }
@@ -67,7 +69,14 @@ function readError(status: number, text: string): string {
   return `服务器返回 HTTP ${status}`;
 }
 
+function aborted(error: unknown): Error {
+  const next = error instanceof Error ? error : new Error("The operation was aborted.");
+  next.name = "AbortError";
+  return next;
+}
+
 function report(error: unknown, token: string | undefined, onError?: (message: string) => void): Error {
+  if (error instanceof Error && error.name === "AbortError") return error;
   const raw = error instanceof Error ? error.message : "chat stream failed";
   const message = token ? raw.split(token).join("[redacted]") : raw;
   onError?.(message);

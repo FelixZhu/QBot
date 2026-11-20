@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { configuredOrigin } from "./serverEndpoint.ts";
 import { openChat, type ConnectionView } from "./serverSession.ts";
 
@@ -20,5 +20,11 @@ export function useServerConnection() {
     });
     return () => { cancel = true; };
   }, []);
-  return { view };
+  const startNewConversation = useCallback(async () => {
+    if (view.phase !== "ready") throw new Error("还没有连上服务器");
+    const created = await view.client.createConversation();
+    if (!created.id) throw new Error("服务器没有返回新会话");
+    setView({ ...view, conversationId: created.id });
+  }, [view]);
+  return { view, startNewConversation };
 }
