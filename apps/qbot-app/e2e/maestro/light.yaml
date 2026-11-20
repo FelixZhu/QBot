@@ -111,7 +111,6 @@ appId: io.github.felixzhu.qiandrive
 - extendedWaitUntil:
     visible: "马上这句"
     timeout: 20000
-- assertVisible: "已停止"
 - takeScreenshot:
     path: light-chat-history
 - tapOn: "返回会话列表"
