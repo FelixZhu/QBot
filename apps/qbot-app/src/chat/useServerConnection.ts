@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { configuredOrigin } from "./serverEndpoint.ts";
 import { createServerClient, type ServerMessage, type ServerSession } from "./serverClient.ts";
@@ -118,7 +118,33 @@ export function useServerConnection() {
     setView(next);
     await AsyncStorage.removeItem(THREAD_CACHE_KEY);
   }, [view]);
-  return { view, startNewConversation };
+  const viewRef = useRef(view);
+  viewRef.current = view;
+  const refresh = useCallback(async () => {
+    const current = viewRef.current;
+    if (current.phase !== "ready") return;
+    const { conversationId, client } = current;
+    setView((latest) => (
+      latest.phase === "ready" && latest.conversationId === conversationId
+        ? { ...latest, sync: "syncing" }
+        : latest
+    ));
+    try {
+      const messages = trimMessages(await client.listMessages(conversationId));
+      await remember({ conversationId, messages });
+      setView((latest) => {
+        if (latest.phase !== "ready" || latest.conversationId !== conversationId) return latest;
+        return { ...latest, ...nextThread(latest, messages) };
+      });
+    } catch {
+      setView((latest) => (
+        latest.phase === "ready" && latest.conversationId === conversationId && latest.messages.length
+          ? { ...latest, sync: "stale" }
+          : latest
+      ));
+    }
+  }, []);
+  return { view, startNewConversation, refresh };
 }
 
 export type { ReadyConnection };

@@ -19,6 +19,7 @@ export function LiveChat({
   onBack,
   view,
   onNewConversation,
+  onRefresh,
   onOpenLibrary,
   active = true,
 }: {
@@ -27,10 +28,16 @@ export function LiveChat({
   onBack: () => void;
   view: ThreadView;
   onNewConversation: () => Promise<void>;
+  onRefresh: () => Promise<void>;
   onOpenLibrary?: () => void;
   active?: boolean;
 }) {
   const chrome = chatChrome(scheme);
+  const conversationId = view.phase === "ready" ? view.conversationId : "";
+  useEffect(() => {
+    if (view.phase !== "ready") return;
+    void onRefresh();
+  }, [onRefresh, conversationId, view.phase]);
   return (
     <View style={{ flex: 1, backgroundColor: chrome.canvas }}>
       {view.phase === "ready" ? (

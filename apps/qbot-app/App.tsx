@@ -180,6 +180,7 @@ function Shell() {
               onBack={() => setThread(false)}
               view={connection.view}
               onNewConversation={connection.startNewConversation}
+              onRefresh={connection.refresh}
               onOpenLibrary={openKb}
               active={showThread}
             />
