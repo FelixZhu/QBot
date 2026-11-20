@@ -1,5 +1,5 @@
-import { Pressable, Text, View } from "react-native";
-import { ThreadListPrimitive } from "@assistant-ui/react-native";
+import { Pressable, ScrollView, Text, View } from "react-native";
+import { ThreadListItemByIndexProvider } from "@assistant-ui/react-native";
 import { useThreadListItemTrigger, useThreadListNew } from "@assistant-ui/core/react";
 import { useAuiState } from "@assistant-ui/store";
 import { QbotAvatar } from "./QbotAvatar";
@@ -20,13 +20,35 @@ export function ConversationList({
         <Text style={{ fontSize: 20, lineHeight: 26, fontWeight: "700", color: colors.text }}>对话</Text>
       </View>
       <NewConversation colors={colors} onOpen={onOpen} />
-      <ThreadListPrimitive.Root>
-        <ThreadListPrimitive.Items
-          style={{ flex: 1 }}
-          renderItem={() => <ConversationRow colors={colors} badge={badge} onOpen={onOpen} />}
-        />
-      </ThreadListPrimitive.Root>
+      <ThreadRows colors={colors} badge={badge} onOpen={onOpen} />
     </View>
+  );
+}
+
+function ThreadRows({
+  colors,
+  badge,
+  onOpen,
+}: {
+  colors: Palette;
+  badge: string;
+  onOpen: () => void;
+}) {
+  const ids = useAuiState((state) => state.threads.threadIds);
+  const loading = useAuiState((state) => state.threads.isLoading);
+  const loadError = useAuiState((state) => state.threads.loadError);
+  const message = loadError instanceof Error ? loadError.message : loadError ? "会话列表没有载入" : "";
+  return (
+    <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 24 }}>
+      {message ? <Text style={{ paddingHorizontal: 16, color: colors.muted }}>{message}</Text> : null}
+      {!message && loading && ids.length === 0 ? <Text style={{ paddingHorizontal: 16, color: colors.muted }}>正在打开</Text> : null}
+      {!message && !loading && ids.length === 0 ? <Text style={{ paddingHorizontal: 16, color: colors.muted }}>没有会话</Text> : null}
+      {ids.map((id, index) => (
+        <ThreadListItemByIndexProvider key={id} index={index} archived={false}>
+          <ConversationRow colors={colors} badge={badge} onOpen={onOpen} />
+        </ThreadListItemByIndexProvider>
+      ))}
+    </ScrollView>
   );
 }
 
