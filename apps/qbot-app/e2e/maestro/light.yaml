@@ -19,6 +19,7 @@ appId: io.github.felixzhu.qiandrive
 - takeScreenshot:
     path: light-qbot-thread
 
+# The button keeps the copy result after the two-second check fades.
 - tapOn:
     text: "复制"
     waitToSettleTimeoutMs: 0
