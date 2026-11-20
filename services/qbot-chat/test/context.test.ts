@@ -32,6 +32,7 @@ test("the default model is the server constant and the host must be loopback", (
     OPENROUTER_API_KEY: "fixture-openrouter-key-not-a-secret",
   });
   assert.equal(config.model, DEFAULT_MODEL);
+  assert.equal(config.personalOpen, false);
   assert.equal(DEFAULT_MODEL, "deepseek/deepseek-v4.1-flash-1017");
   assert.throws(() => loadConfig({
     DATABASE_URL: "postgres://qbot:secret@127.0.0.1:5432/qbot",

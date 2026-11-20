@@ -56,11 +56,6 @@ export type ChatStore = {
   beginTurn(ownerId: string, conversationId: string, text: string): Promise<BegunTurn>;
   finishTurn(ownerId: string, assistantId: string, runId: string, status: "complete" | "failed" | "cancelled", content: string): Promise<void>;
   setDshSession(ownerId: string, conversationId: string, sessionId: string): Promise<void>;
-  createEnrollment(codeHash: Buffer, expiresAt: Date): Promise<void>;
-  redeemEnrollment(codeHash: Buffer, deviceId: string, tokenHash: Buffer): Promise<boolean>;
-  deviceActive(tokenHash: Buffer): Promise<boolean>;
-  revokeDevice(deviceId: string): Promise<boolean>;
-  listDevices(): Promise<{ id: string; createdAt: string; revoked: boolean }[]>;
 };
 
 export function createStore(pool: pg.Pool): ChatStore {
@@ -230,53 +225,6 @@ export function createStore(pool: pg.Pool): ChatStore {
         [conversationId, ownerId, sessionId],
       );
       if (result.rowCount !== 1) throw new HttpError(500, "persist", "数据库没有完成写入");
-    },
-    async createEnrollment(codeHash, expiresAt) {
-      await pool.query(
-        "INSERT INTO enrollment_codes (id, code_hash, expires_at) VALUES ($1, $2, $3)",
-        [randomUUID(), codeHash, expiresAt],
-      );
-    },
-    async redeemEnrollment(codeHash, deviceId, tokenHash) {
-      return transaction(pool, async (query) => {
-        const updated = await query(
-          `UPDATE enrollment_codes
-           SET used_at = now()
-           WHERE code_hash = $1 AND used_at IS NULL AND expires_at > now()
-           RETURNING id`,
-          [codeHash],
-        );
-        if (updated.rowCount !== 1) return false;
-        await query(
-          "INSERT INTO devices (id, token_hash) VALUES ($1, $2)",
-          [deviceId, tokenHash],
-        );
-        return true;
-      });
-    },
-    async deviceActive(tokenHash) {
-      const result = await pool.query(
-        "SELECT 1 FROM devices WHERE token_hash = $1 AND revoked_at IS NULL",
-        [tokenHash],
-      );
-      return (result.rowCount ?? 0) === 1;
-    },
-    async revokeDevice(deviceId) {
-      const result = await pool.query(
-        "UPDATE devices SET revoked_at = now() WHERE id = $1 AND revoked_at IS NULL",
-        [deviceId],
-      );
-      return (result.rowCount ?? 0) === 1;
-    },
-    async listDevices() {
-      const result = await pool.query<{ id: string; created_at: Date; revoked_at: Date | null }>(
-        "SELECT id, created_at, revoked_at FROM devices ORDER BY created_at DESC LIMIT 20",
-      );
-      return result.rows.map((row) => ({
-        id: row.id,
-        createdAt: row.created_at.toISOString(),
-        revoked: row.revoked_at != null,
-      }));
     },
   };
 }

@@ -1,35 +1,24 @@
-import { useCallback, useEffect, useState } from "react";
-import {
-  clearConnection,
-  enrollWithSetup,
-  restoreConnection,
-  type ConnectionView,
-  type SecretStore,
-  type SettingsStore,
-} from "./serverSession.ts";
+import { useEffect, useState } from "react";
+import { configuredOrigin } from "./serverEndpoint.ts";
+import { openChat, type ConnectionView } from "./serverSession.ts";
 
-export function useServerConnection(deps: { secrets: SecretStore; settings: SettingsStore }) {
-  const [view, setView] = useState<ConnectionView>({ phase: "unconfigured" });
-  const reload = useCallback(async () => {
-    const next = await restoreConnection(deps);
-    setView(next);
-  }, [deps.secrets, deps.settings]);
+const MISSING = "这一版没有带上服务器地址";
+
+export function useServerConnection() {
+  const [view, setView] = useState<ConnectionView>({ phase: "checking" });
   useEffect(() => {
-    void reload();
-  }, [reload]);
-  const enroll = useCallback(async (setup: string) => {
-    setView({ phase: "checking" });
-    try {
-      setView(await enrollWithSetup({ ...deps, setup }));
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "无法连接服务器";
-      setView({ phase: "error", message });
-      throw error;
+    const origin = configuredOrigin();
+    if (!origin) {
+      setView({ phase: "error", message: MISSING });
+      return;
     }
-  }, [deps.secrets, deps.settings]);
-  const clear = useCallback(async () => {
-    await clearConnection(deps.secrets, deps.settings);
-    setView({ phase: "unconfigured" });
-  }, [deps.secrets, deps.settings]);
-  return { view, enroll, clear, reload };
+    let cancel = false;
+    openChat({ origin }).then((next) => {
+      if (!cancel) setView(next);
+    }).catch((error: unknown) => {
+      if (!cancel) setView({ phase: "error", message: error instanceof Error ? error.message : "无法连接服务器" });
+    });
+    return () => { cancel = true; };
+  }, []);
+  return { view };
 }

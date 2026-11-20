@@ -1,6 +1,5 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { tokenDigest, tokensMatch, readBearer } from "./auth.ts";
-import { codeHash, newDeviceCredential } from "./setup-code.ts";
 import type { Config } from "./config.ts";
 import { errorBody, HttpError, publicErrorMessage } from "./errors.ts";
 import { LIMITS } from "./limits.ts";
@@ -43,35 +42,17 @@ async function handle(deps: ChatServerDeps, req: IncomingMessage, res: ServerRes
     }
     return;
   }
-  if (req.method === "POST" && path === "/v1/enroll") {
-    if (!allow(hits, "enroll")) {
+  if (!deps.config.personalOpen) {
+    const token = readBearer(req.headers.authorization);
+    if (!token || !tokensMatch(token, deps.config.accessToken)) {
+      sendJson(res, 401, errorBody("unauthorized", "需要有效的访问令牌"));
+      return;
+    }
+    if (!allow(hits, token)) {
       sendJson(res, 429, errorBody("rate_limited", "请求太频繁"));
       return;
     }
-    const body = await readJson(req);
-    rejectUnknown(body, ["code"]);
-    const hash = typeof body.code === "string" ? codeHash(body.code) : null;
-    if (!hash) {
-      sendJson(res, 400, errorBody("bad_request", "连接码无法识别"));
-      return;
-    }
-    const credential = newDeviceCredential();
-    const accepted = await deps.store.redeemEnrollment(hash, credential.id, credential.hash);
-    if (!accepted) {
-      sendJson(res, 401, errorBody("unauthorized", "连接码无效或已使用"));
-      return;
-    }
-    sendJson(res, 200, { token: credential.token, deviceId: credential.id });
-    return;
-  }
-  const token = readBearer(req.headers.authorization);
-  const owner = token != null && tokensMatch(token, deps.config.accessToken);
-  const device = !owner && token != null && await deps.store.deviceActive(tokenDigest(token));
-  if (!token || (!owner && !device)) {
-    sendJson(res, 401, errorBody("unauthorized", "需要有效的访问令牌"));
-    return;
-  }
-  if (!allow(hits, token)) {
+  } else if (!allow(hits, "personal")) {
     sendJson(res, 429, errorBody("rate_limited", "请求太频繁"));
     return;
   }

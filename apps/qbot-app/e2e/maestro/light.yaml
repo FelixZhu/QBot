@@ -13,7 +13,8 @@ appId: io.github.felixzhu.qiandrive
 - extendedWaitUntil:
     visible: "发消息"
     timeout: 20000
-- assertVisible: "连接码"
+- assertVisible: "这一版没有带上服务器地址"
+- assertNotVisible: "连接码"
 - takeScreenshot:
     path: light-qbot-thread
 - tapOn: "返回会话列表"

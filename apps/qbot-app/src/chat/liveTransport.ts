@@ -4,7 +4,7 @@ import { throwIfAborted, type ChatTransport } from "./transport.ts";
 /** Sends only the newest user text. The server rebuilds persona and history. */
 export function createServerChatTransport(options: {
   url: string;
-  token: string;
+  token?: string;
   fetchImpl?: typeof fetch;
   onStart?: () => void;
   onError?: (message: string) => void;
@@ -24,7 +24,7 @@ export function createServerChatTransport(options: {
 async function* postText(
   fetchImpl: typeof fetch,
   url: string,
-  token: string,
+  token: string | undefined,
   text: string,
   signal: AbortSignal,
   onError?: (message: string) => void,
@@ -36,7 +36,7 @@ async function* postText(
       method: "POST",
       headers: {
         Accept: "text/event-stream",
-        Authorization: `Bearer ${token}`,
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ text }),
@@ -67,9 +67,9 @@ function readError(status: number, text: string): string {
   return `服务器返回 HTTP ${status}`;
 }
 
-function report(error: unknown, token: string, onError?: (message: string) => void): Error {
+function report(error: unknown, token: string | undefined, onError?: (message: string) => void): Error {
   const raw = error instanceof Error ? error.message : "chat stream failed";
-  const message = raw.split(token).join("[redacted]");
+  const message = token ? raw.split(token).join("[redacted]") : raw;
   onError?.(message);
   return new Error(message);
 }

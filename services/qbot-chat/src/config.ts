@@ -19,13 +19,18 @@ export type Config = {
   port: number;
   fixtureUpstream: boolean;
   fixtureUpstreamUrl: string | null;
+  /** Explicit private-deploy switch. Unset stays on bearer auth. */
+  personalOpen: boolean;
 };
 
 export function loadConfig(env: NodeJS.ProcessEnv): Config {
   const databaseUrl = required(env, "DATABASE_URL");
-  const accessToken = required(env, "QBOT_ACCESS_TOKEN");
-  if (accessToken === PLACEHOLDER_TOKEN || accessToken.length < LIMITS.tokenMin || accessToken.length > LIMITS.tokenMax || /\s/.test(accessToken)) {
-    throw new Error("QBOT_ACCESS_TOKEN must be a non-placeholder token of 16 to 256 characters");
+  const personalOpen = env.QBOT_PERSONAL_OPEN === "1";
+  const accessToken = (env.QBOT_ACCESS_TOKEN ?? "").trim();
+  if (!personalOpen || accessToken) {
+    if (!accessToken || accessToken === PLACEHOLDER_TOKEN || accessToken.length < LIMITS.tokenMin || accessToken.length > LIMITS.tokenMax || /\s/.test(accessToken)) {
+      throw new Error("QBOT_ACCESS_TOKEN must be a non-placeholder token of 16 to 256 characters");
+    }
   }
   const ownerId = required(env, "QBOT_OWNER_ID");
   if (!UUID.test(ownerId)) throw new Error("QBOT_OWNER_ID must be a UUID");
@@ -59,6 +64,7 @@ export function loadConfig(env: NodeJS.ProcessEnv): Config {
     port,
     fixtureUpstream,
     fixtureUpstreamUrl,
+    personalOpen,
   };
 }
 

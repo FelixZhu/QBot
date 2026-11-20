@@ -247,8 +247,9 @@ test("the home is one Qbot row and the live path does not invent a model reply",
   assert.equal(live.includes("createLocalTransport"), false);
   assert.equal(live.includes("localReply"), false);
   assert.match(live, /createServerChatTransport/);
-  assert.match(live, /连接码/);
+  assert.equal(live.includes("连接码"), false);
   assert.match(live, /ChatThreadSurface/);
+  assert.match(live, /maxWidth: READ_MAX/);
   const app = read("../App.tsx");
   assert.equal(app.includes("findDemo"), false);
   const files = [
@@ -269,7 +270,7 @@ test("the home is one Qbot row and the live path does not invent a model reply",
   ];
   for (const file of files) {
     const source = read(file);
-    assert.equal(source.includes("EXPO_PUBLIC"), false, file);
+    assert.equal(/EXPO_PUBLIC_[A-Z0-9_]*\s*=\s*["']https?:/.test(source), false, file);
     assert.equal(/sk-or-|sk-ant-|sk-live-/.test(source), false, file);
     assert.equal(source.includes("deepseek/deepseek-v4.1-flash-1017"), false, file);
   }

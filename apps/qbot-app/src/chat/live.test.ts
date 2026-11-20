@@ -7,12 +7,9 @@ import path from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { createMemoryStorage } from "./history.ts";
-import { parseServerOrigin } from "./serverEndpoint.ts";
+import { configuredOrigin, parseServerOrigin } from "./serverEndpoint.ts";
 import { messageUrl } from "./serverClient.ts";
-import { clearConnection, connectServer, enrollWithSetup, parseSetupCode, CONVERSATION_KEY, TOKEN_KEY, URL_KEY, type SecretStore } from "./serverSession.ts";
-import { createPool } from "../../../../services/qbot-chat/src/db.ts";
-import { encodeSetup, issueSetupCode } from "../../../../services/qbot-chat/src/setup-code.ts";
-import { createStore } from "../../../../services/qbot-chat/src/store.ts";
+import { clearConnection, connectServer, openChat, CONVERSATION_KEY, TOKEN_KEY, URL_KEY, type SecretStore } from "./serverSession.ts";
 import { createServerChatTransport } from "./liveTransport.ts";
 import { createServerHistory } from "./serverHistory.ts";
 import { startFixture } from "../../../../services/qbot-chat/test/fixture-upstream.ts";
@@ -21,9 +18,8 @@ const TOKEN = "qbot-fixture-token-not-a-secret";
 const OWNER = "00000000-0000-4000-8000-000000000001";
 
 test("server addresses reject public HTTP and keep the token out of plain storage", async () => {
-  const sampleCode = "a".repeat(43);
-  assert.equal(parseSetupCode(encodeSetup("https://chat.example", sampleCode)).origin, "https://chat.example");
-  assert.throws(() => parseSetupCode("not-a-code"), /无法识别/);
+  assert.equal(configuredOrigin({}), null);
+  assert.equal(configuredOrigin({ EXPO_PUBLIC_QBOT_ORIGIN: "https://chat.example/health" }), "https://chat.example");
   assert.equal(parseServerOrigin("https://chat.example/"), "https://chat.example");
   assert.equal(parseServerOrigin("https://chat.example/health"), "https://chat.example");
   assert.equal(parseServerOrigin("https://chat.example/v1/session"), "https://chat.example");
@@ -63,38 +59,23 @@ test("the app reloads server history after the process restarts", { timeout: 30_
     OPENROUTER_API_KEY: fixture.expectedKey,
     HOST: "127.0.0.1",
     PORT: "0",
+    QBOT_PERSONAL_OPEN: "1",
     QBOT_FIXTURE_UPSTREAM: "1",
     QBOT_FIXTURE_UPSTREAM_URL: fixture.url,
     QBOT_DSH_HOME: mkdtempSync(path.join(tmpdir(), "qbot-dsh-app-")),
   };
   await runNode(serverRoot, ["--experimental-strip-types", "src/migrate.ts"], env);
   let createdId = "";
-  let deviceToken = "";
   const first = await startServer(serverRoot, env);
   try {
-    const pool = createPool(runtimeUrl);
-    const setup = await issueSetupCode(createStore(pool), `http://127.0.0.1:${first.port}`);
-    await pool.end();
-    const secrets = memorySecrets();
-    const settings = createMemoryStorage();
-    assert.equal(await secrets.get(TOKEN_KEY), null);
-    const ready = await enrollWithSetup({ secrets, settings, setup });
-    deviceToken = (await secrets.get(TOKEN_KEY)) ?? "";
+    const ready = await openChat({ origin: `http://127.0.0.1:${first.port}` });
+    assert.equal(ready.token, "");
     assert.equal(ready.session.upstream, "fixture");
     assert.equal(ready.session.model, "deepseek/deepseek-v4.1-flash-1017");
-    const dumped = await settings.getItem(URL_KEY);
-    const conversation = await settings.getItem(CONVERSATION_KEY);
-    assert.equal(dumped?.includes(TOKEN), false);
-    assert.equal(dumped?.includes(deviceToken), false);
-    assert.equal(conversation?.includes(TOKEN), false);
-    assert.notEqual(deviceToken, TOKEN);
-    assert.equal(deviceToken.includes(setup), false);
-
     const created = await ready.client.createConversation();
     createdId = created.id;
     const transport = createServerChatTransport({
       url: messageUrl(ready.origin, created.id),
-      token: deviceToken,
     });
     const deltas: string[] = [];
     for await (const delta of transport.reply([{ role: "user", text: "你好" }], new AbortController().signal)) deltas.push(delta);
@@ -107,7 +88,7 @@ test("the app reloads server history after the process restarts", { timeout: 30_
     assert.equal(upstream.messages?.some((message) => message.role === "system" && message.content.includes("You have no tools")), true);
     assert.equal(upstream.messages?.some((message) => message.content === "你好"), true);
 
-    const loaded = await createServerHistory(() => ready.client.listMessages(created.id)).load();
+    const loaded = await createServerHistory(() => ready.client.listMessages(createdId)).load();
     const texts = loaded.messages.map((item) => item.message.content[0]?.type === "text" ? item.message.content[0].text : "");
     assert.deepEqual(texts, ["你好", "夹具固定句"]);
   } finally {
@@ -116,16 +97,8 @@ test("the app reloads server history after the process restarts", { timeout: 30_
 
   const second = await startServer(serverRoot, env);
   try {
-    const secrets = memorySecrets();
-    await secrets.set(TOKEN_KEY, deviceToken);
-    const settings = createMemoryStorage();
-    await settings.setItem(URL_KEY, `http://127.0.0.1:${second.port}`);
-    const ready = await connectServer({
-      secrets,
-      settings,
-      url: `http://127.0.0.1:${second.port}`,
-      token: "",
-    });
+    const ready = await openChat({ origin: `http://127.0.0.1:${second.port}` });
+    assert.equal(ready.token, "");
     const messages = await ready.client.listMessages(createdId);
     assert.equal(messages.some((message) => message.content === "夹具固定句" && message.status === "complete"), true);
     assert.equal(ready.session.upstream, "fixture");

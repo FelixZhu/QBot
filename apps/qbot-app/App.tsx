@@ -18,8 +18,6 @@ import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-cont
 import { ChatEmpty, ChatList } from "./src/ChatPane";
 import { LiveChat } from "./src/chat/LiveChat";
 import { liveBadge } from "./src/chat/connectionCopy";
-import { deviceSecretStorage } from "./src/chat/deviceSecret";
-import { deviceServerSettings } from "./src/chat/deviceSettings";
 import { useServerConnection } from "./src/chat/useServerConnection";
 import { BookIcon, BubbleIcon, StarIcon } from "./src/TabIcons";
 import { isSplit, listPaneWidth, palette, resolveScheme } from "./src/theme";
@@ -54,7 +52,7 @@ function Shell() {
   const lastExit = useRef(0);
   const [tab, setTab] = useState<Tab>("chat");
   const [thread, setThread] = useState(false);
-  const connection = useServerConnection({ secrets: deviceSecretStorage, settings: deviceServerSettings });
+  const connection = useServerConnection();
   const [keyboard, setKeyboard] = useState(false);
   const [webReady, setWebReady] = useState(false);
   const [coverTabs, setCoverTabs] = useState(false);
@@ -177,8 +175,6 @@ function Shell() {
                 showBack={!split}
                 onBack={() => setThread(false)}
                 view={connection.view}
-                onEnroll={connection.enroll}
-                onClear={connection.clear}
               />
             ) : (
               <ChatEmpty colors={colors} />

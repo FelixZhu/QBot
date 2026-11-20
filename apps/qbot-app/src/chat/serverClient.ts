@@ -28,7 +28,7 @@ export type ServerClient = {
   listMessages(conversationId: string): Promise<ServerMessage[]>;
 };
 
-export function createServerClient(options: { origin: string; token: string; fetchImpl?: typeof fetch }): ServerClient {
+export function createServerClient(options: { origin: string; token?: string; fetchImpl?: typeof fetch }): ServerClient {
   const fetchImpl = options.fetchImpl ?? fetch;
   const call = async (path: string, init?: RequestInit): Promise<unknown> => {
     let response: Response;
@@ -37,7 +37,7 @@ export function createServerClient(options: { origin: string; token: string; fet
         ...init,
         headers: {
           Accept: "application/json",
-          Authorization: `Bearer ${options.token}`,
+          ...(options.token ? { Authorization: `Bearer ${options.token}` } : {}),
           ...(init?.body ? { "Content-Type": "application/json" } : {}),
         },
       });
@@ -45,7 +45,7 @@ export function createServerClient(options: { origin: string; token: string; fet
       throw new Error("无法连接服务器");
     }
     const text = await response.text();
-    if (!response.ok) throw new Error(redact(errorMessage(response.status, text), options.token));
+    if (!response.ok) throw new Error(redact(errorMessage(response.status, text), options.token ?? ""));
     try {
       return text ? JSON.parse(text) as unknown : {};
     } catch {
