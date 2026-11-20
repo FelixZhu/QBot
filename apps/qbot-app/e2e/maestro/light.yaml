@@ -29,7 +29,14 @@ appId: io.github.felixzhu.qiandrive
 - takeScreenshot:
     path: light-qbot-thread
 
-# The button keeps the copy result after the two-second check fades.
+# The action row sits under the long reply, so bring the copy control on screen first.
+- scrollUntilVisible:
+    element:
+      text: "复制"
+    direction: DOWN
+    timeout: 15000
+    speed: 40
+    visibilityPercentage: 40
 - tapOn:
     text: "复制"
     waitToSettleTimeoutMs: 0
@@ -38,6 +45,13 @@ appId: io.github.felixzhu.qiandrive
     timeout: 5000
 - takeScreenshot:
     path: light-chat-copied
+- scrollUntilVisible:
+    element:
+      text: ".*这句可以长按选择.*"
+    direction: UP
+    timeout: 15000
+    speed: 40
+    visibilityPercentage: 40
 
 - longPressOn: ".*这句可以长按选择.*"
 - extendedWaitUntil:
