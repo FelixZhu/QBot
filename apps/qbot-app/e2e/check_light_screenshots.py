@@ -25,6 +25,8 @@ REQUIRED = (
     "light-chat-file",
     "light-chat-syncing",
     "light-chat-stale",
+    "light-chat-switched",
+    "light-chat-new",
     "light-feed-top",
     "light-feed-scrolled-down",
     "light-feed-scrolled-up",

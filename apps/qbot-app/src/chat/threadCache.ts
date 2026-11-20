@@ -1,6 +1,11 @@
 import type { ServerMessage } from "./serverClient.ts";
 
 export const THREAD_CACHE_KEY = "qbot.thread.v1";
+export const LAST_THREAD_KEY = "qbot.thread.last";
+
+export function threadStorageKey(conversationId: string): string {
+  return `${THREAD_CACHE_KEY}.${conversationId}`;
+}
 export const THREAD_CACHE_LIMIT = 50;
 export const SYNCING_LABEL = "同步中";
 export const STALE_LABEL = "未同步";

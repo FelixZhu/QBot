@@ -7,7 +7,7 @@ appId: io.github.felixzhu.qiandrive
 - runFlow: wait-home.yaml
 - takeScreenshot:
     path: dark-chat-home
-- tapOn: "Qbot"
+- tapOn: "新对话"
 - extendedWaitUntil:
     visible: "回复，或按住说话|.*不是真实模型.*"
     timeout: 30000

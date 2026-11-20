@@ -15,10 +15,13 @@ import {
 import { StatusBar } from "expo-status-bar";
 import { setBackgroundColorAsync } from "expo-system-ui";
 import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context";
-import { ChatEmpty, ChatList } from "./src/ChatPane";
+import { ChatEmpty, ConversationList } from "./src/ChatPane";
 import { LiveChat } from "./src/chat/LiveChat";
 import { liveBadge } from "./src/chat/connectionCopy";
-import { useServerConnection } from "./src/chat/useServerConnection";
+import { ChatRuntime, useChatBoot } from "./src/chat/useChatRuntime";
+import { configuredOrigin } from "./src/chat/serverEndpoint";
+import { createServerClient } from "./src/chat/serverClient";
+import type { ConnectionView } from "./src/chat/serverSession";
 import { BookIcon, BubbleIcon, StarIcon } from "./src/TabIcons";
 import { chatChrome, isSplit, listPaneWidth, palette, resolveScheme } from "./src/theme";
 import { LessonFeed } from "./src/feed/LessonFeed";
@@ -52,7 +55,19 @@ function Shell() {
   const lastExit = useRef(0);
   const [tab, setTab] = useState<Tab>("chat");
   const [thread, setThread] = useState(false);
-  const connection = useServerConnection();
+  const boot = useChatBoot();
+  const connectionView: ConnectionView = boot.phase === "ready"
+    ? {
+      phase: "ready",
+      origin: configuredOrigin() ?? "",
+      token: "",
+      session: boot.session ?? { ownerId: "", agentId: "", model: "", upstream: "openrouter" },
+      conversationId: boot.initialThreadId ?? "",
+      client: createServerClient({ origin: configuredOrigin() ?? "" }),
+    }
+    : boot.phase === "error"
+      ? { phase: "error", message: boot.message ?? "无法连接服务器" }
+      : { phase: "checking" };
   const [keyboard, setKeyboard] = useState(false);
   const [webReady, setWebReady] = useState(false);
   const [coverTabs, setCoverTabs] = useState(false);
@@ -159,17 +174,24 @@ function Shell() {
             onCover={setCoverTabs}
           />
         </View>
+        <ChatRuntime boot={boot}>
         {showList ? (
           <View style={split ? { width: listWidth, borderRightWidth: 1, borderRightColor: colors.line, paddingBottom: thread && !showTabs ? insets.bottom : 0 } : { flex: 1 }}>
-            <ChatList
-              colors={colors}
-              badge={liveBadge(connection.view)}
-              selected={live}
-              onOpen={() => setThread(true)}
-            />
+            {boot.phase === "ready" ? (
+              <ConversationList
+                colors={colors}
+                badge={liveBadge(connectionView)}
+                onOpen={() => setThread(true)}
+              />
+            ) : (
+              <View style={{ flex: 1, backgroundColor: colors.bg, padding: 16 }}>
+                <Text style={{ fontSize: 20, lineHeight: 26, fontWeight: "700", color: colors.text }}>对话</Text>
+                <Text style={{ marginTop: 12, color: colors.muted, fontSize: 14 }}>{boot.phase === "error" ? boot.message : "正在打开"}</Text>
+              </View>
+            )}
           </View>
         ) : null}
-        {thread ? (
+        {thread && boot.phase === "ready" ? (
           <View
             pointerEvents={showThread ? "auto" : "none"}
             style={showThread ? { flex: 1, minWidth: 0 } : { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, opacity: 0, zIndex: -1 }}
@@ -178,9 +200,7 @@ function Shell() {
               scheme={scheme}
               showBack={!split}
               onBack={() => setThread(false)}
-              view={connection.view}
-              onNewConversation={connection.startNewConversation}
-              onRefresh={connection.refresh}
+              view={connectionView}
               onOpenLibrary={openKb}
               active={showThread}
             />
@@ -190,6 +210,7 @@ function Shell() {
             <ChatEmpty colors={colors} />
           </View>
         ) : null}
+        </ChatRuntime>
         {webReady ? (
           <WebPane
             ref={webRef}

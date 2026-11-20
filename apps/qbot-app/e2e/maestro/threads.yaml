@@ -1,0 +1,20 @@
+appId: io.github.felixzhu.qiandrive
+---
+- launchApp:
+    stopApp: true
+- runFlow: wait-home.yaml
+- tapOn: "另一则"
+- extendedWaitUntil:
+    visible: "这是另一则会话。"
+    timeout: 15000
+- assertNotVisible: ".*这句可以长按选择.*"
+- takeScreenshot:
+    path: light-chat-switched
+- tapOn: "返回会话列表"
+- tapOn: "新建对话"
+- extendedWaitUntil:
+    notVisible: "这是另一则会话。"
+    timeout: 10000
+- assertVisible: "回复，或按住说话"
+- takeScreenshot:
+    path: light-chat-new

@@ -9,7 +9,7 @@ appId: io.github.felixzhu.qiandrive
 - takeScreenshot:
     path: light-chat-home
 
-- tapOn: "Qbot"
+- tapOn: "新对话"
 - extendedWaitUntil:
     visible: ".*这句可以长按选择.*"
     timeout: 30000
@@ -108,10 +108,10 @@ appId: io.github.felixzhu.qiandrive
 
 - tapOn: "返回会话列表"
 - extendedWaitUntil:
-    visible: "Qbot"
+    visible: "新对话"
     timeout: 20000
 - assertNotVisible: "返回会话列表"
-- tapOn: "Qbot"
+- tapOn: "新对话"
 - extendedWaitUntil:
     visible: "马上这句"
     timeout: 20000
@@ -376,7 +376,7 @@ appId: io.github.felixzhu.qiandrive
     point: "17%,93%"
     retryTapIfNoChange: true
 - extendedWaitUntil:
-    visible: "Qbot"
+    visible: "新对话"
     timeout: 20000
 - assertNotVisible: "Info Bot，演示"
 - takeScreenshot:

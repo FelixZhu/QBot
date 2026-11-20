@@ -5,6 +5,8 @@
 import { createServer } from "node:http";
 
 const CONV = "00000000-0000-4000-8000-000000000010";
+const OTHER = "00000000-0000-4000-8000-000000000011";
+const FRESH = "00000000-0000-4000-8000-000000000012";
 const HOLD_MS = 30000;
 const now = () => new Date().toISOString();
 const messages = [
@@ -86,6 +88,7 @@ function sse(res, pieces, closed) {
 
 let holdMessagesMs = 0;
 let failMessages = false;
+let fresh = false;
 
 const server = createServer(async (req, res) => {
   if (req.method === "OPTIONS") {
@@ -126,11 +129,25 @@ const server = createServer(async (req, res) => {
     return;
   }
   if (req.method === "GET" && url.pathname === "/v1/conversations") {
-    send(res, 200, { conversations: [{ id: CONV, title: "新对话", createdAt: now(), updatedAt: now() }] });
+    const rows = [
+      { id: CONV, title: "新对话", createdAt: now(), updatedAt: now() },
+      { id: OTHER, title: "另一则", createdAt: now(), updatedAt: now() },
+    ];
+    if (fresh) rows.push({ id: FRESH, title: "新对话", createdAt: now(), updatedAt: now() });
+    send(res, 200, { conversations: rows });
     return;
   }
   if (req.method === "POST" && url.pathname === "/v1/conversations") {
-    send(res, 201, { id: CONV, title: "新对话", createdAt: now(), updatedAt: now() });
+    fresh = true;
+    send(res, 201, { id: FRESH, title: "新对话", createdAt: now(), updatedAt: now() });
+    return;
+  }
+  if (req.method === "GET" && url.pathname === `/v1/conversations/${OTHER}/messages`) {
+    send(res, 200, { messages: [{ id: "other-1", role: "assistant", content: "这是另一则会话。", status: "complete", createdAt: now() }] });
+    return;
+  }
+  if (req.method === "GET" && url.pathname === `/v1/conversations/${FRESH}/messages`) {
+    send(res, 200, { messages: [] });
     return;
   }
   if (req.method === "GET" && url.pathname === `/v1/conversations/${CONV}/messages`) {
