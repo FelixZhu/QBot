@@ -12,6 +12,7 @@ import { createDemoHistory, createMemoryStorage } from "./history.ts";
 import { createHttpStreamTransport } from "./httpStream.ts";
 import { createLocalTransport } from "./local.ts";
 import { toModelAdapter } from "./transport.ts";
+import { toRepository } from "./serverHistory.ts";
 
 const DEMOS: DemoId[] = ["info", "english", "study"];
 
@@ -233,6 +234,20 @@ test("streaming HTTP reads a local fake server and no other host", { timeout: 10
     { role: "user", text: "你好" },
     { role: "assistant", text: "先前" },
   ]);
+});
+
+test("a cancelled server turn reloads as stopped text, not a generic error", () => {
+  const loaded = toRepository([{
+    id: "cancelled-1",
+    role: "assistant",
+    content: "收到。",
+    status: "cancelled",
+    createdAt: "2026-11-20T00:00:00.000Z",
+  }]);
+  const message = loaded.messages[0]?.message;
+  assert.equal(message && message.role === "assistant" ? message.status.reason : "", "cancelled");
+  const text = message?.content[0];
+  assert.equal(text && text.type === "text" ? text.text : "", "收到。");
 });
 
 test("the home is one Qbot row and the live path does not invent a model reply", () => {

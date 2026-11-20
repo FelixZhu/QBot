@@ -15,7 +15,7 @@ export function toRepository(messages: readonly ServerMessage[]): ExportedMessag
   let parentId: string | null = null;
   for (const message of messages) {
     const id = message.id;
-    const text = message.content || (message.status === "complete" ? "" : "服务器没有完成这条回复。");
+    const text = message.content || (message.status === "complete" || message.status === "cancelled" ? "" : "服务器没有完成这条回复。");
     const createdAt = new Date(message.createdAt);
     const metadata = { custom: { serverStatus: message.status } };
     const content = [{ type: "text" as const, text }];
@@ -40,7 +40,9 @@ export function toRepository(messages: readonly ServerMessage[]): ExportedMessag
           content,
           status: message.status === "complete"
             ? { type: "complete", reason: "stop" }
-            : { type: "incomplete", reason: "error" },
+            : message.status === "cancelled"
+              ? { type: "incomplete", reason: "cancelled" }
+              : { type: "incomplete", reason: "error" },
           metadata: {
             unstable_state: null,
             unstable_annotations: [],

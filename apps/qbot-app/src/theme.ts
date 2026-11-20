@@ -73,6 +73,82 @@ export function resolveScheme(colorScheme: string | null | undefined): Scheme {
   return colorScheme === "dark" ? "dark" : "light";
 }
 
+/** Chat screen colors taken from the approved 2026-11-20 light and dark frames. */
+export type ChatChrome = {
+  canvas: string;
+  text: string;
+  muted: string;
+  userBubble: string;
+  userText: string;
+  composer: string;
+  line: string;
+  send: string;
+  onSend: string;
+  ink: string;
+  onInk: string;
+  sheet: string;
+  tile: string;
+  scrim: string;
+  toast: string;
+  toastText: string;
+  check: string;
+  selection: string;
+  icon: string;
+  disabled: string;
+  soft: string;
+};
+
+export function chatChrome(scheme: Scheme): ChatChrome {
+  if (scheme === "dark") {
+    return {
+      canvas: "#151515",
+      text: "#F3F1EA",
+      muted: "#9B9B96",
+      userBubble: "#2B2B29",
+      userText: "#ECEBE6",
+      composer: "#232322",
+      line: "rgba(255,255,255,0.08)",
+      send: "#D9774B",
+      onSend: "#FFFFFF",
+      ink: "#F4F1EA",
+      onInk: "#1C1B19",
+      sheet: "#1F1F1E",
+      tile: "#2A2A28",
+      scrim: "rgba(0,0,0,0.55)",
+      toast: "#3A3A38",
+      toastText: "#F4F1EA",
+      check: "#5FAF6A",
+      selection: "rgba(217,119,75,0.45)",
+      icon: "#B7B7B2",
+      disabled: "#5C5C58",
+      soft: "#2A2A28",
+    };
+  }
+  return {
+    canvas: "#FAF9F5",
+    text: "#1C1B19",
+    muted: "#8E8A82",
+    userBubble: "#EFEDE6",
+    userText: "#1F1E1D",
+    composer: "#FFFFFF",
+    line: "rgba(28,27,25,0.08)",
+    send: "#D9774B",
+    onSend: "#FFFFFF",
+    ink: "#1C1B19",
+    onInk: "#FFFFFF",
+    sheet: "#FFFFFF",
+    tile: "#F6F3EC",
+    scrim: "rgba(28,27,25,0.38)",
+    toast: "#323230",
+    toastText: "#FFFFFF",
+    check: "#5FAF6A",
+    selection: "rgba(217,119,75,0.35)",
+    icon: "#6F6B64",
+    disabled: "#C8C4BC",
+    soft: "#F3F0E8",
+  };
+}
+
 export function isSplit(width: number): boolean {
   return width >= SPLIT_WIDTH;
 }
