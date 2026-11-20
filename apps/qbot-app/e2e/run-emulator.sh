@@ -42,6 +42,7 @@ echo "boot_completed=${boot}"
 } | tee "$OUT/device.txt"
 
 adb reverse tcp:8081 tcp:8081
+adb reverse tcp:8799 tcp:8799
 adb shell cmd overlay disable com.android.internal.systemui.navbar.gestural || true
 adb shell cmd overlay enable com.android.internal.systemui.navbar.threebutton || true
 adb shell cmd uimode night no || true
@@ -68,11 +69,53 @@ if ! curl -sf http://127.0.0.1:8081/status >/dev/null; then
 fi
 echo "metro ready"
 
+# The warmed bundle has no server origin. Restart Metro against the local
+# fixture so the chat interactions run. The fixture is not a model.
+pkill -f "expo start" || true
+pkill -f "virtual-metro-entry.bundle" || true
+sleep 1
+node "$APP/e2e/fixture-chat.mjs" > "$OUT/fixture.log" 2>&1 &
+fixture_ready=0
+for _ in $(seq 1 50); do
+  if curl -sf http://127.0.0.1:8799/health >/dev/null; then
+    fixture_ready=1
+    break
+  fi
+  sleep 0.2
+done
+if [[ "$fixture_ready" != "1" ]]; then
+  echo "fixture did not start"
+  cat "$OUT/fixture.log" || true
+  exit 1
+fi
+echo "fixture ready"
+rm -f "$BUNDLE"
+(
+  cd "$APP"
+  EXPO_NO_TELEMETRY=1 EXPO_NO_DOTENV=1 EXPO_NO_DEV_MENU=1 \
+    EXPO_PUBLIC_QBOT_ORIGIN="http://127.0.0.1:8799" \
+    setsid npx expo start --localhost --port 8081 > "$METRO_LOG" 2>&1 < /dev/null &
+)
+ready=0
+for _ in $(seq 1 60); do
+  if curl -sf http://127.0.0.1:8081/status >/dev/null; then
+    ready=1
+    break
+  fi
+  sleep 2
+done
+if [[ "$ready" != "1" ]]; then
+  echo "metro did not restart"
+  cat "$METRO_LOG" || true
+  exit 1
+fi
+
 if ! grep -q '__BUNDLE_START_TIME__' "$BUNDLE" 2>/dev/null; then
   echo "requesting debug bundle"
   curl -fL --retry 3 --retry-delay 5 --max-time 180 -o "$BUNDLE" "$BUNDLE_URL"
 fi
 grep -q '__BUNDLE_START_TIME__' "$BUNDLE"
+grep -q '127.0.0.1:8799' "$BUNDLE"
 echo "bundle bytes=$(wc -c < "$BUNDLE")"
 
 adb install -r "$APK"

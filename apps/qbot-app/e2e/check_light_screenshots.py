@@ -13,6 +13,15 @@ from pathlib import Path
 REQUIRED = (
     "light-chat-home",
     "light-qbot-thread",
+    "light-chat-copied",
+    "light-chat-select",
+    "light-chat-scrolled",
+    "light-chat-add",
+    "light-chat-keyboard",
+    "light-chat-sending",
+    "light-chat-queued",
+    "light-chat-stopped",
+    "light-chat-history",
     "light-feed-top",
     "light-feed-scrolled-down",
     "light-feed-scrolled-up",
@@ -32,6 +41,7 @@ REQUIRED = (
     "light-kb",
     "light-chat-return",
     "dark-chat-home",
+    "dark-qbot-thread",
 )
 # Cream canvas is about 237. The dark canvas is about 22. 80 separates them.
 LIGHT_MIN_MEAN = 80

@@ -7,3 +7,11 @@ appId: io.github.felixzhu.qiandrive
 - runFlow: wait-home.yaml
 - takeScreenshot:
     path: dark-chat-home
+- tapOn: "Qbot"
+- extendedWaitUntil:
+    visible: "这句可以长按选择"
+    timeout: 30000
+- assertVisible: "测试夹具"
+- takeScreenshot:
+    path: dark-qbot-thread
+- tapOn: "返回会话列表"
