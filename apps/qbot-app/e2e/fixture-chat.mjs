@@ -187,7 +187,7 @@ const server = createServer(async (req, res) => {
     });
     const stream = sse(res, null, () => closed);
     await new Promise((resolve) => {
-      if (closed) {
+      if (closed || text === "展示格式") {
         resolve();
         return;
       }
@@ -204,7 +204,29 @@ const server = createServer(async (req, res) => {
       return;
     }
     stream.start();
-    const reply = "夹具固定回复，不是真实模型。";
+    const reply = text === "展示格式"
+      ? "# 格式\n\n- 第一项\n- 第二项\n\n看 [说明](https://example.com/qbot)\n\n```js\nconst answer = 1\n```\n\n| 列一 | 列二 | 列三 | 列四 | 列五 |\n| --- | --- | --- | --- | --- |\n| 很宽的一格内容用来横滑 | 第二格 | 第三格 | 第四格 | 第五格 |\n"
+      : "夹具固定回复，不是真实模型。";
+    if (text === "展示格式") {
+      const head = reply.slice(0, reply.indexOf("| 列一"));
+      const table = reply.slice(head.length);
+      stream.delta(head);
+      assistant.content += head;
+      await new Promise((resolve) => setTimeout(resolve, 5000));
+      if (closed) {
+        assistant.status = "cancelled";
+        if (!res.writableEnded) {
+          try { res.end(); } catch { /* the phone already hung up */ }
+        }
+        return;
+      }
+      stream.delta(table);
+      assistant.content += table;
+      finished = true;
+      assistant.status = "complete";
+      stream.finish();
+      return;
+    }
     for (const piece of [reply.slice(0, 4), reply.slice(4)]) {
       if (closed) break;
       stream.delta(piece);

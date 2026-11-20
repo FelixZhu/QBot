@@ -4,6 +4,7 @@ import {
   FlatList,
   Image,
   Keyboard,
+  Linking,
   Modal,
   Platform,
   Pressable,
@@ -28,7 +29,9 @@ import {
 import { chatChrome, type ChatChrome, type Palette, type Scheme } from "../theme";
 import { clipboardAvailable, copyText } from "./copyText";
 import { distanceFromBottom, keyboardCover, showJumpToBottom } from "./layout";
-import { MarkdownBody, type ReadingStyle } from "./MarkdownBody";
+import { EnrichedMarkdownText, type MarkdownStyle } from "react-native-enriched-markdown";
+import { type ReadingStyle } from "./MarkdownBody";
+import { openableHref } from "./markdown";
 import { ChatMark } from "./ChatMarks";
 import { SystemFileChooser, type SystemFileChooserHandle } from "./SystemFileChooser";
 import {
@@ -175,6 +178,29 @@ function useOutbox() {
   return { items, running, submitText, sendNow, drop, stop };
 }
 
+const YAHEI = "Microsoft YaHei";
+
+function enrichedStyle(chrome: ChatChrome, reading: ReadingStyle): MarkdownStyle {
+  const block = {
+    fontFamily: YAHEI,
+    fontSize: reading.fontSize,
+    lineHeight: reading.lineHeight,
+    color: chrome.text,
+  };
+  const gray = chrome.soft;
+  return {
+    paragraph: block,
+    h1: { ...block, fontSize: 22, lineHeight: 28 },
+    h2: { ...block, fontSize: 18, lineHeight: 26 },
+    h3: block,
+    list: block,
+    link: { color: chrome.inkText, underline: true },
+    code: { backgroundColor: gray, color: chrome.text, borderColor: "transparent", fontSize: 13 },
+    codeBlock: { ...block, fontSize: 13, lineHeight: 20, backgroundColor: gray, borderWidth: 0, borderColor: "transparent" },
+    table: { ...block, fontSize: 14, lineHeight: 20, headerBackgroundColor: gray, rowEvenBackgroundColor: gray, rowOddBackgroundColor: gray, borderWidth: 0, borderColor: "transparent" },
+  };
+}
+
 function ChatMessage() {
   const { chrome, reading, markdownColors, submitText, stop, notice } = useChatActions();
   const role = useAuiState((state) => state.message.role);
@@ -230,7 +256,19 @@ function ChatMessage() {
         {mine ? (
           <Text selectable selectionColor={chrome.selection} style={{ color: chrome.userText, fontSize: 16, lineHeight: 22 }}>{text}</Text>
         ) : text ? (
-          <MarkdownBody text={text} colors={markdownColors} reading={reading} />
+          <EnrichedMarkdownText
+            markdown={text}
+            flavor="github"
+            selectable
+            streamingAnimation={running}
+            selectionColor={chrome.selection}
+            selectionHandleColor={chrome.send}
+            markdownStyle={enrichedStyle(chrome, reading)}
+            onLinkPress={({ url }) => {
+              const href = openableHref(url);
+              if (href) Linking.openURL(href).catch(() => {});
+            }}
+          />
         ) : null}
         {!mine && running && !text ? (
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
