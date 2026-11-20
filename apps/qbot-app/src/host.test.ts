@@ -55,7 +55,8 @@ test("wide panes share one 38% width, clamped to 320–400", () => {
   const live = readFileSync(new URL("./chat/LiveChat.tsx", import.meta.url), "utf8");
   assert.match(live, /maxWidth: READ_MAX/);
   assert.match(chat, /colors\.selected/);
-  assert.match(chat, />Qbot</);
+  assert.match(chat, /QbotAvatar/);
+  assert.match(live, />Qbot</);
   assert.equal(chat.includes("Info Bot"), false);
 });
 

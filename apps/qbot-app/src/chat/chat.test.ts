@@ -285,9 +285,12 @@ test("the home is one Qbot row and the live path does not invent a model reply",
   assert.equal(pane.includes("createLocalTransport"), false);
   assert.equal(pane.includes("createHttpStreamTransport"), false);
   const live = read("chat/LiveChat.tsx");
+  const runtime = read("chat/useChatRuntime.tsx");
   assert.equal(live.includes("createLocalTransport"), false);
   assert.equal(live.includes("localReply"), false);
-  assert.match(live, /createServerChatTransport/);
+  assert.match(runtime, /createServerChatTransport/);
+  assert.match(runtime, /useRemoteThreadListRuntime/);
+  assert.match(runtime, /withKey/);
   assert.equal(live.includes("连接码"), false);
   assert.match(live, /ChatThreadSurface/);
   assert.match(live, /maxWidth: READ_MAX/);
