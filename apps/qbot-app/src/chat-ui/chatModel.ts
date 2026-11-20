@@ -8,8 +8,8 @@ export const COPY_TOAST = "已复制到剪贴板";
 export const VOICE_UNAVAILABLE = "暂未接通";
 export const ASSISTANT_DISCLAIMER = "回复由 AI 生成，可能有误";
 export const CAMERA_UNAVAILABLE = "这个安装包没有相机权限，不能直接拍照。可以选照片或文件。";
-export const FILES_HELD = "只发送文字。附件留在输入框，模型接口不收文件。";
-export const FILES_ONLY = "还不能发送附件。模型接口只接受文字。";
+export const FILES_LOCAL = "只在这台手机上，没有上传，模型读不了。移除后才能发送文字。";
+export const FILES_SHEET = "选中后只留在本机，不会上传，模型也读不了。";
 export const LIBRARY_ONLY = "知识库只列出公开文件，还不能附进这条对话。";
 export const PICKER_UNAVAILABLE = "这台安装包打不开系统选择器。";
 export const DRAFT_LIMIT = 4;
@@ -112,18 +112,18 @@ export function extensionLabel(name: string, mime: string): string {
 
 export type SendDecision =
   | { kind: "empty" }
-  | { kind: "files-only" }
-  | { kind: "text"; text: string; heldFiles: number };
+  | { kind: "held" }
+  | { kind: "text"; text: string };
 
-/** The returned text is the user's words only. File names and previews stay out of it. */
+/** Files never leave the phone. A draft with files does not send, so it cannot fail as if it were sent. */
 export function decideSend(text: string, fileCount: number): SendDecision {
+  if (fileCount > 0) return { kind: "held" };
   const trimmed = text.trim();
-  if (!trimmed && fileCount === 0) return { kind: "empty" };
-  if (!trimmed) return { kind: "files-only" };
-  return { kind: "text", text: trimmed, heldFiles: fileCount };
+  if (!trimmed) return { kind: "empty" };
+  return { kind: "text", text: trimmed };
 }
 
-export type ComposerAction = "voice" | "send" | "stop";
+export type ComposerAction = "voice" | "send" | "stop" | "held";
 
 export type ComposerChrome = {
   expanded: boolean;
@@ -145,6 +145,9 @@ export function composerChrome(input: {
   }
   if (!expanded) {
     return { expanded: false, placeholder: "回复，或按住说话", action: "voice" };
+  }
+  if (input.attachments > 0) {
+    return { expanded: true, placeholder: "回复 Qbot", action: "held" };
   }
   if (input.text.trim()) {
     return { expanded: true, placeholder: "回复 Qbot", action: "send" };

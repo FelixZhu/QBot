@@ -11,15 +11,111 @@ appId: io.github.felixzhu.qiandrive
 
 - tapOn: "Qbot"
 - extendedWaitUntil:
-    visible: "发消息"
-    timeout: 20000
-- assertVisible: "这一版没有带上服务器地址"
+    visible: "这句可以长按选择"
+    timeout: 30000
+- assertVisible: "测试夹具"
+- assertVisible: "不是真实模型"
 - assertNotVisible: "连接码"
+- assertNotVisible: "这一版没有带上服务器地址"
 - takeScreenshot:
     path: light-qbot-thread
+
+- tapOn: "复制"
+- extendedWaitUntil:
+    visible: "已复制到剪贴板"
+    timeout: 8000
+- takeScreenshot:
+    path: light-chat-copied
+
+- longPressOn: "这句可以长按选择"
+- takeScreenshot:
+    path: light-chat-select
+- runFlow:
+    when:
+      visible: "Copy"
+    commands:
+      - tapOn: "Copy"
+- runFlow:
+    when:
+      visible: "复制"
+    commands:
+      - tapOn: "复制"
+- tapOn: "Qbot"
+
+- swipe:
+    start: "50%,70%"
+    end: "50%,40%"
+    duration: 400
+- takeScreenshot:
+    path: light-chat-scrolled
+- swipe:
+    start: "50%,40%"
+    end: "50%,75%"
+    duration: 400
+
+- tapOn: "添加"
+- extendedWaitUntil:
+    visible: "不会上传"
+    timeout: 8000
+- assertVisible: "模型也读不了"
+- takeScreenshot:
+    path: light-chat-add
+- tapOn: "关闭"
+- extendedWaitUntil:
+    visible: "回复，或按住说话"
+    timeout: 8000
+
+- tapOn: "回复，或按住说话"
+- extendedWaitUntil:
+    visible: "回复 Qbot"
+    timeout: 8000
+- inputText: "请慢点"
+- extendedWaitUntil:
+    visible: "请慢点"
+    timeout: 8000
+- takeScreenshot:
+    path: light-chat-keyboard
+- tapOn: "发送"
+- extendedWaitUntil:
+    visible: "正在回复"
+    timeout: 10000
+- takeScreenshot:
+    path: light-chat-sending
+- tapOn: "发送中…"
+- inputText: "马上这句"
+- tapOn: "发送"
+- extendedWaitUntil:
+    visible: "立即发送"
+    timeout: 10000
+- takeScreenshot:
+    path: light-chat-queued
+- tapOn: "立即发送"
+- extendedWaitUntil:
+    notVisible: "立即发送"
+    timeout: 10000
+- tapOn: "停止"
+- extendedWaitUntil:
+    visible: "已停止"
+    timeout: 15000
+- takeScreenshot:
+    path: light-chat-stopped
+- hideKeyboard
+
 - tapOn: "返回会话列表"
 - extendedWaitUntil:
     visible: "Qbot"
+    timeout: 20000
+- assertNotVisible: "返回会话列表"
+- tapOn: "Qbot"
+- extendedWaitUntil:
+    visible: "马上这句"
+    timeout: 20000
+- assertVisible: "已停止"
+- takeScreenshot:
+    path: light-chat-history
+- tapOn: "返回会话列表"
+- extendedWaitUntil:
+    visible: "个人对话"
     timeout: 20000
 - assertNotVisible: "返回会话列表"
 

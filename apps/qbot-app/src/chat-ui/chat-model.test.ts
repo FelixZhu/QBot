@@ -4,7 +4,7 @@ import { chatChrome } from "../theme.ts";
 import {
   ASSISTANT_DISCLAIMER,
   COPY_MARK_MS,
-  FILES_HELD,
+  FILES_LOCAL,
   addDrafts,
   composerChrome,
   decideSend,
@@ -46,17 +46,19 @@ test("a picked file stays out of the text that would be sent", () => {
   const wire = JSON.stringify({ type: "picked", files: [{ name: "note.txt", size: 12, mime: "text/plain", preview: null }] });
   assert.equal(parsePickerMessage(wire)?.[0]?.name, "note.txt");
   assert.equal(parsePickerMessage("[]"), null);
-  const decision = decideSend("帮我总结", 1);
+  assert.equal(decideSend("帮我总结", 1).kind, "held");
+  assert.equal(decideSend("   ", 2).kind, "held");
+  const decision = decideSend("帮我总结", 0);
   assert.equal(decision.kind, "text");
   if (decision.kind === "text") {
     assert.equal(decision.text, "帮我总结");
-    assert.equal(decision.heldFiles, 1);
     assert.equal(decision.text.includes("pdf"), false);
   }
-  assert.equal(decideSend("   ", 2).kind, "files-only");
   assert.equal(decideSend("  ", 0).kind, "empty");
-  assert.equal(FILES_HELD.includes("已分析"), false);
-  assert.equal(FILES_HELD.includes("正在阅读"), false);
+  assert.equal(FILES_LOCAL.includes("没有上传"), true);
+  assert.equal(FILES_LOCAL.includes("已分析"), false);
+  assert.equal(FILES_LOCAL.includes("正在阅读"), false);
+  assert.equal(composerChrome({ focused: true, text: "总结", attachments: 1, running: false, queued: 0 }).action, "held");
 });
 
 test("draft chips can be added and removed without sending", () => {

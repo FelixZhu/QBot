@@ -37,8 +37,8 @@ import {
   COPY_MARK_MS,
   COPY_TOAST,
   DRAFT_LIMIT,
-  FILES_HELD,
-  FILES_ONLY,
+  FILES_LOCAL,
+  FILES_SHEET,
   LIBRARY_ONLY,
   PICKER_UNAVAILABLE,
   VOICE_UNAVAILABLE,
@@ -312,12 +312,10 @@ function Composer({
   const chromeState = composerChrome({ focused, text, attachments: drafts.length, running, queued: queue.length });
   const send = () => {
     const decision = decideSend(text, drafts.length);
-    if (decision.kind === "empty") return;
-    if (decision.kind === "files-only") {
-      onNotice(FILES_ONLY);
+    if (decision.kind !== "text") {
+      if (decision.kind === "held") onNotice(FILES_LOCAL);
       return;
     }
-    if (decision.heldFiles > 0) onNotice(FILES_HELD);
     onSubmitText(decision.text);
     aui.composer().setText("");
     setFocused(false);
@@ -328,7 +326,9 @@ function Composer({
     ? <RoundButton label="停止生成" background={chrome.ink} onPress={onStop}><ChatMark name="stop" color={chrome.onInk} size={18} /></RoundButton>
     : chromeState.action === "send"
       ? <RoundButton label="发送" background={chrome.send} onPress={send}><ChatMark name="up" color={chrome.onSend} size={18} /></RoundButton>
-      : <RoundButton label="语音模式" background={chrome.disabled} onPress={voice}><ChatMark name="wave" color={chrome.canvas} size={18} /></RoundButton>;
+      : chromeState.action === "held"
+        ? <RoundButton label="附件不能发送" background={chrome.disabled} onPress={() => onNotice(FILES_LOCAL)}><ChatMark name="up" color={chrome.canvas} size={18} /></RoundButton>
+        : <RoundButton label="语音模式" background={chrome.disabled} onPress={voice}><ChatMark name="wave" color={chrome.canvas} size={18} /></RoundButton>;
   return (
     <View style={{ paddingHorizontal: 12, paddingTop: 6, paddingBottom: 8, gap: 8 }}>
       {queue.map((item) => (
@@ -450,7 +450,7 @@ function DraftRow({ drafts, chrome, onRemove }: { drafts: readonly DraftAttachme
           </View>
         ))}
       </View>
-      <Text style={{ color: chrome.muted, fontSize: 12, lineHeight: 16 }}>还不能发送。模型接口只接受文字。</Text>
+      <Text style={{ color: chrome.text, fontSize: 12, lineHeight: 16 }}>{FILES_LOCAL}</Text>
     </View>
   );
 }
@@ -504,6 +504,7 @@ function AddSheet({
             {tile("image", "照片", () => onPick("photo"))}
             {tile("file", "文件", () => onPick("file"))}
           </View>
+          <Text style={{ color: chrome.muted, fontSize: 12, lineHeight: 16 }}>{FILES_SHEET}</Text>
           <Pressable onPress={() => setExplained(true)} accessibilityRole="button" accessibilityLabel="从知识库选择" style={({ pressed }) => ({ minHeight: 64, borderRadius: 18, backgroundColor: pressed ? chrome.line : chrome.tile, paddingHorizontal: 14, flexDirection: "row", alignItems: "center", gap: 12 })}>
             <ChatMark name="book" color={chrome.text} />
             <View style={{ flex: 1 }}>
