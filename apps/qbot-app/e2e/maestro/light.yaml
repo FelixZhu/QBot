@@ -101,7 +101,6 @@ appId: io.github.felixzhu.qiandrive
     timeout: 15000
 - takeScreenshot:
     path: light-chat-stopped
-- hideKeyboard
 
 - tapOn: "返回会话列表"
 - extendedWaitUntil:
