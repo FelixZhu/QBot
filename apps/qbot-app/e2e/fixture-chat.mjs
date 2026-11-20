@@ -27,6 +27,7 @@ const messages = [
       "- 第四点用来把正文撑开",
       "- 第五点用来把正文撑开",
       "- 第六点用来把正文撑开",
+    ...Array.from({ length: 40 }, (_, index) => `- 第${index + 7}点用来把正文撑开`),
     ].join("\n"),
     status: "complete",
     createdAt: now(),
@@ -130,13 +131,34 @@ const server = createServer(async (req, res) => {
     const user = { id: crypto.randomUUID(), role: "user", content: text, status: "complete", createdAt: now() };
     const assistant = { id: crypto.randomUUID(), role: "assistant", content: "", status: "pending", createdAt: now() };
     messages.push(user, assistant);
+    // The request body is already consumed. Client stop closes the response,
+    // which is the same signal the real chat server uses. Mark it immediately
+    // so a reload during the hold sees cancelled, not an unfinished error.
     let closed = false;
-    req.on("close", () => { closed = true; });
+    let finished = false;
+    const markCancelled = () => {
+      closed = true;
+      if (!finished && assistant.status === "pending") assistant.status = "cancelled";
+    };
+    res.on("close", () => {
+      if (!finished) markCancelled();
+    });
     const stream = sse(res, null, () => closed);
-    await new Promise((resolve) => setTimeout(resolve, HOLD_MS));
-    if (closed) {
-      assistant.status = "cancelled";
-      if (!res.writableEnded) res.end();
+    await new Promise((resolve) => {
+      if (closed) {
+        resolve();
+        return;
+      }
+      const timer = setTimeout(resolve, HOLD_MS);
+      res.once("close", () => {
+        clearTimeout(timer);
+        resolve();
+      });
+    });
+    if (closed || assistant.status === "cancelled") {
+      if (!res.writableEnded) {
+        try { res.end(); } catch { /* the phone already hung up */ }
+      }
       return;
     }
     stream.start();
@@ -147,7 +169,15 @@ const server = createServer(async (req, res) => {
       assistant.content += piece;
       await new Promise((resolve) => setTimeout(resolve, 400));
     }
-    assistant.status = closed ? "cancelled" : "complete";
+    if (closed) {
+      assistant.status = "cancelled";
+      if (!res.writableEnded) {
+        try { res.end(); } catch { /* the phone already hung up */ }
+      }
+      return;
+    }
+    finished = true;
+    assistant.status = "complete";
     stream.finish();
     return;
   }

@@ -81,7 +81,14 @@ function LiveRuntime({
     <AssistantRuntimeProvider runtime={runtime}>
       <View style={{ flex: 1, width: "100%", maxWidth: READ_MAX, alignSelf: "center" }}>
         <ChatHeader scheme={scheme} showBack={showBack} onBack={onBack} view={view} onNewConversation={onNewConversation} />
-        <ChatThreadSurface scheme={scheme} listHeader={listHeader} bottomSafeArea="self" active={active} onOpenLibrary={onOpenLibrary} />
+        <ChatThreadSurface
+          scheme={scheme}
+          listHeader={listHeader}
+          bottomSafeArea="self"
+          active={active}
+          onOpenLibrary={onOpenLibrary}
+          localSample={view.phase === "ready" && view.session.upstream === "fixture"}
+        />
       </View>
     </AssistantRuntimeProvider>
   );

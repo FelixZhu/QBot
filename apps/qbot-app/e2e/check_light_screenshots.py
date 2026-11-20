@@ -22,6 +22,7 @@ REQUIRED = (
     "light-chat-queued",
     "light-chat-stopped",
     "light-chat-history",
+    "light-chat-file",
     "light-feed-top",
     "light-feed-scrolled-down",
     "light-feed-scrolled-up",

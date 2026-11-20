@@ -46,6 +46,10 @@ adb reverse tcp:8799 tcp:8799
 adb shell cmd overlay disable com.android.internal.systemui.navbar.gestural || true
 adb shell cmd overlay enable com.android.internal.systemui.navbar.threebutton || true
 adb shell cmd uimode night no || true
+# A hardware keyboard hides the soft keyboard. The chat check needs the IME on screen.
+adb shell settings put secure show_ime_with_hard_keyboard 1 || true
+adb shell "mkdir -p /sdcard/Download && printf '%s\n' 'local-only' > /sdcard/Download/qbot-local.txt"
+adb shell am broadcast -a android.intent.action.MEDIA_SCANNER_SCAN_FILE -d file:///sdcard/Download/qbot-local.txt >/dev/null || true
 
 if ! curl -sf http://127.0.0.1:8081/status >/dev/null; then
   echo "starting metro"

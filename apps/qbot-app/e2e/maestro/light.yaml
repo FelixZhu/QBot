@@ -11,6 +11,16 @@ appId: io.github.felixzhu.qiandrive
 
 - tapOn: "Qbot"
 - extendedWaitUntil:
+    visible: "回复，或按住说话|.*这句可以长按选择.*"
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      text: ".*这句可以长按选择.*"
+    direction: UP
+    timeout: 20000
+    speed: 40
+    visibilityPercentage: 40
+- extendedWaitUntil:
     visible: ".*这句可以长按选择.*"
     timeout: 30000
 - assertVisible: ".*不是真实模型.*"
@@ -30,6 +40,10 @@ appId: io.github.felixzhu.qiandrive
     path: light-chat-copied
 
 - longPressOn: ".*这句可以长按选择.*"
+- extendedWaitUntil:
+    visible: "Select all"
+    timeout: 8000
+- assertVisible: "Copy"
 - takeScreenshot:
     path: light-chat-select
 - runFlow:
@@ -44,16 +58,23 @@ appId: io.github.felixzhu.qiandrive
       - tapOn: "Select all"
 - tapOn: "Qbot"
 
-- swipe:
-    start: "50%,70%"
-    end: "50%,45%"
-    duration: 400
+- scrollUntilVisible:
+    element:
+      text: "第46点用来把正文撑开"
+    direction: DOWN
+    timeout: 20000
+    speed: 40
+    visibilityPercentage: 40
+- assertNotVisible: ".*这句可以长按选择.*"
 - takeScreenshot:
     path: light-chat-scrolled
-- swipe:
-    start: "50%,45%"
-    end: "50%,75%"
-    duration: 400
+- scrollUntilVisible:
+    element:
+      text: ".*这句可以长按选择.*"
+    direction: UP
+    timeout: 20000
+    speed: 40
+    visibilityPercentage: 40
 
 - tapOn: "添加"
 - extendedWaitUntil:
@@ -71,12 +92,12 @@ appId: io.github.felixzhu.qiandrive
 - extendedWaitUntil:
     visible: "回复 Qbot"
     timeout: 8000
+- takeScreenshot:
+    path: light-chat-keyboard
 - inputText: "请慢点"
 - extendedWaitUntil:
     visible: "请慢点"
     timeout: 8000
-- takeScreenshot:
-    path: light-chat-keyboard
 - tapOn: "发送"
 - extendedWaitUntil:
     visible: "正在回复"
@@ -109,10 +130,62 @@ appId: io.github.felixzhu.qiandrive
 - assertNotVisible: "返回会话列表"
 - tapOn: "Qbot"
 - extendedWaitUntil:
-    visible: "马上这句"
+    visible: "回复，或按住说话"
     timeout: 20000
+- scrollUntilVisible:
+    element:
+      text: "马上这句"
+    direction: DOWN
+    timeout: 20000
+    speed: 40
+    visibilityPercentage: 40
+- assertVisible: "已停止"
+- assertNotVisible: "An error occurred"
+- assertNotVisible: "服务器没有完成这条回复"
 - takeScreenshot:
     path: light-chat-history
+- tapOn: "添加"
+- extendedWaitUntil:
+    visible: ".*不会上传.*"
+    timeout: 8000
+- tapOn: "文件"
+- extendedWaitUntil:
+    visible: "qbot-local.txt"
+    timeout: 8000
+    optional: true
+- runFlow:
+    when:
+      visible: "qbot-local.txt"
+    commands:
+      - tapOn: "qbot-local.txt"
+- runFlow:
+    when:
+      notVisible: "添加"
+    commands:
+      - pressKey: back
+- runFlow:
+    when:
+      notVisible: ".*没有上传.*"
+    commands:
+      - tapOn: "添加"
+      - extendedWaitUntil:
+          visible: "放上本地示例"
+          timeout: 8000
+      - tapOn: "放上本地示例"
+- extendedWaitUntil:
+    visible: ".*没有上传.*"
+    timeout: 10000
+- assertVisible: ".*模型读不了.*"
+- assertVisible: "不能发送"
+- assertNotVisible: "正在回复"
+- takeScreenshot:
+    path: light-chat-file
+- tapOn: "不能发送"
+- assertNotVisible: "正在回复"
+- tapOn: "移除 qbot-local.txt"
+- extendedWaitUntil:
+    notVisible: "qbot-local.txt"
+    timeout: 8000
 - tapOn: "返回会话列表"
 - extendedWaitUntil:
     visible: "个人对话"
