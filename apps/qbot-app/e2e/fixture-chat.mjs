@@ -27,7 +27,6 @@ const messages = [
       "- 第四点用来把正文撑开",
       "- 第五点用来把正文撑开",
       "- 第六点用来把正文撑开",
-    ...Array.from({ length: 40 }, (_, index) => `- 第${index + 7}点用来把正文撑开`),
     ].join("\n"),
     status: "complete",
     createdAt: now(),
