@@ -84,6 +84,9 @@ function sse(res, pieces, closed) {
   };
 }
 
+let holdMessagesMs = 0;
+let failMessages = false;
+
 const server = createServer(async (req, res) => {
   if (req.method === "OPTIONS") {
     res.writeHead(204, { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "*", "Access-Control-Allow-Methods": "GET,POST,OPTIONS" });
@@ -91,6 +94,24 @@ const server = createServer(async (req, res) => {
     return;
   }
   const url = new URL(req.url ?? "/", "http://127.0.0.1");
+  if (req.method === "POST" && url.pathname === "/e2e/hold") {
+    holdMessagesMs = 20000;
+    failMessages = false;
+    send(res, 200, { ok: true });
+    return;
+  }
+  if (req.method === "POST" && url.pathname === "/e2e/fail") {
+    holdMessagesMs = 0;
+    failMessages = true;
+    send(res, 200, { ok: true });
+    return;
+  }
+  if (req.method === "POST" && url.pathname === "/e2e/ok") {
+    holdMessagesMs = 0;
+    failMessages = false;
+    send(res, 200, { ok: true });
+    return;
+  }
   if (req.method === "GET" && url.pathname === "/health") {
     send(res, 200, { ok: true, fixture: true });
     return;
@@ -113,6 +134,11 @@ const server = createServer(async (req, res) => {
     return;
   }
   if (req.method === "GET" && url.pathname === `/v1/conversations/${CONV}/messages`) {
+    if (failMessages) {
+      send(res, 503, { error: { message: "夹具暂停" } });
+      return;
+    }
+    if (holdMessagesMs > 0) await new Promise((resolve) => setTimeout(resolve, holdMessagesMs));
     send(res, 200, { messages });
     return;
   }

@@ -1,0 +1,13 @@
+appId: io.github.felixzhu.qiandrive
+---
+- launchApp:
+    stopApp: true
+- runFlow: wait-home.yaml
+- tapOn: "Qbot"
+- extendedWaitUntil:
+    visible: "同步中"
+    timeout: 12000
+- assertVisible: ".*这句可以长按选择.*"
+- assertNotVisible: "正在打开"
+- takeScreenshot:
+    path: light-chat-syncing
