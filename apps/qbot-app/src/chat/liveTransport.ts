@@ -3,7 +3,7 @@ import { throwIfAborted, type ChatTransport } from "./transport.ts";
 
 /** Sends only the newest user text. The server rebuilds persona and history. */
 export function createServerChatTransport(options: {
-  url: string;
+  url: string | (() => string);
   token?: string;
   fetchImpl?: typeof fetch;
   onStart?: () => void;
@@ -15,8 +15,9 @@ export function createServerChatTransport(options: {
     reply(history, signal) {
       const text = [...history].reverse().find((turn) => turn.role === "user")?.text.trim() ?? "";
       if (!text) throw new Error("没有要发送的文字");
+      const url = typeof options.url === "function" ? options.url() : options.url;
       options.onStart?.();
-      return postText(fetchImpl, options.url, options.token, text, signal, options.onError);
+      return postText(fetchImpl, url, options.token, text, signal, options.onError);
     },
   };
 }

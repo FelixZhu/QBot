@@ -3,7 +3,7 @@ appId: io.github.felixzhu.qiandrive
 - launchApp:
     stopApp: true
 - runFlow: wait-home.yaml
-- tapOn: "Qbot"
+- tapOn: "新对话"
 - extendedWaitUntil:
     visible: "同步中"
     timeout: 12000
