@@ -18,8 +18,8 @@ const TOKEN = "qbot-fixture-token-not-a-secret";
 const OWNER = "00000000-0000-4000-8000-000000000001";
 
 test("server addresses reject public HTTP and keep the token out of plain storage", async () => {
-  assert.equal(configuredOrigin({}), null);
-  assert.equal(configuredOrigin({ EXPO_PUBLIC_QBOT_ORIGIN: "https://chat.example/health" }), "https://chat.example");
+  assert.equal(configuredOrigin(""), null);
+  assert.equal(configuredOrigin("https://chat.example/health"), "https://chat.example");
   assert.equal(parseServerOrigin("https://chat.example/"), "https://chat.example");
   assert.equal(parseServerOrigin("https://chat.example/health"), "https://chat.example");
   assert.equal(parseServerOrigin("https://chat.example/v1/session"), "https://chat.example");
