@@ -12,7 +12,7 @@ from pathlib import Path
 
 REQUIRED = (
     "light-chat-home",
-    "light-demo-thread",
+    "light-qbot-thread",
     "light-feed-top",
     "light-feed-scrolled-down",
     "light-feed-scrolled-up",
