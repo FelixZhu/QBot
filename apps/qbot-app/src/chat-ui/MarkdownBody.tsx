@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Linking, Platform, Pressable, Text, View } from "react-native";
 import type { Palette } from "../theme";
-import { copyText } from "./copyText";
+import { clipboardAvailable, copyText } from "./copyText";
 import { openableHref, parseMarkdown, type Inline } from "./markdown";
 
 const mono = Platform.select({ ios: "Menlo", default: "monospace" });
@@ -41,21 +41,24 @@ function InlineRun({ inlines, color, fontSize, lineHeight }: { inlines: Inline[]
 
 function CodeBlock({ language, code, colors }: { language: string; code: string; colors: Palette }) {
   const [copied, setCopied] = useState(false);
+  const canCopy = clipboardAvailable();
   useEffect(() => { setCopied(false); }, [code]);
   return (
     <View style={{ marginTop: 8, borderWidth: 1, borderColor: colors.line, borderRadius: 10, backgroundColor: colors.raised, overflow: "hidden" }}>
       <View style={{ minHeight: 32, paddingHorizontal: 10, flexDirection: "row", alignItems: "center", justifyContent: "space-between", borderBottomWidth: 1, borderBottomColor: colors.line }}>
         <Text style={{ fontSize: 12, lineHeight: 16, color: colors.muted }}>{language || "代码"}</Text>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={copied ? "已复制代码" : "复制代码"}
-          hitSlop={8}
-          onPress={() => {
-            copyText(code).then(() => setCopied(true), () => setCopied(false));
-          }}
-        >
-          <Text style={{ fontSize: 12, lineHeight: 16, fontWeight: "600", color: colors.accent }}>{copied ? "已复制" : "复制"}</Text>
-        </Pressable>
+        {canCopy ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={copied ? "已复制代码" : "复制代码"}
+            hitSlop={8}
+            onPress={() => {
+              copyText(code).then(() => setCopied(true), () => setCopied(false));
+            }}
+          >
+            <Text style={{ fontSize: 12, lineHeight: 16, fontWeight: "600", color: colors.accent }}>{copied ? "已复制" : "复制"}</Text>
+          </Pressable>
+        ) : null}
       </View>
       <Text selectable style={{ fontFamily: mono, fontSize: 13, lineHeight: 20, color: colors.text, padding: 10 }}>
         {code}
