@@ -1,17 +1,17 @@
 # QBot App
 
-安卓 App「QBot」的 Expo 源码（SDK 58，React Native 0.88，React 19.3）。当前源码版本：1.0.9（versionCode 11）。已安装的上一版是 1.0.5（versionCode 7），包名仍是 `io.github.felixzhu.qiandrive`。升级必须用原来的签名。本仓库没有签名文件，也不提交 `EXPO_TOKEN`。
+安卓 App「QBot」的 Expo 源码（SDK 58，React Native 0.88，React 19.3）。当前源码版本：1.0.10（versionCode 12）。已安装的 1.0.9（versionCode 11）没有 `expo-secure-store`，这一版不能 OTA，需要下一版 APK。包名仍是 `io.github.felixzhu.qiandrive`。升级必须用原来的签名。本仓库没有签名文件，也不提交 `EXPO_TOKEN`。
 
-1.0.9 的主动服务先是六课全屏卡片，后面再接 Info、English、Study 三个静态样例账号。底部只有头像、Study Bot 和「关注」，没有右侧按钮，也没有课名。轻点卡片，卡片放大成沉浸页：第 1 课可以看图文、演示视频和本地小游戏，其他课按自己的内容打开。返回或系统返回键缩回原来那张卡。下滑一次只翻一张。问 AI 标「模拟」，视频标「演示」，都不接后端。底栏是图标在上、文字在下。聊天仍走本地传输。知识库仍打开 `https://felixzhu.github.io/QBot/`。不要把网页端的 React 18 装进这个包。界面只用系统字体，不提交字体文件。
+1.0.9 的主动服务先是六课全屏卡片，后面再接 Info、English、Study 三个静态样例账号。底部只有头像、Study Bot 和「关注」，没有右侧按钮，也没有课名。轻点卡片，卡片放大成沉浸页：第 1 课可以看图文、演示视频和本地小游戏，其他课按自己的内容打开。返回或系统返回键缩回原来那张卡。下滑一次只翻一张。问 AI 标「模拟」，视频标「演示」，都不接后端。底栏是图标在上、文字在下。三条演示仍走本地传输并标成「演示」。真实对话单独一行，地址和令牌由使用者填写；令牌进安全存储，不进 AsyncStorage，也不进安装包。模型密钥只在服务器。知识库仍打开 `https://felixzhu.github.io/QBot/`。不要把网页端的 React 18 装进这个包。界面只用系统字体，不提交字体文件。
 
-同一 `expo.version` 的界面改动不用重装。`runtimeVersion` 用 `appVersion`（就是 `expo.version`），preview 构建的 channel 是 `preview`。装过带 expo-updates 的 1.0.9 包之后，在盒子上发布 JS 更新：
+同一 `expo.version` 的纯界面改动不用重装。`runtimeVersion` 用 `appVersion`（就是 `expo.version`），preview 构建的 channel 是 `preview`。这一版是 `1.0.10`，因为新增了原生模块 `expo-secure-store`。已安装的 `1.0.9` 不会接收它。下一版 APK 装上之后，同一 `1.0.10` 的 JS 才可以：
 
 ```bash
 cd apps/qbot-app
 npx eas-cli@latest update --channel preview
 ```
 
-应用启动时在后台检查并下载，下次冷启动再生效，不打断当前这次。检查或下载失败、或者新包启动不起来，就继续用已经装上的包，不弹错误。指纹会把原生配置的细小变化算成新 runtime，界面更新也可能被拒，又得重装；版本号是你自己加的，1.0.9 的包只收 1.0.9 的 JS。换了原生模块才把 `expo.version` 往上加并重新签名打包。本仓库不跑这条发布命令，也不跑 EAS 构建。
+应用启动时在后台检查并下载，下次冷启动再生效，不打断当前这次。检查或下载失败、或者新包启动不起来，就继续用已经装上的包，不弹错误。指纹会把原生配置的细小变化算成新 runtime，界面更新也可能被拒，又得重装；版本号是你自己加的，1.0.10 的包只收 1.0.10 的 JS。本仓库不跑这条发布命令，也不跑 EAS 构建。
 
 ## 本地预览
 

@@ -235,7 +235,7 @@ test("streaming HTTP reads a local fake server and no other host", { timeout: 10
   ]);
 });
 
-test("the chat screen stays a local demo and names no endpoint", () => {
+test("demos stay local and the live path does not invent a model reply", () => {
   const root = new URL("../", import.meta.url);
   const read = (name: string) => readFileSync(new URL(name, root), "utf8");
   const pane = read("ChatPane.tsx");
@@ -243,13 +243,34 @@ test("the chat screen stays a local demo and names no endpoint", () => {
   assert.equal(pane.includes("createHttpStreamTransport"), false);
   assert.match(pane, /没有接通真实助手/);
   assert.match(pane, /留在这台设备上/);
-  assert.equal(pane.includes("不会保留"), false);
-  const files = ["ChatPane.tsx", "demos.ts", "chat/local.ts", "chat/transport.ts", "chat/history.ts", "chat/httpStream.ts", "chat/deviceStorage.ts"];
+  const live = read("chat/LiveChat.tsx");
+  assert.equal(live.includes("createLocalTransport"), false);
+  assert.equal(live.includes("localReply"), false);
+  assert.match(live, /createServerChatTransport/);
+  const files = [
+    "ChatPane.tsx",
+    "demos.ts",
+    "chat/local.ts",
+    "chat/transport.ts",
+    "chat/history.ts",
+    "chat/httpStream.ts",
+    "chat/deviceStorage.ts",
+    "chat/LiveChat.tsx",
+    "chat/liveTransport.ts",
+    "chat/serverClient.ts",
+    "chat/serverEndpoint.ts",
+    "chat/serverSession.ts",
+    "chat/deviceSecret.ts",
+    "chat/deviceSettings.ts",
+  ];
   for (const file of files) {
     const source = read(file);
-    assert.equal(source.includes("http://"), false, file);
-    assert.equal(source.includes("https://"), false, file);
     assert.equal(source.includes("EXPO_PUBLIC"), false, file);
-    assert.equal(/api[_-]?key|secret|token/i.test(source), false, file);
+    assert.equal(/sk-or-|sk-ant-|sk-live-/.test(source), false, file);
+    assert.equal(source.includes("deepseek/deepseek-v4.1-flash-1017"), false, file);
   }
+  const settings = read("chat/deviceSettings.ts");
+  assert.equal(settings.includes("qbot.server.token"), false);
+  const secret = read("chat/deviceSecret.ts");
+  assert.equal(secret.includes("AsyncStorage"), false);
 });

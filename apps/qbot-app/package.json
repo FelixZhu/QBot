@@ -9,6 +9,7 @@
     "expo": "~58.0.25",
     "expo-image": "~58.0.18",
     "expo-splash-screen": "~58.0.14",
+    "expo-secure-store": "~58.0.3",
     "expo-status-bar": "~58.0.5",
     "expo-system-ui": "~58.0.7",
     "expo-updates": "~58.0.22",
@@ -26,7 +27,7 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "node --experimental-strip-types --test src/host.test.ts src/updates.test.ts src/feed/feed.test.ts src/feed/memory.test.ts src/feed/lessons.test.ts src/feed/paging.test.ts src/feed/game.test.ts src/feed/demo/demo.test.ts src/chat/chat.test.ts",
+    "test": "node --experimental-strip-types --test src/host.test.ts src/updates.test.ts src/feed/feed.test.ts src/feed/memory.test.ts src/feed/lessons.test.ts src/feed/paging.test.ts src/feed/game.test.ts src/feed/demo/demo.test.ts src/chat/chat.test.ts src/chat/live.test.ts",
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",

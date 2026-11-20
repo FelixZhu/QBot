@@ -52,19 +52,29 @@ export function ChatList({
   onQuery,
   selected,
   onOpen,
+  subtitle,
+  liveLabel,
+  liveBadge,
+  liveSelected,
+  onOpenLive,
 }: {
   colors: Palette;
   query: string;
   onQuery: (value: string) => void;
   selected: DemoId | null;
   onOpen: (id: DemoId) => void;
+  subtitle: string;
+  liveLabel: string;
+  liveBadge: string;
+  liveSelected: boolean;
+  onOpenLive: () => void;
 }) {
   const rows = filterDemos(query);
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
       <View style={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: 4 }}>
         <Text style={{ fontSize: 20, lineHeight: 26, fontWeight: "700", color: colors.text }}>对话</Text>
-        <Text style={{ marginTop: 2, fontSize: 12, lineHeight: 16, color: colors.muted }}>演示，没有接通真实助手</Text>
+        <Text style={{ marginTop: 2, fontSize: 12, lineHeight: 16, color: colors.muted }}>{subtitle}</Text>
       </View>
       <View
         style={{
@@ -89,6 +99,30 @@ export function ChatList({
           accessibilityLabel="搜索对话"
         />
       </View>
+      <Pressable
+        onPress={onOpenLive}
+        accessibilityRole="button"
+        accessibilityLabel={liveLabel}
+        style={({ pressed }) => ({
+          minHeight: 76,
+          paddingHorizontal: 16,
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 12,
+          backgroundColor: liveSelected ? colors.selected : pressed ? colors.press : "transparent",
+        })}
+      >
+        <View style={{ width: 48, height: 48, borderRadius: 12, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.raised, alignItems: "center", justifyContent: "center" }}>
+          <Mark />
+        </View>
+        <View style={{ flex: 1, minWidth: 0, borderBottomWidth: 1, borderBottomColor: colors.line, paddingVertical: 14 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+            <Text style={{ flex: 1, fontSize: 16, lineHeight: 22, fontWeight: "600", color: colors.text }}>真实对话</Text>
+            <Text style={{ fontSize: 12, lineHeight: 16, fontWeight: "600", color: colors.accent }}>{liveBadge}</Text>
+          </View>
+          <Text style={{ marginTop: 2, fontSize: 14, lineHeight: 20, color: colors.muted }} numberOfLines={1}>服务器上的会话</Text>
+        </View>
+      </Pressable>
       <FlatList
         data={rows}
         keyExtractor={(item) => item.id}

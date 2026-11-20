@@ -49,6 +49,11 @@ async function* readDeltas(
     throw new Error(`chat stream HTTP ${response.status}`);
   }
   if (!response.body) throw new Error("chat stream has no body");
+  yield* readAssistantDeltas(response, signal);
+}
+
+/** Shared SSE reader for the generic client and the authenticated server client. */
+export async function* readAssistantDeltas(response: Response, signal: AbortSignal): AsyncGenerator<string> {
   const contentType = response.headers.get("content-type") ?? "";
   const decoder = contentType.includes("text/event-stream")
     ? new AssistantTransportDecoder()
@@ -59,12 +64,19 @@ async function* readDeltas(
       throwIfAborted(signal);
       const { done, value } = await reader.read();
       if (done) return;
-      if (value.type === "error") throw new Error("chat stream failed");
+      const failure = streamError(value);
+      if (failure) throw new Error(failure);
       if (isTextDelta(value) && value.textDelta) yield value.textDelta;
     }
   } finally {
     reader.releaseLock();
   }
+}
+
+function streamError(value: AssistantStreamChunk): string | null {
+  if (value.type !== "error") return null;
+  const detail = "error" in value && typeof value.error === "string" ? value.error : "";
+  return detail.replace(/^Error:\s*/, "").trim() || "chat stream failed";
 }
 
 function isTextDelta(value: AssistantStreamChunk): value is AssistantStreamChunk & { type: "text-delta"; textDelta: string } {

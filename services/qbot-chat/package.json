@@ -1,0 +1,28 @@
+{
+  "name": "qbot-chat",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "engines": {
+    "node": ">=24.9.0"
+  },
+  "scripts": {
+    "start": "node --experimental-strip-types src/main.ts",
+    "migrate": "node --experimental-strip-types src/migrate.ts",
+    "check-db": "node --experimental-strip-types src/check-db.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "node --experimental-strip-types --test test/context.test.ts test/dsh-profile.test.ts test/server.test.ts test/scan-secrets.ts"
+  },
+  "dependencies": {
+    "@deepseek-ai/dsh": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-llm-pi-ai": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-sdk-client": "0.2.2-rc.5",
+    "assistant-stream": "^0.3.58",
+    "pg": "^8.16.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.19.1",
+    "@types/pg": "^8.15.6",
+    "typescript": "~5.9.3"
+  }
+}

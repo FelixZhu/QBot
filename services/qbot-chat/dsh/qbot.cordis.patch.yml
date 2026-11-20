@@ -1,0 +1,43 @@
+# QBot profile overlay on the shipped sdk-minimal bundle.
+# Coding tools are unmounted here. A prompt that merely says not to use them is not this file.
+# openrouter's installed catalog does not list deepseek/deepseek-v4.1-flash-1017, so the model is declared.
+
+- id: persistent-bash
+  disabled: true
+- id: persistent-pwsh
+  disabled: true
+- id: terminal-bash
+  disabled: true
+- id: terminal-pwsh
+  disabled: true
+- id: tool-fs
+  disabled: true
+# sdk-jsonrpc-server requires the workingDirectory service. The model tool stays unmounted.
+- id: tool-working-directory
+  disabled: true
+- id: sandbox-policy
+  disabled: true
+- id: subprocess
+  disabled: true
+- id: pty
+  disabled: true
+- id: llm-deepseek
+  disabled: true
+
+- insert:
+    - id: llm-pi-ai
+      name: '@deepseek-ai/dsh-llm-pi-ai'
+      config:
+        providers:
+          openrouter:
+            apiKeyEnv: OPENROUTER_API_KEY
+            api: openai-completions
+            baseURL: !!js process.env.QBOT_OPENAI_BASE_URL || 'https://openrouter.ai/api/v1'
+            retryPolicy:
+              mode: normal
+              maxRetries: 0
+            models:
+              - id: deepseek/deepseek-v4.1-flash-1017
+                contextWindow: 1000000
+                maxTokens: 8192
+                reasoningEfforts: false

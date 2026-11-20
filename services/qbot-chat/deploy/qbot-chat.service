@@ -1,0 +1,20 @@
+# Example unit. ExecStart must be Node.js >= 24.9, not the Node 22 binary already on the host.
+# EnvironmentFile must be mode 600 and must not contain the superuser migrate URL.
+
+[Unit]
+Description=QBot chat server
+After=network.target postgresql.service
+
+[Service]
+Type=simple
+User=qbot
+Group=qbot
+WorkingDirectory=/opt/qbot/services/qbot-chat
+EnvironmentFile=/etc/qbot-chat.env
+ExecStart=/usr/bin/node --experimental-strip-types src/main.ts
+Restart=on-failure
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

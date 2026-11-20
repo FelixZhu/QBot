@@ -2,7 +2,7 @@
   "expo": {
     "name": "QBot",
     "slug": "qian-drive",
-    "version": "1.0.9",
+    "version": "1.0.10",
     "orientation": "default",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
@@ -20,7 +20,7 @@
       "predictiveBackGestureEnabled": false,
       "softwareKeyboardLayoutMode": "resize",
       "label": "QBot",
-      "versionCode": 11
+      "versionCode": 12
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -42,7 +42,13 @@
       ],
       "expo-image",
       "expo-video",
-      "expo-updates"
+      "expo-updates",
+      [
+        "expo-secure-store",
+        {
+          "configureAndroidBackup": true
+        }
+      ]
     ],
     "runtimeVersion": {
       "policy": "appVersion"
