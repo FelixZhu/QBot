@@ -45,7 +45,7 @@ docs/DESIGN.md          视觉参考
 
 依赖只向下。导航调用模块已导出的 `back` / `closeDetail`。Feed 在有 `qbotShell` 时调用 `openArticle` / `openExternal`。文件卡若要打开知识库，走导航注入的 `qbotKb.open`，该函数不存在则只切 Tab。
 
-`apps/qbot-app/app.json` 里可 OTA 的版本是 `1.0.10`，`versionCode` 是 `12`。`runtimeVersion` 仍跟 `expo.version`。颜色和对话头像没有新的原生模块，可以进已安装的 `1.0.10`。桌面图标和启动页不在这一层。`package.json` 的 `1.0.0` 不是安装包版本。包名是 `io.github.felixzhu.qiandrive`。`runtimeVersion` 策略是 `appVersion`。preview 构建写入 channel `preview`。同一版本的 JS 用 `eas update --channel preview` 发布，启动时后台下载，下次冷启动生效；失败保持已安装的包。原生依赖变了要升 `expo.version` 再发 APK。这一轮不在这里打包，也不发布更新。
+`apps/qbot-app/app.json` 里安装包版本是 `1.0.11`，`versionCode` 是 `13`。`runtimeVersion` 仍跟 `expo.version`。颜色和对话头像没有新的原生模块，可以单独用 `1.0.10` 做 OTA。`1.0.11` 带桌面图标、启动页和 Markdown 原生组件，已安装的 `1.0.10` 收不到。`package.json` 的 `1.0.0` 不是安装包版本。包名是 `io.github.felixzhu.qiandrive`。`runtimeVersion` 策略是 `appVersion`。preview 构建写入 channel `preview`。同一版本的 JS 用 `eas update --channel preview` 发布，启动时后台下载，下次冷启动生效；失败保持已安装的包。原生依赖变了要升 `expo.version` 再发 APK。这一轮不在这里打包，也不发布更新。
 
 ## 3. closeDetail 与 back()
 

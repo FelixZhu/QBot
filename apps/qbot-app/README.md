@@ -1,6 +1,6 @@
 # QBot App
 
-安卓 App「QBot」的 Expo 源码（SDK 58，React Native 0.88，React 19.3）。当前可 OTA 的版本：1.0.10（versionCode 12）。这一层只改颜色和对话头像，没有新的原生模块，也没有改桌面图标和启动页的原生配置。`runtimeVersion` 跟着 `expo.version`，所以这份源码可以推到已安装的 1.0.10。新的橙色桌面图标和启动页在 `assets/brand/`，要等下一版 APK。包名仍是 `io.github.felixzhu.qiandrive`。升级必须用原来的签名。本仓库没有签名文件，也不提交 `EXPO_TOKEN`。
+安卓 App「QBot」的 Expo 源码（SDK 58，React Native 0.88，React 19.3）。当前安装包版本：1.0.11（versionCode 13）。这一版带上桌面图标、启动页和 `react-native-enriched-markdown`，`runtimeVersion` 跟着 `expo.version`，所以已安装的 1.0.10 收不到它。颜色和对话头像那一层仍可以单独用 1.0.10 的 runtime 做 OTA。包名仍是 `io.github.felixzhu.qiandrive`。升级必须用原来的签名。本仓库没有签名文件，也不提交 `EXPO_TOKEN`。
 
 1.0.9 的主动服务先是六课全屏卡片，后面再接 Info、English、Study 三个静态样例账号。底部只有头像、Study Bot 和「关注」，没有右侧按钮，也没有课名。轻点卡片，卡片放大成沉浸页：第 1 课可以看图文、演示视频和本地小游戏，其他课按自己的内容打开。返回或系统返回键缩回原来那张卡。下滑一次只翻一张。问 AI 标「模拟」，视频标「演示」，都不接后端。底栏是图标在上、文字在下。对话首页只有一行 Qbot，点进去就是真实对话。服务器地址来自发布时的私有配置，不写进仓库。个人试用由服务器显式打开，手机不带令牌。模型密钥只在服务器。知识库仍打开 `https://felixzhu.github.io/QBot/`。不要把网页端的 React 18 装进这个包。界面只用系统字体，不提交字体文件。
 
