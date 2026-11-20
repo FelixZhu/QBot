@@ -2,9 +2,9 @@
   "expo": {
     "name": "QBot",
     "slug": "qian-drive",
-    "version": "1.0.11",
+    "version": "1.0.10",
     "orientation": "default",
-    "icon": "./assets/brand/icon-1024.png",
+    "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
     "backgroundColor": "#F3EFE7",
     "ios": {
@@ -14,14 +14,13 @@
     "android": {
       "package": "io.github.felixzhu.qiandrive",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/brand/adaptive-foreground-1024.png",
-        "backgroundColor": "#FF6A2B",
-        "monochromeImage": "./assets/brand/adaptive-monochrome-1024.png"
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#F3EFE7"
       },
       "predictiveBackGestureEnabled": false,
       "softwareKeyboardLayoutMode": "resize",
       "label": "QBot",
-      "versionCode": 13
+      "versionCode": 12
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -31,13 +30,13 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/brand/splash-icon.png",
+          "image": "./assets/splash-icon.png",
           "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#FF6A2B",
+          "backgroundColor": "#F3EFE7",
           "dark": {
-            "image": "./assets/brand/splash-icon.png",
-            "backgroundColor": "#FF6A2B"
+            "image": "./assets/splash-icon.png",
+            "backgroundColor": "#171614"
           }
         }
       ],
