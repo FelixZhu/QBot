@@ -1,8 +1,6 @@
 import { useMemo } from "react";
 import {
   FlatList,
-  KeyboardAvoidingView,
-  Platform,
   Pressable,
   Text,
   TextInput,
@@ -10,16 +8,13 @@ import {
 } from "react-native";
 import {
   AssistantRuntimeProvider,
-  ComposerPrimitive,
-  MessagePrimitive,
-  ThreadPrimitive,
-  useAui,
   useLocalRuntime,
 } from "@assistant-ui/react-native";
 import { deviceChatStorage } from "./chat/deviceStorage";
 import { createDemoHistory } from "./chat/history";
 import { createLocalTransport } from "./chat/local";
 import { toModelAdapter } from "./chat/transport";
+import { ChatThreadSurface } from "./chat-ui";
 import {
   filterDemos,
   type Demo,
@@ -151,36 +146,6 @@ export function ChatList({
   );
 }
 
-function Suggestions({ demo, colors }: { demo: Demo; colors: Palette }) {
-  const aui = useAui();
-  return (
-    <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, paddingHorizontal: 16, paddingTop: 8 }}>
-      {demo.suggestions.map((item) => (
-        <Pressable
-          key={item}
-          accessibilityRole="button"
-          onPress={() => {
-            const composer = aui.composer();
-            composer.setText(item);
-            composer.send();
-          }}
-          style={({ pressed }) => ({
-            minHeight: 32,
-            paddingHorizontal: 10,
-            borderRadius: 999,
-            borderWidth: 1,
-            borderColor: colors.line,
-            justifyContent: "center",
-            backgroundColor: pressed ? colors.press : "transparent",
-          })}
-        >
-          <Text style={{ fontSize: 12, lineHeight: 16, color: colors.muted }}>{item}</Text>
-        </Pressable>
-      ))}
-    </View>
-  );
-}
-
 function ThreadBody({ demo, colors, onBack, showBack }: { demo: Demo; colors: Palette; onBack: () => void; showBack: boolean }) {
   const transport = useMemo(() => createLocalTransport(demo.id), [demo.id]);
   const adapter = useMemo(() => toModelAdapter(transport), [transport]);
@@ -194,9 +159,14 @@ function ThreadBody({ demo, colors, onBack, showBack }: { demo: Demo; colors: Pa
     [demo],
   );
   const runtime = useLocalRuntime(adapter, { initialMessages, adapters: { history } });
+  const listHeader = useMemo(() => (
+    <Text style={{ fontSize: 12, lineHeight: 18, color: colors.muted, textAlign: "center", marginBottom: 12 }}>
+      {demo.note}
+    </Text>
+  ), [colors.muted, demo.note]);
   return (
     <AssistantRuntimeProvider runtime={runtime}>
-      <KeyboardAvoidingView style={{ flex: 1, backgroundColor: colors.bg }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+      <View style={{ flex: 1, backgroundColor: colors.bg }}>
         <View style={{ height: 52, alignItems: "center", justifyContent: "center", borderBottomWidth: 1, borderBottomColor: colors.line }}>
           {showBack ? (
             <Pressable
@@ -221,98 +191,15 @@ function ThreadBody({ demo, colors, onBack, showBack }: { demo: Demo; colors: Pa
           <Text style={{ fontSize: 16, lineHeight: 24, fontWeight: "600", color: colors.text }}>{demo.name}</Text>
           <Text style={{ position: "absolute", right: 16, fontSize: 12, fontWeight: "600", color: colors.accent }}>演示</Text>
         </View>
-        <ThreadPrimitive.Root style={{ flex: 1, alignItems: "center" }}>
-          <View style={{ flex: 1, width: "100%", maxWidth: READ_MAX }}>
-            <ThreadPrimitive.MessagesFlatList
-              autoScroll
-              keyboardShouldPersistTaps="handled"
-              style={{ flex: 1 }}
-              contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 12 }}
-              ListHeaderComponent={
-                <Text style={{ fontSize: 12, lineHeight: 18, color: colors.muted, textAlign: "center", marginBottom: 12 }}>
-                  {demo.note}
-                </Text>
-              }
-            >
-              {({ message }) => {
-                const mine = message.role === "user";
-                return (
-                  <MessagePrimitive.Root style={{ alignItems: mine ? "flex-end" : "flex-start", marginBottom: 12 }}>
-                    <View
-                      style={{
-                        maxWidth: "78%",
-                        paddingHorizontal: 12,
-                        paddingVertical: 10,
-                        borderRadius: 16,
-                        backgroundColor: mine ? colors.bubbleMe : colors.bubbleBot,
-                        borderWidth: mine ? 0 : 1,
-                        borderColor: colors.line,
-                      }}
-                    >
-                      <MessagePrimitive.Content
-                        renderText={({ part }) => (
-                          <Text style={{ fontSize: 15, lineHeight: 22, color: mine ? colors.bubbleMeText : colors.text }}>
-                            {part.text}
-                          </Text>
-                        )}
-                      />
-                    </View>
-                  </MessagePrimitive.Root>
-                );
-              }}
-            </ThreadPrimitive.MessagesFlatList>
-            <Suggestions demo={demo} colors={colors} />
-            <ComposerPrimitive.Root
-              style={{
-                flexDirection: "row",
-                alignItems: "flex-end",
-                gap: 8,
-                paddingHorizontal: 16,
-                paddingTop: 8,
-                paddingBottom: 10,
-                borderTopWidth: 1,
-                borderTopColor: colors.line,
-                backgroundColor: colors.bg,
-              }}
-            >
-              <ComposerPrimitive.Input
-              placeholder="发消息…"
-              placeholderTextColor={colors.muted}
-              multiline
-              style={{
-                flex: 1,
-                minHeight: 40,
-                maxHeight: 120,
-                paddingHorizontal: 12,
-                paddingVertical: 8,
-                borderRadius: 12,
-                borderWidth: 1,
-                borderColor: colors.line,
-                backgroundColor: colors.raised,
-                color: colors.text,
-                fontSize: 15,
-                lineHeight: 22,
-              }}
-            />
-              <ComposerPrimitive.Send
-              accessibilityRole="button"
-              accessibilityLabel="发送"
-              style={({ pressed }) => ({
-                width: 44,
-                height: 44,
-                borderRadius: 22,
-                alignItems: "center",
-                justifyContent: "center",
-                backgroundColor: pressed ? colors.accent : colors.bubbleMe,
-                opacity: pressed ? 0.85 : 1,
-              })}
-            >
-                <Text style={{ color: colors.bubbleMeText, fontSize: 14, fontWeight: "700" }}>发送</Text>
-              </ComposerPrimitive.Send>
-            </ComposerPrimitive.Root>
-          </View>
-        </ThreadPrimitive.Root>
-      </KeyboardAvoidingView>
+        <View style={{ flex: 1, width: "100%", maxWidth: READ_MAX, alignSelf: "center" }}>
+          <ChatThreadSurface
+            colors={colors}
+            suggestions={demo.suggestions}
+            listHeader={listHeader}
+            bottomSafeArea="parent"
+          />
+        </View>
+      </View>
     </AssistantRuntimeProvider>
   );
 }
