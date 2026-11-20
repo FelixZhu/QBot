@@ -85,7 +85,7 @@ function ChatHeader({
         ) : <View style={{ width: 40 }} />}
         <View style={{ flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 }}>
           <QbotAvatar size={32} />
-          <Text style={{ fontSize: 17, lineHeight: 24, fontWeight: "700", color: chrome.text }}>Qbot</Text>
+          <Text style={{ fontSize: 17, lineHeight: 24, fontWeight: "700", color: chrome.text }}>QBot</Text>
         </View>
         <Pressable onPress={start} disabled={view.phase !== "ready"} accessibilityRole="button" accessibilityLabel="新建对话" hitSlop={8} style={{ width: 40, height: 40, alignItems: "center", justifyContent: "center", opacity: view.phase === "ready" ? 1 : 0.4 }}>
           <ChatMark name="pencil" color={chrome.text} size={20} />

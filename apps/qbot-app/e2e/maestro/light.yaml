@@ -46,7 +46,7 @@ appId: io.github.felixzhu.qiandrive
       visible: "Select all"
     commands:
       - tapOn: "Select all"
-- tapOn: "Qbot"
+- tapOn: "QBot"
 
 - swipe:
     start: "50%,70%"
@@ -73,7 +73,7 @@ appId: io.github.felixzhu.qiandrive
 
 - tapOn: "回复，或按住说话"
 - extendedWaitUntil:
-    visible: "回复 Qbot"
+    visible: "回复 QBot"
     timeout: 8000
 - takeScreenshot:
     path: light-chat-keyboard

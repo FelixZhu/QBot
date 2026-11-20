@@ -81,6 +81,7 @@ export type ChatThreadSurfaceProps = {
 
 type ChatActions = {
   chrome: ChatChrome;
+  scheme: Scheme;
   reading: ReadingStyle;
   markdownColors: Palette;
   submitText: (text: string) => void;
@@ -180,7 +181,7 @@ function useOutbox() {
 
 const YAHEI = "Microsoft YaHei";
 
-function enrichedStyle(chrome: ChatChrome, reading: ReadingStyle): MarkdownStyle {
+function enrichedStyle(chrome: ChatChrome, reading: ReadingStyle, scheme: Scheme): MarkdownStyle {
   const block = {
     fontFamily: YAHEI,
     fontSize: reading.fontSize,
@@ -197,12 +198,22 @@ function enrichedStyle(chrome: ChatChrome, reading: ReadingStyle): MarkdownStyle
     link: { color: chrome.inkText, underline: true },
     code: { backgroundColor: gray, color: chrome.text, borderColor: "transparent", fontSize: 13 },
     codeBlock: { ...block, fontSize: 13, lineHeight: 20, backgroundColor: gray, borderWidth: 0, borderColor: "transparent" },
-    table: { ...block, fontSize: 14, lineHeight: 20, headerBackgroundColor: gray, rowEvenBackgroundColor: gray, rowOddBackgroundColor: gray, borderWidth: 0, borderColor: "transparent" },
+    table: {
+      ...block,
+      fontSize: 14,
+      lineHeight: 20,
+      headerBackgroundColor: gray,
+      rowEvenBackgroundColor: gray,
+      rowOddBackgroundColor: gray,
+      borderWidth: 0,
+      borderColor: "transparent",
+      ...(scheme === "dark" ? { headerTextColor: "#EDE8DF" } : {}),
+    },
   };
 }
 
 function ChatMessage() {
-  const { chrome, reading, markdownColors, submitText, stop, notice } = useChatActions();
+  const { chrome, scheme, reading, markdownColors, submitText, stop, notice } = useChatActions();
   const role = useAuiState((state) => state.message.role);
   const parts = useAuiState((state) => state.message.parts);
   const content = useAuiState((state) => state.message.content);
@@ -263,7 +274,7 @@ function ChatMessage() {
             streamingAnimation={running}
             selectionColor={chrome.selection}
             selectionHandleColor={chrome.send}
-            markdownStyle={enrichedStyle(chrome, reading)}
+            markdownStyle={enrichedStyle(chrome, reading, scheme)}
             onLinkPress={({ url }) => {
               const href = openableHref(url);
               if (href) Linking.openURL(href).catch(() => {});
@@ -657,12 +668,13 @@ export function ChatThreadSurface({
   }), [chrome, scheme]);
   const actions = useMemo<ChatActions>(() => ({
     chrome,
+    scheme,
     reading,
     markdownColors,
     submitText: outbox.submitText,
     stop: outbox.stop,
     notice: showNotice,
-  }), [chrome, markdownColors, outbox.stop, outbox.submitText, reading, showNotice]);
+  }), [chrome, markdownColors, outbox.stop, outbox.submitText, reading, scheme, showNotice]);
   useEffect(() => {
     if (!active || Platform.OS !== "android") return;
     const onBack = () => {

@@ -1,5 +1,5 @@
-import { forwardRef, useImperativeHandle, useRef } from "react";
-import { Platform, StyleSheet, View } from "react-native";
+import { forwardRef, useImperativeHandle, useRef, useState } from "react";
+import { Platform, StyleSheet, Text, View } from "react-native";
 import { WebView as RNWebView } from "react-native-webview";
 import type { ComponentType, Ref } from "react";
 import { ASK_BACK, parkWeb, showWebTab, themeBoot, themeUpdate } from "./embed";
@@ -9,6 +9,9 @@ type Ev = { nativeEvent: { data?: string; description?: string; url?: string; st
 const WebView = RNWebView as unknown as ComponentType<Record<string, unknown> & { ref?: Ref<WebViewHandle> }>;
 
 export const HOME_URL = "https://felixzhu.github.io/QBot/";
+/** The published page opens 知识库 on a fresh #/ visit, before it paints the chat shell. */
+export const LIBRARY_URL = `${HOME_URL}#/`;
+const kbClock = Date.now();
 const HOME_ORIGIN = "https://felixzhu.github.io";
 const HOME_PATH = "/QBot";
 
@@ -32,8 +35,12 @@ export const WebPane = forwardRef<WebPaneHandle, {
   backgroundColor: string;
   onBackResult: (handled: boolean) => void;
   onExternal: (url: string) => void;
-}>(function WebPane({ visible, tab, dark, backgroundColor, onBackResult, onExternal }, ref) {
+  onReady?: () => void;
+}>(function WebPane({ visible, tab, dark, backgroundColor, onBackResult, onExternal, onReady }, ref) {
   const webRef = useRef<WebViewHandle>(null);
+  const [ready, setReady] = useState(false);
+  const readyRef = useRef(false);
+  const started = useRef(0);
   const tabRef = useRef(tab);
   const darkRef = useRef(dark);
   tabRef.current = tab;
@@ -71,7 +78,7 @@ export const WebPane = forwardRef<WebPaneHandle, {
     >
       <WebView
         ref={webRef}
-        source={{ uri: HOME_URL }}
+        source={{ uri: LIBRARY_URL }}
         style={[styles.fill, { backgroundColor }]}
         javaScriptEnabled
         domStorageEnabled
@@ -88,7 +95,20 @@ export const WebPane = forwardRef<WebPaneHandle, {
         forceDarkOn={dark}
         originWhitelist={["*"]}
         injectedJavaScriptBeforeContentLoaded={themeBoot(dark)}
-        onLoadEnd={apply}
+        onLoadStart={() => {
+          if (started.current) return;
+          started.current = Date.now();
+          console.log(`QBOT_TIMING kb-start ${started.current - kbClock}`);
+        }}
+        onLoadEnd={() => {
+          apply();
+          if (!readyRef.current) {
+            readyRef.current = true;
+            setReady(true);
+            onReady?.();
+            console.log(`QBOT_TIMING kb-ready ${Date.now() - (started.current || kbClock)}`);
+          }
+        }}
         onMessage={(e: Ev) => {
           try {
             const msg = JSON.parse(e.nativeEvent.data || "{}") as { type?: string; handled?: boolean };
@@ -112,6 +132,9 @@ export const WebPane = forwardRef<WebPaneHandle, {
         onContentProcessDidTerminate={() => webRef.current?.reload()}
         {...(Platform.OS === "android" ? { onRenderProcessGone: () => { webRef.current?.reload(); return true; } } : {})}
       />
+      {visible && !ready ? (
+        <Text pointerEvents="none" style={{ position: "absolute", top: 16, alignSelf: "center", color: "#8A8781", fontSize: 13, lineHeight: 18 }}>正在打开</Text>
+      ) : null}
     </View>
   );
 });
