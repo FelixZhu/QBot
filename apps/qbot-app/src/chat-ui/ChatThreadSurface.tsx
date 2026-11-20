@@ -15,11 +15,11 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   ActionBarPrimitive,
+  AuiIf,
   ComposerPrimitive,
   ErrorPrimitive,
   MessagePrimitive,
   ThreadPrimitive,
-  useAui,
   useAuiState,
   type ThreadMessage,
 } from "@assistant-ui/react-native";
@@ -84,20 +84,14 @@ function useBottomCover(safeInset: number) {
 }
 
 function Suggestions({ items, colors }: { items: readonly string[]; colors: Palette }) {
-  const aui = useAui();
   if (items.length === 0) return null;
   return (
     <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, paddingHorizontal: 16, paddingTop: 8 }}>
       {items.map((item) => (
-        <Pressable
+        <ThreadPrimitive.Suggestion
           key={item}
-          accessibilityRole="button"
-          onPress={() => {
-            if (aui.thread().getState().isRunning) return;
-            const composer = aui.composer();
-            composer.setText(item);
-            composer.send();
-          }}
+          prompt={item}
+          send
           style={({ pressed }) => ({
             minHeight: 32,
             paddingHorizontal: 10,
@@ -109,22 +103,15 @@ function Suggestions({ items, colors }: { items: readonly string[]; colors: Pale
           })}
         >
           <Text style={{ fontSize: 12, lineHeight: 16, color: colors.muted }}>{item}</Text>
-        </Pressable>
+        </ThreadPrimitive.Suggestion>
       ))}
     </View>
   );
 }
 
 function ChatMessage({ colors }: { colors: Palette }) {
-  const role = useAuiState((s) => s.message.role);
-  const last = useAuiState((s) => s.message.isLast);
-  const status = useAuiState((s) => s.message.status);
-  const hasText = useAuiState((s) => s.message.parts.some((part) => part.type === "text" && part.text.length > 0));
-  const mine = role === "user";
-  const running = status?.type === "running";
-  const stopped = status?.type === "incomplete" && status.reason === "cancelled";
-  const showCopy = hasText && !running && clipboardAvailable();
-  const showRetry = !mine && last && !running && (hasText || status?.type === "incomplete");
+  const mine = useAuiState((s) => s.message.role === "user");
+  const canCopy = clipboardAvailable();
   const actionStyle = { fontSize: 13, lineHeight: 18, color: mine ? colors.bubbleMeText : colors.muted, paddingVertical: 4 };
   return (
     <MessagePrimitive.Root style={{ marginBottom: 18, alignItems: mine ? "flex-end" : "stretch" }}>
@@ -142,36 +129,34 @@ function ChatMessage({ colors }: { colors: Palette }) {
             <MarkdownBody text={part.text} colors={colors} />
           )}
         />
-        {!mine && running && !hasText ? (
+        <AuiIf condition={(s) => {
+          const hasText = s.message.parts.some((part) => part.type === "text" && part.text.length > 0);
+          return s.message.role === "assistant" && s.message.status?.type === "running" && !hasText;
+        }}>
           <Text accessibilityLiveRegion="polite" style={{ color: colors.muted, fontSize: 16, lineHeight: 24 }}>正在回复</Text>
-        ) : null}
-        {!mine && stopped ? (
+        </AuiIf>
+        <AuiIf condition={(s) => s.message.role === "assistant" && s.message.status?.type === "incomplete" && s.message.status.reason === "cancelled"}>
           <Text style={{ marginTop: 6, color: colors.muted, fontSize: 13, lineHeight: 18 }}>已停止</Text>
-        ) : null}
+        </AuiIf>
         <ErrorPrimitive.Root style={{ marginTop: 6 }}>
           <ErrorPrimitive.Message style={{ color: colors.accent, fontSize: 13, lineHeight: 18 }} />
         </ErrorPrimitive.Root>
-        {showCopy || showRetry ? (
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 14, marginTop: 4 }}>
-            {showCopy ? (
-              <ActionBarPrimitive.Copy copyToClipboard={copyText} accessibilityLabel="复制消息" hitSlop={6}>
-                {({ isCopied }) => <Text style={actionStyle}>{isCopied ? "已复制" : "复制"}</Text>}
-              </ActionBarPrimitive.Copy>
-            ) : null}
-            {showRetry ? (
-              <ActionBarPrimitive.Reload accessibilityLabel="重试" hitSlop={6}>
-                <Text style={actionStyle}>重试</Text>
-              </ActionBarPrimitive.Reload>
-            ) : null}
-          </View>
-        ) : null}
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 14, marginTop: 4 }}>
+          {canCopy ? (
+            <ActionBarPrimitive.Copy copyToClipboard={copyText} accessibilityLabel="复制消息" hitSlop={6}>
+              {({ disabled, isCopied }) => disabled ? null : <Text style={actionStyle}>{isCopied ? "已复制" : "复制"}</Text>}
+            </ActionBarPrimitive.Copy>
+          ) : null}
+          <ActionBarPrimitive.Reload accessibilityLabel="重试" hitSlop={6}>
+            {({ disabled }) => disabled ? null : <Text style={actionStyle}>重试</Text>}
+          </ActionBarPrimitive.Reload>
+        </View>
       </View>
     </MessagePrimitive.Root>
   );
 }
 
 function ComposerBar({ colors }: { colors: Palette }) {
-  const running = useAuiState((s) => s.thread.isRunning);
   const canSend = useAuiState((s) => s.composer.canSend);
   const button = {
     width: 44,
@@ -219,11 +204,12 @@ function ComposerBar({ colors }: { colors: Palette }) {
           lineHeight: 22,
         }}
       />
-      {running ? (
+      <AuiIf condition={(s) => s.thread.isRunning}>
         <ComposerPrimitive.Cancel accessibilityLabel="停止生成" style={({ pressed }) => ({ ...button, opacity: pressed ? 0.75 : 1 })}>
           <View style={{ width: 12, height: 12, borderRadius: 2, backgroundColor: colors.bubbleMeText }} />
         </ComposerPrimitive.Cancel>
-      ) : (
+      </AuiIf>
+      <AuiIf condition={(s) => !s.thread.isRunning}>
         <ComposerPrimitive.Send
           accessibilityLabel="发送"
           style={({ pressed }) => ({
@@ -234,7 +220,7 @@ function ComposerBar({ colors }: { colors: Palette }) {
         >
           <Text style={{ color: colors.bubbleMeText, fontSize: 18, lineHeight: 22, fontWeight: "700" }}>↑</Text>
         </ComposerPrimitive.Send>
-      )}
+      </AuiIf>
     </ComposerPrimitive.Root>
   );
 }
