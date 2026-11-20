@@ -19,7 +19,17 @@ appId: io.github.felixzhu.qiandrive
 - takeScreenshot:
     path: light-md-streaming
 - extendedWaitUntil:
-    visible: "第五格"
+    visible: "回复，或按住说话"
+    timeout: 20000
+- runFlow:
+    when:
+      visible: "回到底部"
+    commands:
+      - tapOn: "回到底部"
+- scrollUntilVisible:
+    element:
+      text: "第五格"
+    direction: DOWN
     timeout: 15000
 - assertVisible: "说明"
 - takeScreenshot:
@@ -43,7 +53,17 @@ appId: io.github.felixzhu.qiandrive
 - takeScreenshot:
     path: dark-md-streaming
 - extendedWaitUntil:
-    visible: "第五格"
+    visible: "回复，或按住说话"
+    timeout: 20000
+- runFlow:
+    when:
+      visible: "回到底部"
+    commands:
+      - tapOn: "回到底部"
+- scrollUntilVisible:
+    element:
+      text: "第五格"
+    direction: DOWN
     timeout: 15000
 - takeScreenshot:
     path: dark-md-done
