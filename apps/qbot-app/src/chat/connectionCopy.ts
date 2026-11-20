@@ -2,7 +2,7 @@ import type { ConnectionView } from "./serverSession.ts";
 import type { ServerSession } from "./serverClient.ts";
 
 export function listSubtitle(view: ConnectionView): string {
-  if (view.phase === "unconfigured") return "演示，没有接通真实助手";
+  if (view.phase === "unconfigured") return "点第一行「真实对话」填写地址和访问令牌。下面三条是演示。";
   if (view.phase === "checking") return "正在核对服务器。演示会话仍在本机。";
   if (view.phase === "error") return `真实对话没有连上：${view.message.slice(0, 80)}。演示会话仍在本机。`;
   if (view.session.upstream === "fixture") return "服务器声明这是测试夹具，不是真实模型。演示会话仍在本机。";

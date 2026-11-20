@@ -10,7 +10,8 @@ export function parseServerOrigin(input: string): string {
   }
   if (url.username || url.password) throw new Error("不要把令牌写进地址");
   if (url.search || url.hash) throw new Error("地址不能带查询参数");
-  if (url.pathname !== "/" && url.pathname !== "") throw new Error("只填写服务器根地址");
+  const path = url.pathname.replace(/\/+$/, "") || "/";
+  if (path !== "/" && path !== "/health" && !path.startsWith("/v1/")) throw new Error("只填写服务器根地址");
   const host = url.hostname.toLowerCase();
   if (url.protocol === "https:") return url.origin;
   if (url.protocol === "http:" && LOOPBACK.has(host)) return url.origin;

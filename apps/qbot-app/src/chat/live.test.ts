@@ -19,6 +19,9 @@ const OWNER = "00000000-0000-4000-8000-000000000001";
 
 test("server addresses reject public HTTP and keep the token out of plain storage", async () => {
   assert.equal(parseServerOrigin("https://chat.example/"), "https://chat.example");
+  assert.equal(parseServerOrigin("https://chat.example/health"), "https://chat.example");
+  assert.equal(parseServerOrigin("https://chat.example/v1/session"), "https://chat.example");
+  assert.throws(() => parseServerOrigin("https://chat.example/other"), /根地址/);
   assert.equal(parseServerOrigin("http://127.0.0.1:8787"), "http://127.0.0.1:8787");
   assert.equal(parseServerOrigin("http://10.0.2.2:8787"), "http://10.0.2.2:8787");
   assert.throws(() => parseServerOrigin("http://example.com"), /HTTPS/);

@@ -22,7 +22,7 @@ appId: io.github.felixzhu.qiandrive
           timeout: 3000
           optional: true
 - assertVisible: "搜索对话"
-- assertVisible: "演示，没有接通真实助手"
+- assertVisible: "点第一行「真实对话」填写地址和访问令牌。下面三条是演示。"
 - assertVisible: "Info Bot，演示"
 - assertVisible: "English Bot，演示"
 - assertVisible: "Study Bot，演示"

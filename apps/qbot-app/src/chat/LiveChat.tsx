@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { KeyboardAvoidingView, Platform, Pressable, Text, TextInput, View } from "react-native";
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { AssistantRuntimeProvider, useLocalRuntime } from "@assistant-ui/react-native";
 import { ChatThreadSurface } from "../chat-ui";
 import { liveBadge, liveNote } from "./connectionCopy";
@@ -44,7 +44,14 @@ export function LiveChat({
       {view.phase === "ready" && !editing ? (
         <LiveThread colors={colors} view={view} onEdit={() => setEditing(true)} />
       ) : (
-        <ServerForm colors={colors} view={view} onSave={onSave} onClear={onClear} onClose={view.phase === "ready" ? () => setEditing(false) : undefined} />
+        <ServerForm
+          colors={colors}
+          view={view}
+          onSave={onSave}
+          onClear={onClear}
+          onConnected={() => setEditing(false)}
+          onClose={view.phase === "ready" ? () => setEditing(false) : undefined}
+        />
       )}
     </View>
   );
@@ -55,12 +62,14 @@ function ServerForm({
   view,
   onSave,
   onClear,
+  onConnected,
   onClose,
 }: {
   colors: Palette;
   view: ConnectionView;
   onSave: (url: string, token: string) => Promise<void>;
   onClear: () => Promise<void>;
+  onConnected: () => void;
   onClose?: () => void;
 }) {
   const [url, setUrl] = useState(view.phase === "ready" ? view.origin : "");
@@ -68,9 +77,10 @@ function ServerForm({
   const [localError, setLocalError] = useState<string | null>(view.phase === "error" ? view.message : null);
   const [saving, setSaving] = useState(false);
   return (
-    <KeyboardAvoidingView style={{ flex: 1, padding: 16 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+      <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: 16, paddingBottom: 32 }}>
       <Text style={{ fontSize: 14, lineHeight: 22, color: colors.muted }}>
-        令牌存在这台设备的安全存储里，不写入普通本地存储。模型密钥只在服务器上。真实地址必须是 HTTPS。本机回环可以用于隧道或模拟器。
+        访问令牌由服务器管理员另行给你，不要写进对话。它只进这台设备的安全存储。模型密钥只在服务器上。地址填 HTTPS 根地址；如果粘贴了 /health，也会按根地址连接。
       </Text>
       <TextInput
         value={url}
@@ -102,14 +112,17 @@ function ServerForm({
         onPress={() => {
           setSaving(true);
           setLocalError(null);
-          void onSave(url, token).then(() => setSaving(false)).catch((error: unknown) => {
+          void onSave(url, token).then(() => {
+            setSaving(false);
+            onConnected();
+          }).catch((error: unknown) => {
             setSaving(false);
             setLocalError(error instanceof Error ? error.message : "无法连接服务器");
           });
         }}
         style={{ marginTop: 16, minHeight: 44, borderRadius: 12, alignItems: "center", justifyContent: "center", backgroundColor: colors.bubbleMe }}
       >
-        <Text style={{ color: colors.bubbleMeText, fontWeight: "700" }}>保存</Text>
+        <Text style={{ color: colors.bubbleMeText, fontWeight: "700" }}>连接并进入对话</Text>
       </Pressable>
       {view.phase === "ready" || view.phase === "error" ? (
         <Pressable accessibilityRole="button" accessibilityLabel="清除服务器" onPress={() => { void onClear(); }} style={{ marginTop: 12, minHeight: 44, alignItems: "center", justifyContent: "center" }}>
@@ -121,6 +134,7 @@ function ServerForm({
           <Text style={{ color: colors.text }}>返回对话</Text>
         </Pressable>
       ) : null}
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 }
