@@ -48,8 +48,11 @@ adb shell cmd overlay enable com.android.internal.systemui.navbar.threebutton ||
 adb shell cmd uimode night no || true
 # A hardware keyboard hides the soft keyboard. The chat check needs the IME on screen.
 adb shell settings put secure show_ime_with_hard_keyboard 1 || true
-adb shell "mkdir -p /sdcard/Download && printf '%s\n' 'local-only' > /sdcard/Download/qbot-local.txt"
-adb shell am broadcast -a android.intent.action.MEDIA_SCANNER_SCAN_FILE -d file:///sdcard/Download/qbot-local.txt >/dev/null || true
+# Scoped storage often rejects a shell redirect. A failed push must not stop the run.
+printf '%s\n' 'local-only' > "$OUT/qbot-local.txt"
+adb shell mkdir -p /sdcard/Download >/dev/null 2>&1 || true
+adb push "$OUT/qbot-local.txt" /sdcard/Download/qbot-local.txt >/dev/null 2>&1 || true
+adb shell am broadcast -a android.intent.action.MEDIA_SCANNER_SCAN_FILE -d file:///sdcard/Download/qbot-local.txt >/dev/null 2>&1 || true
 
 if ! curl -sf http://127.0.0.1:8081/status >/dev/null; then
   echo "starting metro"
