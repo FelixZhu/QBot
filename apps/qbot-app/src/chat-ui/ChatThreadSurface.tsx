@@ -188,6 +188,7 @@ function ChatMessage() {
   const caption = sourceCaption(parts);
   const canCopy = clipboardAvailable();
   const [copied, setCopied] = useState(false);
+  const [copyLabel, setCopyLabel] = useState("复制");
   const [vote, setVote] = useState<"up" | "down" | null>(null);
   useEffect(() => {
     if (!copied) return;
@@ -195,11 +196,20 @@ function ChatMessage() {
     return () => clearTimeout(timer);
   }, [copied]);
   const copyAll = () => {
-    if (!text) return;
+    if (!text) {
+      setCopyLabel("没有可复制的文字");
+      return;
+    }
     copyText(text).then(() => {
       setCopied(true);
+      setCopyLabel("已复制到剪贴板");
       notice(COPY_TOAST);
-    }, () => notice("没有复制成功"));
+      setTimeout(() => setCopyLabel("复制"), 30000);
+    }, () => {
+      setCopyLabel("没有复制成功");
+      notice("没有复制成功");
+      setTimeout(() => setCopyLabel("复制"), 30000);
+    });
   };
   const share = () => {
     if (!text) return;
@@ -238,7 +248,7 @@ function ChatMessage() {
           <View style={{ marginTop: 12, gap: 8 }}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 18 }}>
               {canCopy ? (
-                <Pressable onPress={copyAll} accessibilityRole="button" accessibilityLabel={copied ? "已复制" : "复制"} hitSlop={8}>
+                <Pressable onPress={copyAll} accessibilityRole="button" accessibilityLabel={copyLabel} hitSlop={8}>
                   <ChatMark name={copied ? "check" : "copy"} color={copied ? chrome.check : chrome.icon} />
                 </Pressable>
               ) : null}
