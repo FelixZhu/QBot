@@ -147,6 +147,7 @@ check_status=0
 maestro test --no-ansi --format junit --output "$OUT/light-junit.xml" \
   --test-output-dir "$OUT/light" \
   "$APP/e2e/maestro/light.yaml" || light_status=$?
+adb logcat -d | grep "QBOT_TIMING" > "$OUT/timing-light.txt" || true
 # The light run filled the cache. Hold the next history read so 同步中 stays on screen.
 curl -sf -X POST http://127.0.0.1:8799/e2e/hold || true
 maestro test --no-ansi --format junit --output "$OUT/syncing-junit.xml" \
