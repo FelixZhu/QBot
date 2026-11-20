@@ -235,18 +235,22 @@ test("streaming HTTP reads a local fake server and no other host", { timeout: 10
   ]);
 });
 
-test("demos stay local and the live path does not invent a model reply", () => {
+test("the home is one Qbot row and the live path does not invent a model reply", () => {
   const root = new URL("../", import.meta.url);
   const read = (name: string) => readFileSync(new URL(name, root), "utf8");
   const pane = read("ChatPane.tsx");
-  assert.match(pane, /createLocalTransport/);
+  assert.match(pane, /Qbot/);
+  assert.equal(pane.includes("Info Bot"), false);
+  assert.equal(pane.includes("createLocalTransport"), false);
   assert.equal(pane.includes("createHttpStreamTransport"), false);
-  assert.match(pane, /没有接通真实助手/);
-  assert.match(pane, /留在这台设备上/);
   const live = read("chat/LiveChat.tsx");
   assert.equal(live.includes("createLocalTransport"), false);
   assert.equal(live.includes("localReply"), false);
   assert.match(live, /createServerChatTransport/);
+  assert.match(live, /连接码/);
+  assert.match(live, /ChatThreadSurface/);
+  const app = read("../App.tsx");
+  assert.equal(app.includes("findDemo"), false);
   const files = [
     "ChatPane.tsx",
     "demos.ts",

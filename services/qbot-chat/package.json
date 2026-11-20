@@ -10,6 +10,8 @@
     "start": "node --experimental-strip-types src/main.ts",
     "migrate": "node --experimental-strip-types src/migrate.ts",
     "check-db": "node --experimental-strip-types src/check-db.ts",
+    "device-code": "node --experimental-strip-types src/device-code.ts",
+    "device-revoke": "node --experimental-strip-types src/device-revoke.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "node --experimental-strip-types --test test/context.test.ts test/dsh-profile.test.ts test/server.test.ts test/scan-secrets.ts"
   },

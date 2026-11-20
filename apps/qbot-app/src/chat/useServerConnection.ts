@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   clearConnection,
-  connectServer,
+  enrollWithSetup,
   restoreConnection,
   type ConnectionView,
   type SecretStore,
@@ -17,10 +17,10 @@ export function useServerConnection(deps: { secrets: SecretStore; settings: Sett
   useEffect(() => {
     void reload();
   }, [reload]);
-  const save = useCallback(async (url: string, token: string) => {
+  const enroll = useCallback(async (setup: string) => {
     setView({ phase: "checking" });
     try {
-      setView(await connectServer({ ...deps, url, token }));
+      setView(await enrollWithSetup({ ...deps, setup }));
     } catch (error) {
       const message = error instanceof Error ? error.message : "无法连接服务器";
       setView({ phase: "error", message });
@@ -31,5 +31,5 @@ export function useServerConnection(deps: { secrets: SecretStore; settings: Sett
     await clearConnection(deps.secrets, deps.settings);
     setView({ phase: "unconfigured" });
   }, [deps.secrets, deps.settings]);
-  return { view, save, clear, reload };
+  return { view, enroll, clear, reload };
 }

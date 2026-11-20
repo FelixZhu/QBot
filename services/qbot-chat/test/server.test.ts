@@ -1,14 +1,17 @@
 import assert from "node:assert/strict";
+import { randomBytes } from "node:crypto";
 import path from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
+import { tokenDigest } from "../src/auth.ts";
 import { loadConfig } from "../src/config.ts";
 import { createPool } from "../src/db.ts";
 import { applyMigrations } from "../src/migrate.ts";
 import { SERVER_PERSONA } from "../src/runtime/persona.ts";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { createDshEngine, openaiBase } from "../src/runtime/dsh.ts";
+import { createDshEngine, openaiBase, type ConversationEngine } from "../src/runtime/dsh.ts";
+import { encodeSetup, issueSetupCode } from "../src/setup-code.ts";
 import { assessDatabase, assessmentProblems } from "../src/check-db.ts";
 import { startChatServer } from "../src/server.ts";
 import { createStore } from "../src/store.ts";
@@ -17,6 +20,76 @@ import { startFixture, readSse, type FixtureHit } from "./fixture-upstream.ts";
 const TOKEN = "qbot-fixture-token-not-a-secret";
 const OWNER = "00000000-0000-4000-8000-000000000001";
 const OTHER = "00000000-0000-4000-8000-000000000002";
+
+test("a one-time code becomes a revocable device credential", async () => {
+  const runtimeUrl = requiredEnv("DATABASE_URL");
+  const migrateUrl = requiredEnv("DATABASE_MIGRATE_URL");
+  const directory = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "migrations");
+  await applyMigrations({ runtimeUrl, migrateUrl, directory });
+  const config = loadConfig({
+    ...process.env,
+    DATABASE_URL: runtimeUrl,
+    QBOT_OWNER_ID: OWNER,
+    QBOT_ACCESS_TOKEN: TOKEN,
+    OPENROUTER_API_KEY: "fixture-openrouter-key-not-a-secret",
+    HOST: "127.0.0.1",
+    PORT: "0",
+    QBOT_FIXTURE_UPSTREAM: "1",
+    QBOT_FIXTURE_UPSTREAM_URL: "http://127.0.0.1:9/v1/chat/completions",
+  });
+  const pool = createPool(runtimeUrl);
+  const store = createStore(pool);
+  const runtime = { engine: "dsh", id: "fixture", run() { throw new Error("unused"); }, async close() {} } as ConversationEngine;
+  const started = await startChatServer({ config, store, runtime });
+  try {
+    const origin = `http://127.0.0.1:${started.port}`;
+    const setup = await issueSetupCode(store, origin);
+    const code = codeFrom(setup);
+    const first = await fetch(`${origin}/v1/enroll`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({ code }),
+    });
+    const raw = await first.text();
+    assert.equal(first.status, 200);
+    assert.equal(raw.includes(TOKEN), false);
+    assert.equal(raw.includes(code), false);
+    const body = JSON.parse(raw) as { token?: string; deviceId?: string };
+    assert.equal(typeof body.token, "string");
+    assert.notEqual(body.token, TOKEN);
+    const session = await fetch(`${origin}/v1/session`, { headers: { Authorization: `Bearer ${body.token}` } });
+    assert.equal(session.status, 200);
+    const owner = await fetch(`${origin}/v1/session`, { headers: { Authorization: `Bearer ${TOKEN}` } });
+    assert.equal(owner.status, 200);
+    const again = await fetch(`${origin}/v1/enroll`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code }),
+    });
+    assert.equal(again.status, 401);
+    const expiredCode = randomBytes(32).toString("base64url");
+    await store.createEnrollment(tokenDigest(expiredCode), new Date(Date.now() - 1000));
+    const expired = await fetch(`${origin}/v1/enroll`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code: expiredCode }),
+    });
+    assert.equal(expired.status, 401);
+    assert.equal(await store.revokeDevice(body.deviceId ?? ""), true);
+    const revoked = await fetch(`${origin}/v1/session`, { headers: { Authorization: `Bearer ${body.token}` } });
+    assert.equal(revoked.status, 401);
+    const garbage = await fetch(`${origin}/v1/enroll`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code: "nope" }),
+    });
+    assert.equal(garbage.status, 400);
+    assert.equal(encodeSetup("https://chat.example", expiredCode).startsWith("qbot1."), true);
+  } finally {
+    await started.close();
+    await pool.end();
+  }
+});
 
 test("authenticated SSE persists a server-owned run and reloads it", { timeout: 180_000 }, async () => {
   const runtimeUrl = requiredEnv("DATABASE_URL");
@@ -183,6 +256,12 @@ test("authenticated SSE persists a server-owned run and reloads it", { timeout: 
     await migratePool.end();
   }
 });
+
+function codeFrom(setup: string): string {
+  const parsed = JSON.parse(Buffer.from(setup.slice("qbot1.".length), "base64url").toString("utf8")) as { c?: string };
+  if (typeof parsed.c !== "string") throw new Error("setup code missing");
+  return parsed.c;
+}
 
 function requiredEnv(name: string): string {
   const value = process.env[name];

@@ -90,9 +90,28 @@ npm start
 
 An example unit is [`deploy/qbot-chat.service`](deploy/qbot-chat.service). Replace `ExecStart` with the absolute path of Node >= 24.9, not the Node 22 binary already on the host. Replace `After=` with the PostgreSQL unit that is already running. Set `QBOT_DSH_HOME` in the environment file to a mode 700 directory. Do not put `OPENROUTER_API_KEY` in the app or in git.
 
+## Phone connection
+
+The app home is one row, Qbot. Opening it shows the composer immediately. An empty phone cannot call the model until it redeems a one-time setup code. The code is not the operator token, and it is not written into the app, an OTA bundle, or this repository.
+
+On the server, after migrate, with the mode 600 env file loaded and `QBOT_PUBLIC_ORIGIN` set to the existing HTTPS origin:
+
+```bash
+npm run device-code
+```
+
+The command prints one line to the terminal. Give that line to the phone once. It expires in 15 minutes and works once. The phone exchanges it for a device credential stored on the device. List device ids, then revoke one:
+
+```bash
+npm run device-revoke
+npm run device-revoke -- <device-id>
+```
+
+The list prints ids only. Revoke prints `revoked` or `not found`. Neither prints a token.
+
 ## Verify on the server
 
-PostgreSQL and this process stay on `127.0.0.1`. Do not publish 5432 or 8787. The phone uses the trusted HTTPS front door that is already in front of this process. Type that origin into the app. This repository does not record that name.
+PostgreSQL and this process stay on `127.0.0.1`. Do not publish 5432 or 8787. The phone reaches the existing HTTPS front door through the one-time setup code. This repository does not record that name.
 
 On the server:
 
@@ -100,15 +119,15 @@ On the server:
 curl -fsS http://127.0.0.1:8787/health
 ```
 
-The body is `{"ok":true,"model":"deepseek/deepseek-v4.1-flash-1017"}`. It has no key and no access token.
+The body is `{"ok":true,"postgres":"up"}`. It has no key and no access token.
 
 ```bash
 curl -sS -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8787/v1/session
 ```
 
-That code is `401`. A request with `Authorization: Bearer` and the server token returns `200` and JSON with `model` and `upstream`. The JSON has no API key. Do not put the token in the shell history if the host records it; read it from the mode 600 env file inside the same command.
+That code is `401`. A request with `Authorization: Bearer` and either the operator token or a device token returns `200` and JSON with `model` and `upstream`. The JSON has no API key. Do not put either token in the shell history if the host records it.
 
-From the phone, open the same `/health` URL on the existing HTTPS origin. The certificate must already be trusted by the phone. The app accepts only `https://` for a non-loopback address.
+The phone's certificate must already be trusted. A non-loopback address inside a setup code must be `https://`.
 
 ## Tests
 

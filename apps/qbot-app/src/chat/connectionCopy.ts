@@ -1,31 +1,18 @@
 import type { ConnectionView } from "./serverSession.ts";
-import type { ServerSession } from "./serverClient.ts";
-
-export function listSubtitle(view: ConnectionView): string {
-  if (view.phase === "unconfigured") return "点第一行「真实对话」填写地址和访问令牌。下面三条是演示。";
-  if (view.phase === "checking") return "正在核对服务器。演示会话仍在本机。";
-  if (view.phase === "error") return `真实对话没有连上：${view.message.slice(0, 80)}。演示会话仍在本机。`;
-  if (view.session.upstream === "fixture") return "服务器声明这是测试夹具，不是真实模型。演示会话仍在本机。";
-  return "已连接服务器。演示会话仍在本机。";
-}
-
-export function liveRowLabel(view: ConnectionView): string {
-  if (view.phase === "unconfigured") return "真实对话，未连接";
-  if (view.phase === "checking") return "真实对话，正在连接";
-  if (view.phase === "error") return "真实对话，连接失败";
-  return view.session.upstream === "fixture" ? "真实对话，测试夹具" : "真实对话，已连接";
-}
 
 export function liveBadge(view: ConnectionView): string {
   if (view.phase === "ready") return view.session.upstream === "fixture" ? "测试夹具" : "已连接";
   if (view.phase === "checking") return "正在连接";
-  if (view.phase === "error") return "失败";
+  if (view.phase === "error") return "未连接";
   return "未连接";
 }
 
-export function liveNote(session: ServerSession): string {
-  if (session.upstream === "fixture") {
-    return `服务器声明这是测试夹具，不是真实模型。配置的模型名是 ${session.model}，这次没有调用它。`;
+export function liveNote(view: ConnectionView): string {
+  if (view.phase === "ready" && view.session.upstream === "fixture") {
+    return `服务器声明这是测试夹具，不是真实模型。配置的模型名是 ${view.session.model}，这次没有调用它。`;
   }
-  return `已连接。模型由服务器指定为 ${session.model}。`;
+  if (view.phase === "ready") return `已连接。模型由服务器指定为 ${view.session.model}。`;
+  if (view.phase === "error") return view.message;
+  if (view.phase === "checking") return "正在核对连接码。";
+  return "这台设备还没有连接。把管理员给你的一次连接码贴在下面，不要把令牌写进对话。";
 }

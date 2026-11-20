@@ -9,26 +9,25 @@ appId: io.github.felixzhu.qiandrive
 - takeScreenshot:
     path: light-chat-home
 
-- tapOn: "Info Bot，演示"
+- tapOn: "Qbot"
 - extendedWaitUntil:
-    visible: "返回会话列表"
+    visible: "发消息"
     timeout: 20000
-- assertVisible: "演示会话，没有接通 Info Bot。下面是虚构示例，不是新闻、引用、日期或价格。"
+- assertVisible: "连接码"
 - takeScreenshot:
-    path: light-demo-thread
+    path: light-qbot-thread
 - tapOn: "返回会话列表"
 - extendedWaitUntil:
-    visible: "搜索对话"
+    visible: "Qbot"
     timeout: 20000
 - assertNotVisible: "返回会话列表"
-- assertVisible: "Info Bot，演示"
 
 # 底栏在安全区上方。用坐标点标签，避免无障碍树里父节点和文字各算一个。
 - tapOn:
     point: "50%,93%"
     retryTapIfNoChange: true
 - extendedWaitUntil:
-    notVisible: "搜索对话"
+    notVisible: "Qbot"
     timeout: 20000
 - extendedWaitUntil:
     visible: "追加进上下文"
@@ -223,7 +222,7 @@ appId: io.github.felixzhu.qiandrive
 - extendedWaitUntil:
     visible: "最近更新"
     timeout: 60000
-- assertNotVisible: "搜索对话"
+- assertNotVisible: "Qbot"
 - takeScreenshot:
     path: light-kb
 
@@ -231,8 +230,8 @@ appId: io.github.felixzhu.qiandrive
     point: "17%,93%"
     retryTapIfNoChange: true
 - extendedWaitUntil:
-    visible: "搜索对话"
+    visible: "Qbot"
     timeout: 20000
-- assertVisible: "Info Bot，演示"
+- assertNotVisible: "Info Bot，演示"
 - takeScreenshot:
     path: light-chat-return

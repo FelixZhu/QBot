@@ -15,14 +15,13 @@ import {
 import { StatusBar } from "expo-status-bar";
 import { setBackgroundColorAsync } from "expo-system-ui";
 import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context";
-import { ChatEmpty, ChatList, ChatThread } from "./src/ChatPane";
+import { ChatEmpty, ChatList } from "./src/ChatPane";
 import { LiveChat } from "./src/chat/LiveChat";
-import { listSubtitle, liveBadge, liveRowLabel } from "./src/chat/connectionCopy";
+import { liveBadge } from "./src/chat/connectionCopy";
 import { deviceSecretStorage } from "./src/chat/deviceSecret";
 import { deviceServerSettings } from "./src/chat/deviceSettings";
 import { useServerConnection } from "./src/chat/useServerConnection";
 import { BookIcon, BubbleIcon, StarIcon } from "./src/TabIcons";
-import { findDemo, type DemoId } from "./src/demos";
 import { isSplit, listPaneWidth, palette, resolveScheme } from "./src/theme";
 import { LessonFeed } from "./src/feed/LessonFeed";
 import { pullUpdate } from "./src/updates";
@@ -30,7 +29,6 @@ import { WebPane, type WebPaneHandle } from "./src/WebPane";
 import * as Updates from "expo-updates";
 
 type Tab = "chat" | "feed" | "kb";
-type OpenThread = { kind: "demo"; id: DemoId } | { kind: "live" } | null;
 const EXIT_CONFIRM_MS = 2000;
 const TAB_HEIGHT = 60;
 const TAB_AMBER = "#F5A623";
@@ -55,15 +53,13 @@ function Shell() {
   const feedBack = useRef<() => boolean>(() => false);
   const lastExit = useRef(0);
   const [tab, setTab] = useState<Tab>("chat");
-  const [thread, setThread] = useState<OpenThread>(null);
+  const [thread, setThread] = useState(false);
   const connection = useServerConnection({ secrets: deviceSecretStorage, settings: deviceServerSettings });
-  const [query, setQuery] = useState("");
   const [keyboard, setKeyboard] = useState(false);
   const [webReady, setWebReady] = useState(false);
   const [coverTabs, setCoverTabs] = useState(false);
   const tabOpacity = useRef(new Animated.Value(1)).current;
-  const demo = thread?.kind === "demo" ? findDemo(thread.id) : null;
-  const live = thread?.kind === "live";
+  const live = thread;
 
   useEffect(() => {
     setBackgroundColorAsync(colors.canvas).catch(() => {});
@@ -124,7 +120,7 @@ function Shell() {
     if (Platform.OS !== "android") return;
     const sub = BackHandler.addEventListener("hardwareBackPress", () => {
       if (tab === "chat" && thread) {
-        setThread(null);
+        setThread(false);
         return true;
       }
       if (tab === "feed" && feedBack.current()) return true;
@@ -145,8 +141,8 @@ function Shell() {
   };
 
   const showTabs = !(keyboard && tab === "chat");
-  const showList = tab === "chat" && (split || (!demo && !live));
-  const showThread = tab === "chat" && (split || !!demo || !!live);
+  const showList = tab === "chat" && (split || !live);
+  const showThread = tab === "chat" && (split || live);
 
   const feedOn = tab === "feed" || coverTabs;
   return (
@@ -167,29 +163,21 @@ function Shell() {
           <View style={split ? { width: listWidth, borderRightWidth: 1, borderRightColor: colors.line } : { flex: 1 }}>
             <ChatList
               colors={colors}
-              query={query}
-              onQuery={setQuery}
-              selected={thread?.kind === "demo" ? thread.id : null}
-              onOpen={(id) => setThread({ kind: "demo", id })}
-              subtitle={listSubtitle(connection.view)}
-              liveLabel={liveRowLabel(connection.view)}
-              liveBadge={liveBadge(connection.view)}
-              liveSelected={live}
-              onOpenLive={() => setThread({ kind: "live" })}
+              badge={liveBadge(connection.view)}
+              selected={live}
+              onOpen={() => setThread(true)}
             />
           </View>
         ) : null}
         {showThread ? (
           <View style={{ flex: 1, minWidth: 0 }}>
-            {demo ? (
-              <ChatThread demo={demo} colors={colors} showBack={!split} onBack={() => setThread(null)} />
-            ) : live ? (
+            {live ? (
               <LiveChat
                 colors={colors}
                 showBack={!split}
-                onBack={() => setThread(null)}
+                onBack={() => setThread(false)}
                 view={connection.view}
-                onSave={connection.save}
+                onEnroll={connection.enroll}
                 onClear={connection.clear}
               />
             ) : (
