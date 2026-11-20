@@ -47,6 +47,9 @@ jobs:
           REVOKE ALL ON DATABASE qbot FROM PUBLIC;
           GRANT CONNECT, TEMPORARY ON DATABASE qbot TO qbot;
           SQL
+          PGPASSWORD=postgres psql -h 127.0.0.1 -U postgres -d qbot -v ON_ERROR_STOP=1 <<'SQL'
+          ALTER SCHEMA public OWNER TO qbot;
+          SQL
 
       - name: Chat server
         working-directory: services/qbot-chat

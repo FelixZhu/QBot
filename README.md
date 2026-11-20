@@ -85,10 +85,10 @@ npx expo start
 ```bash
 python3 apps/qbot-app/preflight_home.py
 cd apps/qbot-app
-npx eas-cli@latest build -p android --profile preview --non-interactive
+npx eas-cli@latest build -p android --profile preview --non-interactive --freeze-credentials
 ```
 
-`eas.json` 只有 `preview` APK。这条命令使用 Expo 上已有的签名。
+`eas.json` 只有 `preview` APK。`--freeze-credentials` 使用 Expo 上已有的签名，缺签名就失败，不新建密钥库。
 
 ## 验证
 

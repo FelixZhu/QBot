@@ -39,7 +39,7 @@ npx expo export --platform android --output-dir /tmp/qbot-android-export
 打包正式 APK 需要原来的上传签名。不要把密钥库或打包令牌写进仓库。付费的 EAS 构建不在这一版里触发：
 
 ```bash
-npx eas-cli@latest build -p android --profile preview --non-interactive
+npx eas-cli@latest build -p android --profile preview --non-interactive --freeze-credentials
 ```
 
 `eas.json` 使用 `appVersionSource: local`，版本号以 `app.json` 为准。不要把 `node_modules`、`.expo`、APK、日志、密钥库或任何令牌提交上来。

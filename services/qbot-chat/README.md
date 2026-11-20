@@ -68,6 +68,12 @@ Test only: `QBOT_FIXTURE_UPSTREAM=1` and `QBOT_FIXTURE_UPSTREAM_URL` on `127.0.0
 
 ## Commands
 
+On PostgreSQL 15 the `public` schema is not writable by a `NOINHERIT` role, even when that role owns the database. As the local superuser, connected to this database, give the runtime role the schema before migrating. Do not print the passwords:
+
+```sql
+ALTER SCHEMA public OWNER TO qbot;
+```
+
 ```bash
 cd services/qbot-chat
 npm ci
@@ -84,33 +90,25 @@ npm start
 
 An example unit is [`deploy/qbot-chat.service`](deploy/qbot-chat.service). Replace `ExecStart` with the absolute path of Node >= 24.9, not the Node 22 binary already on the host. Replace `After=` with the PostgreSQL unit that is already running. Set `QBOT_DSH_HOME` in the environment file to a mode 700 directory. Do not put `OPENROUTER_API_KEY` in the app or in git.
 
-## Verify without publishing the port
+## Verify on the server
 
-On the server, over an existing SSH session:
+PostgreSQL and this process stay on `127.0.0.1`. Do not publish 5432 or 8787. The phone uses the trusted HTTPS front door that is already in front of this process. Type that origin into the app. This repository does not record that name.
+
+On the server:
 
 ```bash
 curl -fsS http://127.0.0.1:8787/health
 ```
 
-From a computer or phone that can open SSH, forward only loopback. The placeholders are not a host, user, or key path:
+The body is `{"ok":true,"model":"deepseek/deepseek-v4.1-flash-1017"}`. It has no key and no access token.
 
 ```bash
-ssh -N -L 8787:127.0.0.1:8787 <user>@<server>
-curl -fsS http://127.0.0.1:8787/health
+curl -sS -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8787/v1/session
 ```
 
-Point the app at `http://127.0.0.1:8787` only while that forward exists. The HTTP hop stays on the device. Do not put the chat port or PostgreSQL on a public address, and do not enter an `http://` URL that is not loopback. The app refuses those.
+That code is `401`. A request with `Authorization: Bearer` and the server token returns `200` and JSON with `model` and `upstream`. The JSON has no API key. Do not put the token in the shell history if the host records it; read it from the mode 600 env file inside the same command.
 
-## HTTPS, when a name exists
-
-No domain or certificate is configured. When one is:
-
-1. Keep PostgreSQL and this process on `127.0.0.1`.
-2. Allow public TCP 443 only. Do not allow 5432 or 8787 from the internet.
-3. Terminate TLS in Caddy or nginx on the same machine and proxy to `127.0.0.1:8787`.
-4. Set the app address to `https://<that-name>`.
-
-Until that proxy exists, the supported remote check is the SSH local forward above.
+From the phone, open the same `/health` URL on the existing HTTPS origin. The certificate must already be trusted by the phone. The app accepts only `https://` for a non-loopback address.
 
 ## Tests
 
