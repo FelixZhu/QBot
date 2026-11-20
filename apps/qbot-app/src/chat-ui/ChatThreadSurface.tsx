@@ -72,6 +72,8 @@ export type ChatThreadSurfaceProps = {
   /** False while the thread is parked under another tab, so it does not take the back key. */
   active?: boolean;
   onOpenLibrary?: () => void;
+  /** Fixture sessions can drop a local file into the composer. Real servers cannot. */
+  localSample?: boolean;
 };
 
 type ChatActions = {
@@ -337,7 +339,26 @@ function Composer({
     : chromeState.action === "send"
       ? <RoundButton label="发送" background={chrome.send} onPress={send}><ChatMark name="up" color={chrome.onSend} size={18} /></RoundButton>
       : chromeState.action === "held"
-        ? <RoundButton label="附件不能发送" background={chrome.disabled} onPress={() => onNotice(FILES_LOCAL)}><ChatMark name="up" color={chrome.canvas} size={18} /></RoundButton>
+        ? (
+          <Pressable
+            onPress={() => onNotice(FILES_LOCAL)}
+            accessibilityRole="button"
+            accessibilityLabel="附件不能发送"
+            style={({ pressed }) => ({
+              height: 40,
+              paddingHorizontal: 14,
+              borderRadius: 20,
+              alignItems: "center",
+              justifyContent: "center",
+              backgroundColor: chrome.soft,
+              borderWidth: 1,
+              borderColor: chrome.line,
+              opacity: pressed ? 0.8 : 1,
+            })}
+          >
+            <Text style={{ color: chrome.text, fontSize: 13, lineHeight: 18, fontWeight: "600" }}>不能发送</Text>
+          </Pressable>
+        )
         : <RoundButton label="语音模式" background={chrome.disabled} onPress={voice}><ChatMark name="wave" color={chrome.canvas} size={18} /></RoundButton>;
   return (
     <View style={{ paddingHorizontal: 12, paddingTop: 6, paddingBottom: 8, gap: 8 }}>
@@ -460,7 +481,7 @@ function DraftRow({ drafts, chrome, onRemove }: { drafts: readonly DraftAttachme
           </View>
         ))}
       </View>
-      <Text style={{ color: chrome.text, fontSize: 12, lineHeight: 16 }}>{FILES_LOCAL}</Text>
+      <Text style={{ color: chrome.text, fontSize: 13, lineHeight: 18, fontWeight: "600" }}>{FILES_LOCAL}</Text>
     </View>
   );
 }
@@ -472,6 +493,7 @@ function AddSheet({
   onPick,
   onCamera,
   onLibrary,
+  onSample,
 }: {
   visible: boolean;
   chrome: ChatChrome;
@@ -479,6 +501,7 @@ function AddSheet({
   onPick: (kind: "photo" | "file") => void;
   onCamera: () => void;
   onLibrary?: () => void;
+  onSample?: () => void;
 }) {
   const [explained, setExplained] = useState(false);
   const shown = useRef(0);
@@ -523,6 +546,11 @@ function AddSheet({
             </View>
             <ChatMark name="chevron" color={chrome.muted} size={16} />
           </Pressable>
+          {onSample ? (
+            <Pressable onPress={onSample} accessibilityRole="button" accessibilityLabel="放上本地示例" style={({ pressed }) => ({ minHeight: 44, justifyContent: "center", opacity: pressed ? 0.8 : 1 })}>
+              <Text style={{ color: chrome.text, fontSize: 14, lineHeight: 20, fontWeight: "600" }}>放上本地示例</Text>
+            </Pressable>
+          ) : null}
           {explained ? (
             <View style={{ gap: 8 }}>
               <Text style={{ color: chrome.muted, fontSize: 13, lineHeight: 18 }}>{LIBRARY_ONLY}</Text>
@@ -546,6 +574,7 @@ export function ChatThreadSurface({
   bottomSafeArea = "self",
   active = true,
   onOpenLibrary,
+  localSample = false,
 }: ChatThreadSurfaceProps) {
   const chrome = useMemo(() => chatChrome(scheme), [scheme]);
   const reading = useMemo<ReadingStyle>(() => ({
@@ -734,6 +763,7 @@ export function ChatThreadSurface({
             showNotice(LIBRARY_ONLY);
             onOpenLibrary();
           } : undefined}
+          onSample={localSample ? () => onPicked([{ name: "qbot-local.txt", size: 12, mime: "text/plain", preview: null }]) : undefined}
         />
         <SystemFileChooser ref={chooser} onPicked={onPicked} onUnavailable={() => showNotice(PICKER_UNAVAILABLE)} />
       </View>

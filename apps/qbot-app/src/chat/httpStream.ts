@@ -59,18 +59,60 @@ export async function* readAssistantDeltas(response: Response, signal: AbortSign
     ? new AssistantTransportDecoder()
     : new PlainTextDecoder();
   const reader = AssistantStream.fromResponse(response, decoder).getReader();
+  const stop = () => {
+    void reader.cancel().catch(() => {});
+    void response.body?.cancel().catch(() => {});
+  };
+  if (signal.aborted) {
+    stop();
+    throwIfAborted(signal);
+  }
+  const onAbort = () => stop();
+  signal.addEventListener("abort", onAbort);
   try {
     while (true) {
       throwIfAborted(signal);
-      const { done, value } = await reader.read();
+      const { done, value } = await readOrAbort(reader, signal);
       if (done) return;
       const failure = streamError(value);
       if (failure) throw new Error(failure);
       if (isTextDelta(value) && value.textDelta) yield value.textDelta;
     }
   } finally {
+    signal.removeEventListener("abort", onAbort);
     reader.releaseLock();
   }
+}
+
+/** A blocked body read has to reject when stop is pressed, and drop the socket. */
+function readOrAbort(
+  reader: ReadableStreamDefaultReader<AssistantStreamChunk>,
+  signal: AbortSignal,
+): Promise<ReadableStreamReadResult<AssistantStreamChunk>> {
+  if (signal.aborted) return Promise.reject(abortError());
+  return new Promise((resolve, reject) => {
+    const onAbort = () => {
+      void reader.cancel().catch(() => {});
+      reject(abortError());
+    };
+    signal.addEventListener("abort", onAbort, { once: true });
+    reader.read().then(
+      (result) => {
+        signal.removeEventListener("abort", onAbort);
+        resolve(result);
+      },
+      (error: unknown) => {
+        signal.removeEventListener("abort", onAbort);
+        reject(error);
+      },
+    );
+  });
+}
+
+function abortError(): Error {
+  const error = new Error("The operation was aborted.");
+  error.name = "AbortError";
+  return error;
 }
 
 function streamError(value: AssistantStreamChunk): string | null {

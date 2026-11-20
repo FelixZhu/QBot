@@ -236,6 +236,32 @@ test("streaming HTTP reads a local fake server and no other host", { timeout: 10
   ]);
 });
 
+test("an empty cancelled turn reloads as stopped, while a pending one stays unfinished", () => {
+  const cancelled = toRepository([{
+    id: "cancelled-empty",
+    role: "assistant",
+    content: "",
+    status: "cancelled",
+    createdAt: "2026-11-20T00:00:00.000Z",
+  }]);
+  const cancelledMessage = cancelled.messages[0]?.message;
+  assert.equal(cancelledMessage && cancelledMessage.role === "assistant" ? cancelledMessage.status.reason : "", "cancelled");
+  const cancelledText = cancelledMessage?.content[0];
+  assert.equal(cancelledText && cancelledText.type === "text" ? cancelledText.text : "missing", "");
+
+  const pending = toRepository([{
+    id: "pending-empty",
+    role: "assistant",
+    content: "",
+    status: "pending",
+    createdAt: "2026-11-20T00:00:00.000Z",
+  }]);
+  const pendingMessage = pending.messages[0]?.message;
+  assert.equal(pendingMessage && pendingMessage.role === "assistant" ? pendingMessage.status.reason : "", "error");
+  const pendingText = pendingMessage?.content[0];
+  assert.equal(pendingText && pendingText.type === "text" ? pendingText.text : "", "服务器没有完成这条回复。");
+});
+
 test("a cancelled server turn reloads as stopped text, not a generic error", () => {
   const loaded = toRepository([{
     id: "cancelled-1",
