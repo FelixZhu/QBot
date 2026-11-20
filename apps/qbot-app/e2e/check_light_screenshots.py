@@ -23,6 +23,8 @@ REQUIRED = (
     "light-chat-stopped",
     "light-chat-history",
     "light-chat-file",
+    "light-chat-syncing",
+    "light-chat-stale",
     "light-feed-top",
     "light-feed-scrolled-down",
     "light-feed-scrolled-up",

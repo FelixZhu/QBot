@@ -127,6 +127,16 @@ echo "bundle bytes=$(wc -c < "$BUNDLE")"
 
 adb install -r "$APK"
 adb shell appops set io.github.felixzhu.qiandrive SYSTEM_ALERT_WINDOW allow || true
+# Splash is native. Capture it before Maestro replaces the activity.
+adb shell am force-stop io.github.felixzhu.qiandrive || true
+adb shell am start -n io.github.felixzhu.qiandrive/.MainActivity || true
+sleep 0.4
+adb exec-out screencap -p > "$OUT/splash.png" || true
+adb shell input keyevent 3 || true
+sleep 0.5
+adb shell input swipe 540 1900 540 500 250 || true
+sleep 0.8
+adb exec-out screencap -p > "$OUT/launcher.png" || true
 adb shell am force-stop com.google.android.apps.nexuslauncher || true
 adb shell am force-stop com.android.launcher3 || true
 
@@ -137,10 +147,25 @@ check_status=0
 maestro test --no-ansi --format junit --output "$OUT/light-junit.xml" \
   --test-output-dir "$OUT/light" \
   "$APP/e2e/maestro/light.yaml" || light_status=$?
+# The light run filled the cache. Hold the next history read so 同步中 stays on screen.
+curl -sf -X POST http://127.0.0.1:8799/e2e/hold || true
+maestro test --no-ansi --format junit --output "$OUT/syncing-junit.xml" \
+  --test-output-dir "$OUT/light" \
+  "$APP/e2e/maestro/syncing.yaml" || light_status=$?
+curl -sf -X POST http://127.0.0.1:8799/e2e/fail || true
+maestro test --no-ansi --format junit --output "$OUT/stale-junit.xml" \
+  --test-output-dir "$OUT/light" \
+  "$APP/e2e/maestro/stale.yaml" || light_status=$?
+curl -sf -X POST http://127.0.0.1:8799/e2e/ok || true
 maestro test --no-ansi --format junit --output "$OUT/dark-junit.xml" \
   --test-output-dir "$OUT/dark" \
   "$APP/e2e/maestro/dark.yaml" || dark_status=$?
 python3 "$APP/e2e/check_light_screenshots.py" "$OUT" || check_status=$?
+{
+  echo "method: API 34 emulator logcat. QBOT_TIMING is milliseconds after the JS module loaded."
+  echo "cache = cold start that already had AsyncStorage. network = cold start with an empty cache."
+  adb logcat -d | grep "QBOT_TIMING" || true
+} > "$OUT/timing.txt" || true
 echo "light=${light_status} dark=${dark_status} check=${check_status}"
 if [[ "$light_status" -ne 0 || "$dark_status" -ne 0 || "$check_status" -ne 0 ]]; then
   exit 1
