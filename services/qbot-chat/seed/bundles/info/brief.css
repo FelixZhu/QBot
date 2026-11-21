@@ -1,0 +1,27 @@
+:root { color-scheme: light; }
+* { box-sizing: border-box; }
+html, body { margin: 0; background: #F3EFE7; color: #1C1B19; }
+body {
+  font-family: "Iowan Old Style", Palatino, "Palatino Linotype", "Songti SC", "Noto Serif SC", serif;
+  padding: 22px 20px 32px;
+}
+.mast, .chips, .points, .foot, summary {
+  font-family: ui-sans-serif, "PingFang SC", "Noto Sans SC", sans-serif;
+}
+.mast { display: flex; justify-content: space-between; align-items: baseline; font-size: 12px; font-weight: 800; letter-spacing: 0.08em; }
+.rule { border: 0; border-top: 3px solid #1C1B19; border-bottom: 1px solid #1C1B19; height: 8px; margin: 8px 0 0; }
+.mark { display: block; width: 72px; height: 8px; margin: 14px 0; }
+.chips { display: flex; gap: 8px; margin: 14px 0 0; }
+.chips span { border: 1.5px solid #1C1B19; border-radius: 12px; padding: 3px 10px; font-size: 12px; font-weight: 700; }
+.chips .fill { background: #1C1B19; color: #F3EFE7; }
+.hero { margin: 8px 0 0; font-family: ui-sans-serif, sans-serif; font-size: 120px; line-height: 0.86; font-weight: 900; letter-spacing: -0.05em; }
+h1 { margin: 8px 0 0; font-size: 28px; line-height: 1.25; font-weight: 800; }
+.deck { margin: 10px 0 0; color: #4A463E; font-size: 16px; line-height: 1.5; }
+.points { list-style: none; margin: 22px 0 0; padding: 0; border-top: 2px solid #1C1B19; }
+.points li { display: grid; grid-template-columns: 28px 64px 1fr; gap: 8px; align-items: center; min-height: 52px; border-bottom: 1px solid rgba(28, 27, 25, 0.22); font-size: 15px; font-weight: 700; }
+.n { font-family: ui-monospace, monospace; }
+.tag { justify-self: start; background: #1C1B19; color: #F3EFE7; border-radius: 10px; padding: 2px 8px; font-size: 12px; }
+details { margin-top: 18px; }
+summary { font-weight: 700; cursor: pointer; }
+details p { margin: 8px 0 0; color: #4A463E; font-size: 15px; line-height: 1.5; }
+.foot { margin-top: 22px; font-size: 12px; line-height: 1.5; color: #4A463E; }

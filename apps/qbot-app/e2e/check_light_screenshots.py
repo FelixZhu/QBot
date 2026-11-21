@@ -35,18 +35,7 @@ REQUIRED = (
     "light-feed-scrolled-down",
     "light-feed-scrolled-up",
     "light-feed-detail",
-    "light-feed-video",
-    "light-feed-game",
     "light-feed-restored",
-    "light-feed-demo-info",
-    "light-feed-demo-info-open",
-    "light-feed-demo-info-account",
-    "light-feed-demo-english",
-    "light-feed-demo-english-open",
-    "light-feed-demo-english-account",
-    "light-feed-demo-study",
-    "light-feed-demo-study-open",
-    "light-feed-demo-study-account",
     "light-kb",
     "light-chat-return",
     "light-tab-today",
@@ -157,7 +146,7 @@ def main() -> None:
         mean = mean_luminance(path)
         print(f"{path}: mean={mean:.1f}")
         if name.startswith("light-feed"):
-            # The six-lesson feed is dark on purpose, including in light mode.
+            # The card covers keep their own colors. A blank shot is still a failure.
             if mean < 8:
                 print(f"FAIL {path} looks blank (mean {mean:.1f} < 8)")
                 failed = True

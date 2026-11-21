@@ -9,18 +9,35 @@ export function ConversationList({
   colors,
   badge,
   onOpen,
+  follow,
 }: {
   colors: Palette;
   badge: string;
   onOpen: () => void;
+  follow: "loading" | "on" | "off" | "error";
 }) {
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
       <View style={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: 8 }}>
         <Text style={{ fontSize: 20, lineHeight: 26, fontWeight: "700", color: colors.text }}>对话</Text>
       </View>
-      <NewConversation colors={colors} onOpen={onOpen} />
-      <ThreadRows colors={colors} badge={badge} onOpen={onOpen} />
+      {follow === "on" ? (
+        <>
+          <View accessibilityLabel="Qbot" style={{ minHeight: 72, paddingHorizontal: 16, flexDirection: "row", alignItems: "center", gap: 12 }}>
+            <QbotAvatar size={48} />
+            <View style={{ flex: 1, borderBottomWidth: 1, borderBottomColor: colors.line, paddingVertical: 12 }}>
+              <Text style={{ fontSize: 16, lineHeight: 22, fontWeight: "700", color: colors.text }}>Qbot</Text>
+              <Text style={{ marginTop: 2, fontSize: 14, lineHeight: 20, color: colors.muted }}>个人对话</Text>
+            </View>
+          </View>
+          <NewConversation colors={colors} onOpen={onOpen} />
+          <ThreadRows colors={colors} badge={badge} onOpen={onOpen} />
+        </>
+      ) : (
+        <Text style={{ paddingHorizontal: 16, color: colors.muted, fontSize: 15, lineHeight: 22 }}>
+          {follow === "loading" ? "正在打开" : follow === "off" ? "未关注 Qbot。推荐里可以重新关注。会话还在。" : "没有读到关注状态"}
+        </Text>
+      )}
     </View>
   );
 }
@@ -98,13 +115,11 @@ function ConversationRow({
         backgroundColor: active ? colors.selected : pressed ? colors.press : "transparent",
       })}
     >
-      <QbotAvatar size={48} />
       <View style={{ flex: 1, minWidth: 0, borderBottomWidth: 1, borderBottomColor: colors.line, paddingVertical: 14 }}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
           <Text style={{ flex: 1, fontSize: 16, lineHeight: 22, fontWeight: "600", color: colors.text }} numberOfLines={1}>{title}</Text>
           <Text style={{ fontSize: 12, lineHeight: 16, fontWeight: "600", color: colors.accentInk }}>{badge}</Text>
         </View>
-        <Text style={{ marginTop: 2, fontSize: 14, lineHeight: 20, color: colors.muted }} numberOfLines={1}>个人对话</Text>
       </View>
     </Pressable>
   );

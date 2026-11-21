@@ -1,6 +1,6 @@
 # QBot 代码架构
 
-结论：源码只在 [FelixZhu/QBot](https://github.com/FelixZhu/QBot)。站点是 [https://felixzhu.github.io/QBot/](https://felixzhu.github.io/QBot/)。`FelixZhu/qian-drive` 已删除，构建不再向它取文件。本文描述 `main` `e02e18f` 上已经落地的边界。协作和验收以仓库根目录 `README.md` 为准。`docs/DESIGN.md` 的尺寸是实现参考，不是像素级合同。
+结论：源码只在 [FelixZhu/QBot](https://github.com/FelixZhu/QBot)。站点是 [https://felixzhu.github.io/QBot/](https://felixzhu.github.io/QBot/)。`FelixZhu/qian-drive` 已删除，构建不再向它取文件。本文描述 `main` `e02e18f` 上已经落地的边界。今日的手写卡片、关注和推荐不在那个提交里，见 [CARDS.md](CARDS.md)。协作和验收以仓库根目录 `README.md` 为准。`docs/DESIGN.md` 的尺寸是实现参考，不是像素级合同。
 
 状态只用这两种：
 

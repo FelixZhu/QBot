@@ -22,7 +22,7 @@ export async function main(): Promise<void> {
     openaiBaseUrl: openaiBase(config.fixtureUpstreamUrl, config.fixtureUpstream),
     dshHome,
   });
-  const started = await startChatServer({ config, store: createStore(pool), runtime });
+  const started = await startChatServer({ config, store: createStore(pool), runtime, pool });
   console.log(`qbot-chat listening host=${config.host} port=${started.port} upstream=${runtime.id} model=${config.model} node=${process.versions.node}`);
   const shutdown = () => {
     void started.close().then(() => pool.end()).then(() => process.exit(0), () => process.exit(1));

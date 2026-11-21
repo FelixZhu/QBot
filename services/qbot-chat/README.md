@@ -102,6 +102,28 @@ The default process still requires `QBOT_ACCESS_TOKEN`. Set `QBOT_PERSONAL_OPEN=
 
 The phone build reads `EXPO_PUBLIC_QBOT_ORIGIN` at publish time. Leave it unset in git. Set it to the HTTPS origin already in front of this process only in the private publish environment.
 
+## Cards
+
+`QBOT_PERSONAL_OPEN` does not open the feed. Card and follow routes stay on `QBOT_ACCESS_TOKEN` unless the private env also sets `QBOT_FEED_OPEN=1`. That second flag is the live decision for this one-person trial: the installed app does not send a bearer. With the flag, the single `QBOT_OWNER_ID` can read the feed and follow or unfollow a public bot. It cannot create cards, list the bucket, or skip the bearer on chat. Without the flag, `GET /v1/feed` is `401` even when personal chat is open.
+
+The two cards are fixed rows in `seed/manifest.json`. Run the seed after migrate and before the phone update. It does not delete conversations. A second run does not publish them again, and it does not follow Qbot again after an unfollow.
+
+```bash
+cd services/qbot-chat
+npm run migrate
+QBOT_SEED_CONFIRM=cards npm run seed
+```
+
+`package-lock.json` is unchanged, so do not run `npm ci`. Restart the existing process. The unit file already passes `--dns-result-order=ipv4first`.
+
+Covers and HTML stay in the private bucket. Do not set a public ACL and do not set `QBOT_OBJECT_ROOT` on the host. Upload only the manifest files:
+
+```bash
+QBOT_SEED_CONFIRM=cards npm run upload-seed
+```
+
+The server reads them with `QBOT_OSS_ENDPOINT`, `QBOT_OSS_BUCKET`, `QBOT_OSS_ACCESS_KEY_ID`, `QBOT_OSS_ACCESS_KEY_SECRET`, and optional `QBOT_OSS_KEY_PREFIX` (default `qbot-cards/`). Those values stay in the private env file. A phone receives a ten-minute token for one artifact, not those values. The token is in the file path so `brief.css` and `mark.svg` load with the same grant. The page CSP does not allow network calls, fonts, or another origin.
+
 ## Verify on the server
 
 PostgreSQL and this process stay on `127.0.0.1`. Do not publish 5432 or 8787. This repository does not record the public name.
