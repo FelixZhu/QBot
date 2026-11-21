@@ -22,7 +22,7 @@ import { ChatRuntime, useChatBoot } from "./src/chat/useChatRuntime";
 import { configuredOrigin } from "./src/chat/serverEndpoint";
 import { createServerClient } from "./src/chat/serverClient";
 import type { ConnectionView } from "./src/chat/serverSession";
-import { BookIcon, BubbleIcon, StarIcon } from "./src/TabIcons";
+import { TabBarIcon } from "./src/TabBarIcon";
 import { chatChrome, isSplit, listPaneWidth, palette, resolveScheme } from "./src/theme";
 import { LessonFeed } from "./src/feed/LessonFeed";
 import { pullUpdate } from "./src/updates";
@@ -31,16 +31,7 @@ import * as Updates from "expo-updates";
 
 type Tab = "chat" | "feed" | "kb";
 const EXIT_CONFIRM_MS = 2000;
-const TAB_HEIGHT = 60;
-const TAB_AMBER = "#F5A623";
-const TAB_CREAM = "#F4F1EA";
-const TAB_MUTED = "#8A8A8E";
-
-function TabIcon({ id, color, filled }: { id: Tab; color: string; filled: boolean }) {
-  if (id === "chat") return <BubbleIcon color={color} filled={filled} size={24} />;
-  if (id === "feed") return <StarIcon color={color} size={24} />;
-  return <BookIcon color={color} size={24} />;
-}
+const TAB_HEIGHT = 56;
 
 function Shell() {
   const insets = useSafeAreaInsets();
@@ -53,7 +44,8 @@ function Shell() {
   const webRef = useRef<WebPaneHandle>(null);
   const feedBack = useRef<() => boolean>(() => false);
   const lastExit = useRef(0);
-  const [tab, setTab] = useState<Tab>("chat");
+  const [tab, setTab] = useState<Tab>("feed");
+  const [todayUnread, setTodayUnread] = useState(true);
   const [thread, setThread] = useState(false);
   const boot = useChatBoot();
   const connectionView: ConnectionView = boot.phase === "ready"
@@ -179,6 +171,7 @@ function Shell() {
             active={tab === "feed"}
             onBackReady={(back) => { feedBack.current = back; }}
             onCover={setCoverTabs}
+            onUnread={setTodayUnread}
           />
         </View>
         <ChatRuntime boot={boot}>
@@ -236,20 +229,21 @@ function Shell() {
           pointerEvents={coverTabs ? "none" : "auto"}
           style={{
             opacity: tabOpacity,
-            backgroundColor: "#000",
+            backgroundColor: dark ? "#171614" : "#F3EFE7",
             borderTopWidth: 1,
-            borderTopColor: "#1A1A1A",
+            borderTopColor: dark ? "#34312C" : "#E3DDD1",
             paddingBottom: insets.bottom,
           }}
         >
           <View style={{ height: TAB_HEIGHT, flexDirection: "row" }}>
             {([
-              ["chat", "对话"],
-              ["feed", "主动服务"],
-              ["kb", "知识库"],
-            ] as const).map(([id, label]) => {
+              ["feed", "今日", "discover"],
+              ["chat", "对话", "chat"],
+              ["kb", "知识库", "library"],
+            ] as const).map(([id, label, icon]) => {
               const current = tab === id;
-              const color = current ? TAB_AMBER : TAB_MUTED;
+              const ink = dark ? "#EDE8DF" : "#1C1B19";
+              const quiet = dark ? "#9A9386" : "#736D62";
               return (
                 <Pressable
                   key={id}
@@ -263,10 +257,15 @@ function Shell() {
                     } else if (id === "feed") setTab("feed");
                     else openKb();
                   }}
-                  style={{ flex: 1, alignItems: "center", justifyContent: "center" }}
+                  style={{ flex: 1, alignItems: "center", justifyContent: "flex-start", paddingTop: 8 }}
                 >
-                  <TabIcon id={id} color={color} filled={current} />
-                  <Text style={{ marginTop: 3, fontSize: 11, lineHeight: 14, fontWeight: current ? "700" : "400", color: current ? TAB_CREAM : TAB_MUTED }}>
+                  <View>
+                    <TabBarIcon name={icon} tone={dark ? "dark" : "light"} selected={current} />
+                    {id === "feed" && todayUnread && !current ? (
+                      <View style={{ position: "absolute", top: -4, right: -6, width: 12, height: 12, borderRadius: 6, backgroundColor: "#FF6A2B", borderWidth: 2, borderColor: dark ? "#171614" : "#F3EFE7" }} />
+                    ) : null}
+                  </View>
+                  <Text style={{ marginTop: 4, fontSize: 12, lineHeight: 16, fontWeight: current ? "700" : "400", color: current ? ink : quiet }}>
                     {label}
                   </Text>
                 </Pressable>

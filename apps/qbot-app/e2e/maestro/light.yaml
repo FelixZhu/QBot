@@ -170,11 +170,29 @@ appId: io.github.felixzhu.qiandrive
 
 # 底栏在安全区上方。用坐标点标签，避免无障碍树里父节点和文字各算一个。
 - tapOn:
-    point: "50%,93%"
+    point: "17%,93%"
     retryTapIfNoChange: true
 - extendedWaitUntil:
-    notVisible: "Qbot"
+    visible: "AI DAILY SIGNAL"
     timeout: 20000
+- swipe:
+    start: "50%,75%"
+    end: "50%,30%"
+    duration: 600
+- extendedWaitUntil:
+    visible: "English Bot 样例封面"
+    timeout: 8000
+- swipe:
+    start: "50%,75%"
+    end: "50%,30%"
+    duration: 600
+- extendedWaitUntil:
+    visible: "Study Bot 样例封面"
+    timeout: 8000
+- swipe:
+    start: "50%,75%"
+    end: "50%,30%"
+    duration: 600
 - extendedWaitUntil:
     visible: "追加进上下文"
     timeout: 20000
@@ -241,7 +259,7 @@ appId: io.github.felixzhu.qiandrive
 - takeScreenshot:
     path: light-feed-restored
 
-# 六课后面接着三张样例。每次只翻一张。
+# 样例在六课前面。从第 6 课逐张回到第一张样例。
 - swipe:
     start: "50%,75%"
     end: "50%,30%"
@@ -277,9 +295,40 @@ appId: io.github.felixzhu.qiandrive
 - extendedWaitUntil:
     visible: "DAY 06 / 30"
     timeout: 8000
+- extendedWaitUntil:
+    visible: "DAY 06 / 30"
+    timeout: 8000
 - swipe:
-    start: "50%,75%"
-    end: "50%,30%"
+    start: "50%,30%"
+    end: "50%,75%"
+    duration: 600
+- swipe:
+    start: "50%,30%"
+    end: "50%,75%"
+    duration: 600
+- swipe:
+    start: "50%,30%"
+    end: "50%,75%"
+    duration: 600
+- swipe:
+    start: "50%,30%"
+    end: "50%,75%"
+    duration: 600
+- swipe:
+    start: "50%,30%"
+    end: "50%,75%"
+    duration: 600
+- swipe:
+    start: "50%,30%"
+    end: "50%,75%"
+    duration: 600
+- swipe:
+    start: "50%,30%"
+    end: "50%,75%"
+    duration: 600
+- swipe:
+    start: "50%,30%"
+    end: "50%,75%"
     duration: 600
 - extendedWaitUntil:
     visible: "Info Bot 样例封面"
@@ -373,7 +422,7 @@ appId: io.github.felixzhu.qiandrive
     path: light-kb
 
 - tapOn:
-    point: "17%,93%"
+    point: "50%,93%"
     retryTapIfNoChange: true
 - extendedWaitUntil:
     visible: "新对话"

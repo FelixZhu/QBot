@@ -7,6 +7,9 @@ appId: io.github.felixzhu.qiandrive
     while:
       notVisible: "新对话"
     commands:
+    - tapOn:
+        text: "对话"
+        optional: true
     - runFlow:
         when:
           visible: "Close app"

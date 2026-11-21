@@ -49,6 +49,13 @@ REQUIRED = (
     "light-feed-demo-study-account",
     "light-kb",
     "light-chat-return",
+    "light-tab-today",
+    "light-tab-chat",
+    "light-tab-kb",
+    "light-tab-return",
+    "dark-tab-today",
+    "dark-tab-chat",
+    "dark-tab-kb",
     "dark-chat-home",
     "dark-qbot-thread",
 )
