@@ -167,6 +167,9 @@ curl -sf -X POST http://127.0.0.1:8799/e2e/ok || true
 maestro test --no-ansi --format junit --output "$OUT/dark-junit.xml" \
   --test-output-dir "$OUT/dark" \
   "$APP/e2e/maestro/dark.yaml" || dark_status=$?
+maestro test --no-ansi --format junit --output "$OUT/tabs-junit.xml" \
+  --test-output-dir "$OUT/tabs" \
+  "$APP/e2e/maestro/tabs.yaml" || dark_status=$?
 python3 "$APP/e2e/check_light_screenshots.py" "$OUT" || check_status=$?
 {
   echo "method: API 34 emulator logcat. QBOT_TIMING is milliseconds after the JS module loaded."

@@ -15,7 +15,8 @@ import { ImmersivePage, type ImmersiveMode } from "./ImmersivePage";
 import { DemoCard } from "./demo/DemoCard";
 import { DemoAccount, DemoImmersive } from "./demo/DemoPages";
 import { DEMO_IDS, demoById, demoSurface, type DemoId } from "./demo/data";
-import { LESSONS, LESSON_IDS, lessonById, type Lesson } from "./lessons";
+import { LESSON_IDS, lessonById, type Lesson } from "./lessons";
+import { orderTodayFeed, todayHasUnread, type FeedSlot } from "./order";
 import {
   EMPTY_FEED_MEMORY,
   dismissCard,
@@ -36,12 +37,16 @@ function modeFor(lesson: Lesson): ImmersiveMode {
   return lesson.kind === "video" ? "video" : "article";
 }
 
-type FeedRow = { key: string; lesson?: Lesson; demo?: DemoId };
+type FeedRow = { key: string; lesson?: Lesson; demo?: DemoId; done?: boolean };
 
-const ROWS: FeedRow[] = [
-  ...LESSONS.map((lesson) => ({ key: lesson.id, lesson })),
-  ...DEMO_IDS.map((id) => ({ key: id, demo: id })),
-];
+function rowsFrom(read: readonly string[]): FeedRow[] {
+  return orderTodayFeed(read).map((slot: FeedSlot): FeedRow => {
+    if (slot.kind === "done") return { key: slot.key, done: true };
+    if (slot.kind === "demo") return { key: slot.key, demo: slot.demo };
+    const lesson = lessonById(slot.lessonId);
+    return { key: slot.key, lesson };
+  });
+}
 
 const KNOWN_IDS = [...LESSON_IDS, ...DEMO_IDS];
 
@@ -80,10 +85,12 @@ export function LessonFeed({
   active,
   onBackReady,
   onCover,
+  onUnread,
 }: {
   active: boolean;
   onBackReady: (back: () => boolean) => void;
   onCover: (covered: boolean) => void;
+  onUnread?: (unread: boolean) => void;
 }) {
   const listRef = useRef<FlatList<FeedRow>>(null);
   const writes = useRef<Promise<void>>(Promise.resolve());
@@ -96,6 +103,9 @@ export function LessonFeed({
   const wide = isSplit(box.w);
   const [index, setIndex] = useState(0);
   const [memory, setMemory] = useState<FeedMemory>(EMPTY_FEED_MEMORY);
+  const [rows, setRows] = useState<FeedRow[] | null>(null);
+  const rowsRef = useRef<FeedRow[]>([]);
+  rowsRef.current = rows ?? [];
   const [hydrated, setHydrated] = useState(false);
   const [followed, setFollowed] = useState(false);
   const [scrollable, setScrollable] = useState(true);
@@ -115,6 +125,7 @@ export function LessonFeed({
     let alive = true;
     readFeedMemory(AsyncStorage, KNOWN_IDS).then((next) => {
       if (!alive) return;
+      setRows(rowsFrom(next.read));
       setMemory(next);
       setHydrated(true);
     });
@@ -128,8 +139,12 @@ export function LessonFeed({
   }, [hydrated, memory]);
 
   useEffect(() => {
+    onUnread?.(todayHasUnread(memory.read));
+  }, [memory.read, onUnread]);
+
+  useEffect(() => {
     if (!hydrated) return;
-    const row = ROWS[index];
+    const row = rowsRef.current[index];
     const id = row?.lesson?.id ?? row?.demo;
     if (!id) return;
     setMemory((prev) => rememberRead(prev, id));
@@ -137,7 +152,7 @@ export function LessonFeed({
 
   const settle = useCallback((next: number) => {
     if (height <= 0) return;
-    const clamped = Math.max(0, Math.min(ROWS.length - 1, next));
+    const clamped = Math.max(0, Math.min(rowsRef.current.length - 1, next));
     indexRef.current = clamped;
     anchor.current = clamped;
     setIndex(clamped);
@@ -222,16 +237,16 @@ export function LessonFeed({
 
   return (
     <View
-      style={{ flex: 1, backgroundColor: wide ? gutterColor(rowSurface(ROWS[index])) : BG }}
+      style={{ flex: 1, backgroundColor: wide ? gutterColor(rowSurface(rows?.[index])) : BG }}
       onLayout={(event) => {
         const { width, height: nextHeight } = event.nativeEvent.layout;
         setBox((prev) => (prev.w === width && prev.h === nextHeight ? prev : { w: width, h: nextHeight }));
       }}
     >
-      {height > 0 ? (
+      {height > 0 && rows ? (
         <FlatList
           ref={listRef}
-          data={ROWS}
+          data={rows}
           keyExtractor={(item) => item.key}
           pagingEnabled
           removeClippedSubviews={wide ? false : undefined}
@@ -250,7 +265,7 @@ export function LessonFeed({
           getItemLayout={(_, itemIndex) => ({ length: height, offset: height * itemIndex, index: itemIndex })}
           onScrollBeginDrag={() => { anchor.current = indexRef.current; }}
           onScrollEndDrag={(event) => {
-            const next = nextFeedPage(anchor.current, event.nativeEvent.contentOffset.y, height, ROWS.length);
+            const next = nextFeedPage(anchor.current, event.nativeEvent.contentOffset.y, height, rowsRef.current.length);
             settle(next);
           }}
           onMomentumScrollEnd={(event) => {
@@ -262,7 +277,13 @@ export function LessonFeed({
           extraData={wide ? `${box.w}x${height}:${index}` : index}
           renderItem={({ item, index: itemIndex }) => {
             const cardHeight = wide ? PHONE_CARD_HEIGHT : height;
-            const card = item.lesson ? (
+            const card = item.done ? (
+              <View style={{ height: cardHeight, backgroundColor: BG, paddingHorizontal: 28, justifyContent: "center", gap: 12 }}>
+                <Text style={{ color: "#F3EFE7", fontSize: 28, lineHeight: 36, fontWeight: "700" }}>今天已看完</Text>
+                <Text style={{ color: "#EDE8DF", fontSize: 16, lineHeight: 24 }}>今天的新内容都看过了。下一条约明早 8:00。</Text>
+                <Text style={{ color: "#9A9386", fontSize: 13, lineHeight: 18 }}>示例时间，实际以各 bot 更新为准</Text>
+              </View>
+            ) : item.lesson ? (
               <FeedCard
                 lesson={item.lesson}
                 height={cardHeight}

@@ -1,0 +1,68 @@
+appId: io.github.felixzhu.qiandrive
+---
+# Default open is 今日. Capture each tab selected, then the list after leaving a thread.
+- setDarkMode: disabled
+- assertLightMode
+- launchApp:
+    clearState: true
+    stopApp: true
+- extendedWaitUntil:
+    visible: "AI DAILY SIGNAL"
+    timeout: 30000
+- assertVisible: "样例"
+- assertVisible: "今日"
+- assertVisible: "对话"
+- assertVisible: "知识库"
+- assertNotVisible: "发现"
+- takeScreenshot:
+    path: light-tab-today
+- tapOn: "对话"
+- extendedWaitUntil:
+    visible: "新对话"
+    timeout: 20000
+- takeScreenshot:
+    path: light-tab-chat
+- tapOn: "新对话"
+- extendedWaitUntil:
+    visible: "回复，或按住说话"
+    timeout: 20000
+- assertNotVisible: "个人对话"
+- tapOn: "返回会话列表"
+- extendedWaitUntil:
+    visible: "新对话"
+    timeout: 20000
+- assertVisible: "今日"
+- assertVisible: "个人对话"
+- takeScreenshot:
+    path: light-tab-return
+- tapOn: "知识库"
+- extendedWaitUntil:
+    visible: "最近更新"
+    timeout: 60000
+- takeScreenshot:
+    path: light-tab-kb
+
+- setDarkMode: enabled
+- assertDarkMode
+- launchApp:
+    clearState: true
+    stopApp: true
+- extendedWaitUntil:
+    visible: "AI DAILY SIGNAL"
+    timeout: 30000
+- assertVisible: "今日"
+- takeScreenshot:
+    path: dark-tab-today
+- tapOn: "对话"
+- extendedWaitUntil:
+    visible: "新对话"
+    timeout: 20000
+- takeScreenshot:
+    path: dark-tab-chat
+- tapOn: "知识库"
+- extendedWaitUntil:
+    visible: "最近更新"
+    timeout: 60000
+- takeScreenshot:
+    path: dark-tab-kb
+- setDarkMode: disabled

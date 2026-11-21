@@ -63,11 +63,17 @@ test("the six lessons keep the corrected web copy", () => {
 test("the proactive tab mounts the lesson feed, not the fictional cards", () => {
   assert.match(appSrc, /LessonFeed/);
   assert.equal(appSrc.includes("FeedPane"), false);
-  assert.match(appSrc, /#F5A623/);
-  assert.match(appSrc, /TAB_HEIGHT = 60/);
-  assert.match(appSrc, /fontSize: 11/);
-  assert.match(appSrc, /marginTop: 3/);
-  assert.match(appSrc, /size=\{24\}/);
+  assert.match(appSrc, /#FF6A2B/);
+  assert.equal(appSrc.includes("#F5A623"), false);
+  assert.match(appSrc, /TAB_HEIGHT = 56/);
+  assert.match(appSrc, /fontSize: 12/);
+  assert.match(appSrc, /lineHeight: 16/);
+  assert.match(appSrc, /marginTop: 4/);
+  const tabSrc = readFileSync(new URL("../TabBarIcon.tsx", import.meta.url), "utf8");
+  assert.match(tabSrc, /width: 24, height: 24/);
+  assert.match(appSrc, /今日/);
+  assert.equal(appSrc.includes("发现"), false);
+  assert.equal(appSrc.includes("主动服务"), false);
   assert.match(feedSrc, /pagingEnabled/);
   assert.match(feedSrc, /nextFeedPage/);
   assert.match(feedSrc, /rememberRead/);
