@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { test } from "node:test";
 import { loadConfig } from "../src/config.ts";
-import { authorizeOss, createLocalObjectStore } from "../src/feed/objects.ts";
+import { authorizeOss, createLocalObjectStore, normalizePrefix, objectKey } from "../src/feed/objects.ts";
 import { bundlePath, contentTypeFor, decodeCursor, encodeCursor } from "../src/feed/paths.ts";
 
 const base = {
@@ -34,18 +34,23 @@ test("a cursor round-trips and the OSS signature leaves the secret out of the UR
   });
   assert.equal(decodeCursor("not-a-cursor"), null);
   const secret = "test-secret-value";
+  const key = objectKey("qbot/cards/", "00000000-0000-4000-8000-0000000000d1", 1, "index.html");
+  assert.equal(key, "qbot/cards/00000000-0000-4000-8000-0000000000d1/v1/index.html");
+  assert.equal(objectKey("other/", "00000000-0000-4000-8000-0000000000d1", 1, "index.html"), null);
+  assert.throws(() => normalizePrefix("other/cards/"), /qbot\//);
   const signed = authorizeOss({
     method: "GET",
     bucket: "cards",
-    key: "qbot-cards/00000000-0000-4000-8000-0000000000d1/index.html",
+    key: key ?? "",
     endpointHost: "example.invalid",
     accessKeyId: "test-access-key",
     accessKeySecret: secret,
     date: "Sat, 21 Nov 2026 08:44:00 GMT",
   });
   assert.equal(signed.url.includes(secret), false);
+  assert.equal(signed.headers["x-oss-object-acl"], undefined);
   assert.match(signed.headers.Authorization, /^OSS test-access-key:/);
-  assert.equal(signed.url, "https://cards.example.invalid/qbot-cards/00000000-0000-4000-8000-0000000000d1/index.html");
+  assert.equal(signed.url, "https://cards.example.invalid/qbot/cards/00000000-0000-4000-8000-0000000000d1/v1/index.html");
 });
 
 test("a local object root cannot be read outside one artifact", async () => {
@@ -53,8 +58,8 @@ test("a local object root cannot be read outside one artifact", async () => {
   const artifact = "00000000-0000-4000-8000-0000000000d1";
   writeFileSync(path.join(root, "secret.txt"), "hidden");
   const store = createLocalObjectStore(root);
-  assert.equal(await store.read(artifact, "../secret.txt"), null);
-  assert.equal(await store.read(artifact, "..%2Fsecret.txt"), null);
+  assert.equal(await store.read(artifact, 1, "../secret.txt"), null);
+  assert.equal(await store.read(artifact, 1, "..%2Fsecret.txt"), null);
 });
 
 test("feed access is a separate switch from personal chat", () => {

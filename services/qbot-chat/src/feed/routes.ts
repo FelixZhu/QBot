@@ -7,14 +7,14 @@ import { errorBody, HttpError } from "../errors.ts";
 import { LIMITS } from "../limits.ts";
 import type { ObjectStore } from "./objects.ts";
 import { ARTIFACT_CSP, bundlePath, contentTypeFor, isUuid } from "./paths.ts";
-import { createFeedStore, type FeedScope, type FeedStore } from "./store.ts";
+import { createFeedStore, type AccessMode, type FeedScope, type FeedStore } from "./store.ts";
 
 const BOT = /^\/v1\/bots\/([0-9a-f-]{36})$/i;
 const BOT_SLUG = /^\/v1\/bots\/by-slug\/([a-z0-9-]{1,40})$/;
 const FOLLOW = /^\/v1\/bots\/([0-9a-f-]{36})\/follow$/i;
 const CARD = /^\/v1\/cards\/([0-9a-f-]{36})$/i;
 const CAPABILITY = /^\/v1\/cards\/([0-9a-f-]{36})\/capability$/i;
-const ARTIFACT = /^\/v1\/artifacts\/([0-9a-f-]{36})\/([A-Za-z0-9_-]{43})\/files\/(.+)$/i;
+const ARTIFACT = /^\/v1\/artifacts\/([0-9a-f-]{36})\/v\/([1-9][0-9]{0,3})\/([A-Za-z0-9_-]{43})\/files\/(.+)$/i;
 
 const feeds = new WeakMap<pg.Pool, FeedStore>();
 
@@ -36,21 +36,18 @@ export async function tryFeed(deps: FeedDeps, req: IncomingMessage, res: ServerR
     await serveArtifact(deps, res, path);
     return true;
   }
-  if (!deps.config.feedOpen) {
-    const token = readBearer(req.headers.authorization);
-    if (!token || !deps.config.accessToken || !tokensMatch(token, deps.config.accessToken)) {
-      sendJson(res, 401, errorBody("unauthorized", "需要有效的访问令牌"));
-      return true;
-    }
-    if (!allow(hits, token)) {
-      sendJson(res, 429, errorBody("rate_limited", "请求太频繁"));
-      return true;
-    }
-  } else if (!allow(hits, "feed")) {
+  const bearer = readBearer(req.headers.authorization);
+  const bearerOk = Boolean(bearer && deps.config.accessToken && tokensMatch(bearer, deps.config.accessToken));
+  if (!bearerOk && !deps.config.feedOpen) {
+    sendJson(res, 401, errorBody("unauthorized", "需要有效的访问令牌"));
+    return true;
+  }
+  if (!allow(hits, bearerOk && bearer ? bearer : "feed")) {
     sendJson(res, 429, errorBody("rate_limited", "请求太频繁"));
     return true;
   }
-  await dispatch(deps, req, res, url);
+  const mode: AccessMode = bearerOk ? "bearer" : "open";
+  await dispatch(deps, req, res, url, mode);
   return true;
 }
 
@@ -61,7 +58,7 @@ function isFeedPath(path: string): boolean {
     || path === "/v1/artifacts" || path.startsWith("/v1/artifacts/");
 }
 
-async function dispatch(deps: FeedDeps, req: IncomingMessage, res: ServerResponse, url: URL): Promise<void> {
+async function dispatch(deps: FeedDeps, req: IncomingMessage, res: ServerResponse, url: URL, mode: AccessMode): Promise<void> {
   const feed = store(deps);
   const ownerId = deps.config.ownerId;
   const path = url.pathname;
@@ -77,7 +74,7 @@ async function dispatch(deps: FeedDeps, req: IncomingMessage, res: ServerRespons
     if (!Number.isInteger(limit) || limit < 1 || limit > LIMITS.feedPage) throw new HttpError(400, "bad_request", "limit 不合法");
     const cursor = url.searchParams.get("cursor");
     try {
-      sendJson(res, 200, await feed.list(ownerId, scope as FeedScope, limit, cursor));
+      sendJson(res, 200, await feed.list(ownerId, scope as FeedScope, limit, cursor, mode));
     } catch (error) {
       if (error instanceof Error && error.message === "bad cursor") throw new HttpError(400, "bad_request", "cursor 不合法");
       throw error;
@@ -116,7 +113,7 @@ async function dispatch(deps: FeedDeps, req: IncomingMessage, res: ServerRespons
     await readEmpty(req);
     const id = capability[1] ?? "";
     if (!isUuid(id)) throw new HttpError(404, "not_found", "没有这张卡片");
-    const minted = await feed.mint(ownerId, id);
+    const minted = await feed.mint(ownerId, id, mode);
     if (!minted) throw new HttpError(404, "not_found", "没有这张卡片");
     sendJson(res, 201, minted);
     return;
@@ -125,7 +122,7 @@ async function dispatch(deps: FeedDeps, req: IncomingMessage, res: ServerRespons
   if (card && req.method === "GET") {
     const id = card[1] ?? "";
     if (!isUuid(id)) throw new HttpError(404, "not_found", "没有这张卡片");
-    const detail = await feed.card(ownerId, id);
+    const detail = await feed.card(ownerId, id, mode);
     if (!detail) throw new HttpError(404, "not_found", "没有这张卡片");
     sendJson(res, 200, detail);
     return;
@@ -136,19 +133,20 @@ async function dispatch(deps: FeedDeps, req: IncomingMessage, res: ServerRespons
 async function serveArtifact(deps: FeedDeps, res: ServerResponse, path: string): Promise<void> {
   const match = ARTIFACT.exec(path);
   const artifactId = match?.[1] ?? "";
-  const token = match?.[2] ?? "";
-  const rawPath = match?.[3] ?? "";
-  if (!isUuid(artifactId)) throw new HttpError(404, "not_found", "没有这个文件");
+  const version = Number(match?.[2] ?? "");
+  const token = match?.[3] ?? "";
+  const rawPath = match?.[4] ?? "";
+  if (!isUuid(artifactId) || !Number.isInteger(version)) throw new HttpError(404, "not_found", "没有这个文件");
   const relPath = bundlePath(rawPath);
   if (!relPath) throw new HttpError(404, "not_found", "没有这个文件");
   const expected = contentTypeFor(relPath);
   if (!expected) throw new HttpError(404, "not_found", "没有这个文件");
-  const resolved = await store(deps).resolve(token, artifactId, relPath);
+  const resolved = await store(deps).resolve(token, artifactId, version, relPath);
   if (resolved === "expired") throw new HttpError(401, "expired", "链接已过期");
   if (resolved === "denied") throw new HttpError(401, "unauthorized", "链接无效");
   if (resolved.contentType !== expected) throw new HttpError(404, "not_found", "没有这个文件");
   const objects = deps.objects;
-  const bytes = objects ? await objects.read(artifactId, relPath) : null;
+  const bytes = objects ? await objects.read(artifactId, version, relPath) : null;
   if (!bytes) throw new HttpError(404, "not_found", "内容不在这台服务器上");
   const sha256 = createHash("sha256").update(bytes).digest("hex");
   if (sha256 !== resolved.sha256 || bytes.length !== resolved.byteLength) {

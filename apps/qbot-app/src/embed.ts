@@ -13,6 +13,37 @@ export function hostEmbedCss(): string {
     + `@media (min-width:${SPLIT_WIDTH}px){.kb-pane{width:clamp(${LIST_PANE_MIN}px,${percent},${LIST_PANE_MAX}px)!important;flex:none!important;border-right:1px solid var(--line)!important}}`;
 }
 
+/** Hide demo library rows before the page script reads index.json. Real rows stay. */
+export function kbDemoFilter(): string {
+  return `(function () {
+  if (window.__qbotKbFilter || !window.fetch) return;
+  window.__qbotKbFilter = true;
+  var orig = window.fetch;
+  window.fetch = function (input, init) {
+    var url = typeof input === "string" ? input : (input && input.url) || "";
+    var pending = orig.call(this, input, init);
+    if (String(url).indexOf("index.json") === -1) return pending;
+    return pending.then(function (res) {
+      return res.clone().json().then(function (data) {
+        if (!data || !Array.isArray(data.files)) return res;
+        var files = data.files.filter(function (item) {
+          var tags = (item && item.tags) || [];
+          var blob = ((item && item.name) || "") + " " + ((item && item.key) || "");
+          if (blob.indexOf("示例") !== -1) return false;
+          for (var i = 0; i < tags.length; i++) if (String(tags[i]).indexOf("示例") !== -1) return false;
+          return true;
+        });
+        return new Response(JSON.stringify(Object.assign({}, data, { files: files, count: files.length })), {
+          status: 200,
+          headers: { "Content-Type": "application/json" }
+        });
+      }).catch(function () { return res; });
+    });
+  };
+})();
+true;`;
+}
+
 export function themeBoot(dark: boolean): string {
   const flag = dark ? "true" : "false";
   return `(function () {

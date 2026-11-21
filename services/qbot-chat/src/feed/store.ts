@@ -12,6 +12,7 @@ export type FeedCard = {
   visibility: "public" | "followers";
   provenance: "manual";
   artifactId: string;
+  artifactVersion: number;
   manifestSha256: string;
   coverPath: string;
   bot: { id: string; slug: string; displayName: string; followed: boolean };
@@ -36,10 +37,13 @@ export type BotProfile = {
   followed: boolean;
 };
 
+export type AccessMode = "open" | "bearer";
+
 export type MintedCapability = {
   token: string;
   expiresAt: string;
   artifactId: string;
+  version: number;
   files: FeedFile[];
 };
 
@@ -57,6 +61,7 @@ type CardRow = {
   visibility: "public" | "followers";
   provenance: "manual";
   artifact_id: string;
+  version: number;
   manifest_sha256: string;
   cover_path: string;
   agent_id: string;
@@ -68,7 +73,7 @@ type CardRow = {
 
 const CARD_SELECT = `
   SELECT c.id, c.title, c.published_at, c.visibility, c.provenance,
-         a.id AS artifact_id, a.manifest_sha256,
+         a.id AS artifact_id, a.version, a.manifest_sha256,
          cover.rel_path AS cover_path,
          g.id AS agent_id, g.visibility AS agent_visibility, g.slug,
          COALESCE(g.display_name, g.slug) AS display_name,
@@ -85,33 +90,34 @@ const CARD_SELECT = `
 `;
 
 export type FeedStore = {
-  list(ownerId: string, scope: FeedScope, limit: number, cursor: string | null): Promise<{ cards: FeedCard[]; next: string | null }>;
+  list(ownerId: string, scope: FeedScope, limit: number, cursor: string | null, mode: AccessMode): Promise<{ cards: FeedCard[]; next: string | null }>;
   bot(ownerId: string, agentId: string): Promise<BotProfile | null>;
   botBySlug(ownerId: string, slug: string): Promise<BotProfile | null>;
   follow(ownerId: string, agentId: string): Promise<boolean>;
   unfollow(ownerId: string, agentId: string): Promise<boolean>;
-  card(ownerId: string, cardId: string): Promise<CardDetail | null>;
-  mint(ownerId: string, cardId: string): Promise<MintedCapability | null>;
-  resolve(token: string, artifactId: string, relPath: string): Promise<"expired" | "denied" | ResolvedFile>;
+  card(ownerId: string, cardId: string, mode: AccessMode): Promise<CardDetail | null>;
+  mint(ownerId: string, cardId: string, mode: AccessMode): Promise<MintedCapability | null>;
+  resolve(token: string, artifactId: string, version: number, relPath: string): Promise<"expired" | "denied" | ResolvedFile>;
 };
 
 export function createFeedStore(pool: pg.Pool): FeedStore {
   return {
-    async list(ownerId, scope, limit, cursor) {
+    async list(ownerId, scope, limit, cursor, mode) {
       const parsed = cursor ? decodeCursor(cursor) : null;
       if (cursor && !parsed) throw new Error("bad cursor");
       const result = await pool.query<CardRow>(
         `${CARD_SELECT}
-         WHERE (
-           ($2::text = 'following' AND EXISTS (
+         WHERE g.visibility = 'public'
+         AND (
+           ($2::text = 'recommended' AND c.visibility = 'public')
+           OR ($2::text = 'following' AND EXISTS (
              SELECT 1 FROM follows f WHERE f.owner_id = $1 AND f.agent_id = g.id
-           ) AND c.visibility IN ('public', 'followers'))
-           OR ($2::text = 'recommended' AND g.visibility = 'public' AND c.visibility = 'public')
+           ) AND (c.visibility = 'public' OR ($6::text = 'bearer' AND c.visibility = 'followers')))
          )
          AND ($3::timestamptz IS NULL OR (c.published_at, c.id) < ($3::timestamptz, $4::uuid))
          ORDER BY c.published_at DESC, c.id DESC
          LIMIT $5`,
-        [ownerId, scope, parsed?.publishedAt ?? null, parsed?.id ?? null, limit + 1],
+        [ownerId, scope, parsed?.publishedAt ?? null, parsed?.id ?? null, limit + 1, mode],
       );
       const page = result.rows.slice(0, limit).map(toCard);
       const extra = result.rows.length > limit ? page.at(-1) : undefined;
@@ -138,15 +144,15 @@ export function createFeedStore(pool: pg.Pool): FeedStore {
       await pool.query("DELETE FROM follows WHERE owner_id = $1 AND agent_id = $2", [ownerId, agentId]);
       return true;
     },
-    async card(ownerId, cardId) {
+    async card(ownerId, cardId, mode) {
       const result = await pool.query<CardRow>(`${CARD_SELECT} WHERE c.id = $2`, [ownerId, cardId]);
       const row = result.rows[0];
-      if (!row || !canRead(row)) return null;
+      if (!row || !canRead(row, mode)) return null;
       const files = await filesFor(pool, row.artifact_id);
       return { ...toCard(row), files };
     },
-    async mint(ownerId, cardId) {
-      const detail = await this.card(ownerId, cardId);
+    async mint(ownerId, cardId, mode) {
+      const detail = await this.card(ownerId, cardId, mode);
       if (!detail) return null;
       await pool.query("DELETE FROM artifact_capabilities WHERE expires_at < now()");
       const token = randomBytes(32).toString("base64url");
@@ -157,23 +163,25 @@ export function createFeedStore(pool: pg.Pool): FeedStore {
          VALUES ($1, $2, $3, $4)`,
         [hash, detail.artifactId, ownerId, expires.toISOString()],
       );
-      return { token, expiresAt: expires.toISOString(), artifactId: detail.artifactId, files: detail.files };
+      return { token, expiresAt: expires.toISOString(), artifactId: detail.artifactId, version: detail.artifactVersion, files: detail.files };
     },
-    async resolve(token, artifactId, relPath) {
+    async resolve(token, artifactId, version, relPath) {
       const hash = createHash("sha256").update(token).digest();
       const result = await pool.query<{
         expires_at: Date;
         artifact_id: string;
+        version: number;
         rel_path: string | null;
         sha256: string | null;
         content_type: string | null;
         byte_length: number | null;
       }>(
-        `SELECT c.expires_at, c.artifact_id, f.rel_path, f.sha256, f.content_type, f.byte_length
+        `SELECT c.expires_at, c.artifact_id, a.version, f.rel_path, f.sha256, f.content_type, f.byte_length
          FROM artifact_capabilities c
+         JOIN artifacts a ON a.id = c.artifact_id AND a.version = $4
          LEFT JOIN artifact_files f ON f.artifact_id = c.artifact_id AND f.rel_path = $3
          WHERE c.token_hash = $1 AND c.artifact_id = $2`,
-        [hash, artifactId, relPath],
+        [hash, artifactId, relPath, version],
       );
       const row = result.rows[0];
       if (!row) return "denied";
@@ -184,9 +192,10 @@ export function createFeedStore(pool: pg.Pool): FeedStore {
   };
 }
 
-function canRead(row: CardRow): boolean {
-  if (row.followed && (row.visibility === "public" || row.visibility === "followers")) return true;
-  return row.agent_visibility === "public" && row.visibility === "public";
+function canRead(row: CardRow, mode: AccessMode): boolean {
+  if (row.agent_visibility !== "public") return false;
+  if (row.visibility === "public") return true;
+  return mode === "bearer" && row.followed && row.visibility === "followers";
 }
 
 function toCard(row: CardRow): FeedCard {
@@ -197,6 +206,7 @@ function toCard(row: CardRow): FeedCard {
     visibility: row.visibility,
     provenance: row.provenance,
     artifactId: row.artifact_id,
+    artifactVersion: Number(row.version),
     manifestSha256: row.manifest_sha256,
     coverPath: row.cover_path,
     bot: { id: row.agent_id, slug: row.slug, displayName: row.display_name, followed: row.followed },
@@ -235,7 +245,7 @@ async function oneBot(pool: pg.Pool, ownerId: string, column: "id" | "slug", val
   );
   const row = result.rows[0];
   if (!row) return null;
-  if (row.visibility !== "public" && row.owner_id !== ownerId) return null;
+  if (row.visibility !== "public") return null;
   return {
     id: row.id,
     slug: row.slug,
@@ -248,7 +258,7 @@ async function oneBot(pool: pg.Pool, ownerId: string, column: "id" | "slug", val
 
 async function visibleAgent(pool: pg.Pool, ownerId: string, agentId: string): Promise<boolean> {
   const result = await pool.query(
-    `SELECT 1 FROM agents WHERE id = $2 AND (visibility = 'public' OR owner_id = $1)`,
+    `SELECT 1 FROM agents WHERE id = $2 AND owner_id IS NOT NULL AND visibility = 'public' AND $1::uuid IS NOT NULL`,
     [ownerId, agentId],
   );
   return result.rowCount === 1;

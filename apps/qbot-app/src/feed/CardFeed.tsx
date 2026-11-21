@@ -101,7 +101,7 @@ export function CardFeed({
         if (!alive) return;
         setCovers((current) => ({
           ...current,
-          [card.id]: artifactUrl(origin, capability.artifactId, capability.token, card.coverPath),
+          [card.id]: artifactUrl(origin, capability.artifactId, capability.version, capability.token, card.coverPath),
         }));
       }).catch(() => {});
     }
@@ -128,7 +128,7 @@ export function CardFeed({
     try {
       const capability = await createFeedClient({ origin }).capability(card.id);
       const page = capability.files.find((file) => file.path === "index.html")?.path ?? "index.html";
-      setWork({ title: card.title, url: artifactUrl(origin, capability.artifactId, capability.token, page) });
+      setWork({ title: card.title, url: artifactUrl(origin, capability.artifactId, capability.version, capability.token, page) });
       onCover(true);
     } catch (error) {
       setPhase("error");

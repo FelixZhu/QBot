@@ -5,6 +5,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { randomUUID } from "node:crypto";
 import type pg from "pg";
 import { createPool } from "./db.ts";
+import { DEFAULT_KEY_PREFIX, objectKey } from "./feed/objects.ts";
 import { contentTypeFor } from "./feed/paths.ts";
 import { DEFAULT_MODEL } from "./config.ts";
 import { SERVER_PERSONA } from "./runtime/persona.ts";
@@ -21,7 +22,7 @@ export type SeedCard = {
   artifactId: string;
   version: number;
   title: string;
-  publishedAt: string;
+  authoredAt: string;
   provenance: "manual";
   visibility: "public";
   dir: string;
@@ -38,8 +39,10 @@ export type SeedReport = {
   agentId: string;
   cardCount: number;
   followed: boolean;
-  objects: { artifactId: string; path: string; sha256: string; bytes: number }[];
+  objects: { key: string; sha256: string; bytes: number }[];
 };
+
+export const AUTHORED_AT = "2026-11-21T09:21:18.000Z";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -56,6 +59,7 @@ export async function loadManifest(root = seedRoot()): Promise<SeedManifest> {
     if (card.provenance !== "manual" || card.visibility !== "public" || card.version !== 1) {
       throw new Error("seed card is not a manual public version");
     }
+    if (card.authoredAt !== AUTHORED_AT) throw new Error("seed authored time is not the recorded content time");
     const covers = card.files.filter((file) => file.role === "cover");
     const pages = card.files.filter((file) => file.role === "page" && file.path === "index.html");
     if (covers.length !== 1 || pages.length !== 1) throw new Error("each card needs one cover and index.html");
@@ -135,7 +139,9 @@ export async function placeBundles(root: string, manifest: SeedManifest, source 
   if (!path.isAbsolute(root)) throw new Error("object root must be absolute");
   for (const card of manifest.cards) {
     for (const file of card.files) {
-      const destination = path.join(root, card.artifactId, file.path);
+      const key = objectKey(DEFAULT_KEY_PREFIX, card.artifactId, card.version, file.path);
+      if (!key) throw new Error("seed object key was rejected");
+      const destination = path.join(root, key);
       if (!destination.startsWith(path.resolve(root) + path.sep)) throw new Error("object path escaped the root");
       await mkdir(path.dirname(destination), { recursive: true });
       await copyFile(path.join(source, "bundles", card.dir, file.path), destination);
@@ -152,7 +158,7 @@ async function upsertCard(
 ): Promise<void> {
   const existing = await client.query<{
     title: string;
-    published_at: Date;
+    authored_at: Date;
     visibility: string;
     provenance: string;
     artifact_id: string;
@@ -160,17 +166,17 @@ async function upsertCard(
     version: number;
     manifest_sha256: string;
   }>(
-    `SELECT c.title, c.published_at, c.visibility, c.provenance, c.artifact_id, c.agent_id, a.version, a.manifest_sha256
+    `SELECT c.title, c.authored_at, c.visibility, c.provenance, c.artifact_id, c.agent_id, a.version, a.manifest_sha256
      FROM cards c JOIN artifacts a ON a.id = c.artifact_id AND a.card_id = c.id
      WHERE c.id = $1`,
     [card.id],
   );
   if ((existing.rowCount ?? 0) > 0) {
     const row = existing.rows[0];
-    const published = row ? new Date(row.published_at).toISOString() : "";
+    const authored = row ? new Date(row.authored_at).toISOString() : "";
     if (
       row?.title !== card.title
-      || published !== card.publishedAt
+      || authored !== card.authoredAt
       || row?.visibility !== card.visibility
       || row?.provenance !== "manual"
       || row?.artifact_id !== card.artifactId
@@ -189,9 +195,9 @@ async function upsertCard(
     return;
   }
   await client.query(
-    `INSERT INTO cards (id, agent_id, visibility, title, published_at, provenance)
-     VALUES ($1, $2, $3, $4, $5, 'manual')`,
-    [card.id, agentId, card.visibility, card.title, card.publishedAt],
+    `INSERT INTO cards (id, agent_id, visibility, title, published_at, authored_at, provenance)
+     VALUES ($1, $2, $3, $4, clock_timestamp(), $5, 'manual')`,
+    [card.id, agentId, card.visibility, card.title, card.authoredAt],
   );
   await client.query(
     `INSERT INTO artifacts (id, card_id, version, manifest_sha256) VALUES ($1, $2, $3, $4)`,
@@ -204,7 +210,9 @@ async function upsertCard(
        VALUES ($1, $2, $3, $4, $5, $6)`,
       [card.artifactId, file.path, file.sha256, bytes.length, file.contentType, file.role],
     );
-    objects.push({ artifactId: card.artifactId, path: file.path, sha256: file.sha256, bytes: bytes.length });
+    const key = objectKey(DEFAULT_KEY_PREFIX, card.artifactId, card.version, file.path);
+    if (!key) throw new Error("seed object key was rejected");
+    objects.push({ key, sha256: file.sha256, bytes: bytes.length });
   }
   const pointed = await client.query(
     "UPDATE cards SET artifact_id = $2 WHERE id = $1 AND artifact_id IS NULL",
@@ -235,7 +243,7 @@ async function main(): Promise<void> {
   if (objectRoot) await placeBundles(objectRoot, await loadManifest());
   console.log(`seed agent=${report.agentId} cards=${report.cardCount} followed=${report.followed} objects=${report.objects.length}`);
   for (const object of report.objects) {
-    console.log(`${object.artifactId} ${object.path} sha256=${object.sha256} bytes=${object.bytes}`);
+    console.log(`${object.key} sha256=${object.sha256} bytes=${object.bytes}`);
   }
 }
 

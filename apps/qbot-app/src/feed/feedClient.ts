@@ -5,6 +5,7 @@ export type FeedCard = {
   visibility: "public" | "followers";
   provenance: "manual";
   artifactId: string;
+  artifactVersion: number;
   manifestSha256: string;
   coverPath: string;
   bot: { id: string; slug: string; displayName: string; followed: boolean };
@@ -25,6 +26,7 @@ export type Capability = {
   token: string;
   expiresAt: string;
   artifactId: string;
+  version: number;
   files: { path: string; contentType: string; sha256: string; role: string }[];
 };
 
@@ -71,9 +73,9 @@ export function feedColumnWidth(windowWidth: number): number {
 }
 
 /** The token stays in the directory, so a relative CSS or image URL keeps it. */
-export function artifactUrl(origin: string, artifactId: string, token: string, relPath: string): string {
+export function artifactUrl(origin: string, artifactId: string, version: number, token: string, relPath: string): string {
   const encoded = relPath.split("/").map((part) => encodeURIComponent(part)).join("/");
-  return `${origin}/v1/artifacts/${artifactId}/${token}/files/${encoded}`;
+  return `${origin}/v1/artifacts/${artifactId}/v/${version}/${token}/files/${encoded}`;
 }
 
 export function createFeedClient(options: { origin: string; token?: string; fetchImpl?: typeof fetch }) {
@@ -121,8 +123,8 @@ export function createFeedClient(options: { origin: string; token?: string; fetc
     },
     async capability(cardId: string): Promise<Capability> {
       const body = await call(`/v1/cards/${cardId}/capability`, { method: "POST", body: "{}" }) as Partial<Capability>;
-      if (!body.token || !body.artifactId || !Array.isArray(body.files)) throw new Error("无法连接服务器");
-      return { token: body.token, expiresAt: body.expiresAt ?? "", artifactId: body.artifactId, files: body.files };
+      if (!body.token || !body.artifactId || typeof body.version !== "number" || !Array.isArray(body.files)) throw new Error("无法连接服务器");
+      return { token: body.token, expiresAt: body.expiresAt ?? "", artifactId: body.artifactId, version: body.version, files: body.files };
     },
   };
 }
@@ -130,7 +132,7 @@ export function createFeedClient(options: { origin: string; token?: string; fetc
 function parseCard(value: unknown): FeedCard {
   const card = value as Partial<FeedCard>;
   const bot = card.bot;
-  if (!card.id || !card.title || !card.publishedAt || !card.artifactId || !card.coverPath || card.provenance !== "manual" || !bot?.id || !bot.displayName) {
+  if (!card.id || !card.title || !card.publishedAt || !card.artifactId || !card.coverPath || card.provenance !== "manual" || typeof card.artifactVersion !== "number" || !bot?.id || !bot.displayName) {
     throw new Error("无法连接服务器");
   }
   return {
@@ -140,6 +142,7 @@ function parseCard(value: unknown): FeedCard {
     visibility: card.visibility === "followers" ? "followers" : "public",
     provenance: "manual",
     artifactId: card.artifactId,
+    artifactVersion: card.artifactVersion,
     manifestSha256: card.manifestSha256 ?? "",
     coverPath: card.coverPath,
     bot: { id: bot.id, slug: bot.slug ?? "", displayName: bot.displayName, followed: Boolean(bot.followed) },

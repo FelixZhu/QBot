@@ -108,7 +108,7 @@ function objectConfig(env: NodeJS.ProcessEnv): { objectRoot: string | null; oss:
       endpointHost: parseOssEndpoint(endpoint),
       accessKeyId,
       accessKeySecret,
-      keyPrefix: normalizePrefix(prefix || "qbot-cards/"),
+      keyPrefix: normalizePrefix(prefix || "qbot/cards/"),
     },
   };
 }

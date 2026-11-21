@@ -40,6 +40,7 @@ CREATE TABLE IF NOT EXISTS cards (
   visibility text NOT NULL,
   title text NOT NULL,
   published_at timestamptz NOT NULL,
+  authored_at timestamptz NOT NULL,
   provenance text NOT NULL,
   artifact_id uuid,
   created_at timestamptz NOT NULL DEFAULT now(),

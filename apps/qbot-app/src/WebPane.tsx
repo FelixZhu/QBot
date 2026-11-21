@@ -2,7 +2,7 @@ import { forwardRef, useImperativeHandle, useRef, useState } from "react";
 import { Platform, StyleSheet, Text, View } from "react-native";
 import { WebView as RNWebView } from "react-native-webview";
 import type { ComponentType, Ref } from "react";
-import { ASK_BACK, parkWeb, showWebTab, themeBoot, themeUpdate } from "./embed";
+import { ASK_BACK, kbDemoFilter, parkWeb, showWebTab, themeBoot, themeUpdate } from "./embed";
 
 type WebViewHandle = { injectJavaScript(js: string): void; reload(): void };
 type Ev = { nativeEvent: { data?: string; description?: string; url?: string; statusCode?: number; targetUrl?: string; downloadUrl?: string } };
@@ -94,7 +94,7 @@ export const WebPane = forwardRef<WebPaneHandle, {
         overScrollMode="never"
         forceDarkOn={dark}
         originWhitelist={["*"]}
-        injectedJavaScriptBeforeContentLoaded={themeBoot(dark)}
+        injectedJavaScriptBeforeContentLoaded={`${kbDemoFilter()}\n${themeBoot(dark)}`}
         onLoadStart={() => {
           if (started.current) return;
           started.current = Date.now();

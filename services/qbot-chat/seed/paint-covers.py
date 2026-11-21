@@ -31,7 +31,7 @@ def paint_info(path: Path) -> None:
     image = Image.new("RGBA", (width, height), CREAM)
     draw = ImageDraw.Draw(image)
     draw.text((36, 36), "QBOT BRIEF", font=face(22), fill=INK)
-    draw.text((width - 120, 36), "11.21", font=face(22), fill=INK)
+    draw.text((width - 120, 36), "手写", font=face(22), fill=INK)
     rule(draw, 78, width)
     chip(draw, 36, 116, "手写", filled=True)
     chip(draw, 130, 116, "说明", filled=False)
@@ -47,7 +47,7 @@ def paint_info(path: Path) -> None:
         chip(draw, 100, y - 4, tag, filled=True)
         draw.text((210, y), text, font=face(24), fill=INK)
         y += 72
-    draw.text((36, height - 72), "Qbot 手写 · 2026-11-21 16:44", font=face(20), fill=MUTED)
+    draw.text((36, height - 72), "Qbot 手写", font=face(20), fill=MUTED)
     image.save(path, "PNG")
 
 
@@ -56,7 +56,7 @@ def paint_english(path: Path) -> None:
     image = Image.new("RGBA", (width, height), ORANGE)
     draw = ImageDraw.Draw(image)
     draw.text((36, 36), "DAILY SPOKEN ENGLISH", font=face(20), fill=INK)
-    draw.text((width - 110, 36), "11.21", font=face(22), fill=INK)
+    draw.text((width - 110, 36), "手写", font=face(22), fill=INK)
     rule(draw, 78, width)
     chip(draw, 36, 116, "手写", filled=True)
     chip(draw, 130, 116, "短语", filled=False)
@@ -68,7 +68,7 @@ def paint_english(path: Path) -> None:
     draw.text((60, 568), "EXAMPLE", font=face(18), fill=INK)
     draw.multiline_text((60, 610), "Let's get that over the line today,\nso marketing can schedule spend tonight.", font=face(28), fill=INK, spacing=8)
     draw.text((36, 800), "没有音频，也没有跟读打分。", font=face(26), fill=INK)
-    draw.text((36, height - 72), "Qbot 手写 · 2026-11-21 16:48", font=face(20), fill=INK)
+    draw.text((36, height - 72), "Qbot 手写", font=face(20), fill=INK)
     image.save(path, "PNG")
 
 

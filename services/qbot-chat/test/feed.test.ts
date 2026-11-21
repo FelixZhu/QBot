@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import http from "node:http";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -47,11 +47,21 @@ test("seed, feeds, follow, and bundle access against temporary postgres", { time
     const second = await seedCards({ databaseUrl: runtimeUrl, ownerId: OWNER });
     assert.equal(first.cardCount, 2);
     assert.equal(first.objects.length, 7);
+    assert.ok(first.objects.every((object) => object.key.startsWith("qbot/cards/") && object.key.includes("/v1/")));
+    assert.equal(first.objects.some((object) => object.key.includes("qbot-cards")), false);
     assert.equal(first.followed, true);
+    const stamped = await poolTimes(createPool(runtimeUrl), first.agentId);
+    assert.equal(stamped.length, 2);
+    for (const row of stamped) {
+      assert.ok(Math.abs(Date.now() - Date.parse(row.publishedAt)) < 120_000, row.publishedAt);
+      assert.equal(row.authoredAt, "2026-11-21T09:21:18.000Z");
+    }
+    const frozen = stamped.map((row) => row.publishedAt);
     assert.equal(second.cardCount, 2);
     assert.equal(second.objects.length, 0);
     assert.equal(second.agentId, first.agentId);
     assert.equal(second.followed, true);
+    assert.deepEqual((await poolTimes(createPool(runtimeUrl), first.agentId)).map((row) => row.publishedAt), frozen);
 
     const pool = createPool(runtimeUrl);
     const agents = await pool.query<{ n: number }>("SELECT count(*)::int AS n FROM agents WHERE owner_id = $1", [OWNER]);
@@ -121,8 +131,13 @@ test("seed, feeds, follow, and bundle access against temporary postgres", { time
 
     const objectRoot = mkdtempSync(path.join(tmpdir(), "qbot-object-fixture-"));
     await placeBundles(objectRoot, manifest);
-    writeFileSync(path.join(objectRoot, INFO_ARTIFACT, "secret.txt"), "not-a-card-file");
-    writeFileSync(path.join(objectRoot, INFO_ARTIFACT, "extra.png"), Buffer.from([0x89, 0x50, 0x4e, 0x47]));
+    const bundleDir = path.join(objectRoot, "qbot", "cards", INFO_ARTIFACT, "v1");
+    mkdirSync(bundleDir, { recursive: true });
+    writeFileSync(path.join(bundleDir, "secret.txt"), "not-a-card-file");
+    writeFileSync(path.join(bundleDir, "extra.png"), Buffer.from([0x89, 0x50, 0x4e, 0x47]));
+    const infoHtml = readFileSync(path.join(bundleDir, "index.html"), "utf8");
+    assert.equal(infoHtml.includes("16:44"), false);
+    assert.equal(infoHtml.includes("T08:44"), false);
     const runtimeEngine = stubRuntime();
     const open = await startChatServer({
       config: config(runtimeUrl, { feedOpen: true, objectRoot }),
@@ -135,29 +150,40 @@ test("seed, feeds, follow, and bundle access against temporary postgres", { time
       const feed = await readFeed(base, "following", null);
       assert.equal(JSON.stringify(feed).includes(objectRoot), false);
       assert.equal(JSON.stringify(feed).includes("secret"), false);
+      assert.equal(JSON.stringify(feed).includes("qbot/cards"), false);
+      assert.equal(JSON.stringify(feed).includes("persona"), false);
       assert.equal(feed.cards[0]?.bot.displayName, "Qbot");
       assert.equal(feed.cards.some((card) => card.title.includes("83")), false);
       const followed = await allCards(base, "following");
       const recommended = await allCards(base, "recommended");
-      assert.deepEqual(followed.map((card) => card.id).slice(0, 2), [followersCard, ENGLISH]);
+      assert.deepEqual(followed.map((card) => card.id).slice(0, 2), [ENGLISH, INFO]);
+      assert.equal(followed.some((card) => card.id === followersCard || card.id === privateCard), false);
       assert.equal(followed.some((card) => card.id === privateCard), false);
       assert.equal(recommended.some((card) => card.id === followersCard || card.id === privateCard), false);
       assert.deepEqual(recommended.map((card) => card.id).slice(0, 2), [ENGLISH, INFO]);
       assert.deepEqual(times(followed), [...times(followed)].sort((a, b) => b.localeCompare(a) || 0));
       assert.equal(new Set(followed.map((card) => card.id)).size, followed.length);
 
+      const hidden = await json(base, `/v1/cards/${followersCard}/capability`, { method: "POST", body: "{}" });
+      assert.equal(hidden.status, 404);
+      assert.equal((await fetch(`${base}/v1/cards/${followersCard}`, { headers: { Authorization: `Bearer ${TOKEN}` } })).status, 200);
+      assert.equal((await fetch(`${base}/v1/cards/${privateCard}`, { headers: { Authorization: `Bearer ${TOKEN}` } })).status, 404);
+      const refused = await json(base, `/v1/bots/${privateBot}/follow`, { method: "POST", body: "{}" });
+      assert.equal(refused.status, 404);
       const minted = await json(base, `/v1/cards/${INFO}/capability`, { method: "POST", body: "{}" });
       assert.equal(minted.status, 201);
-      const capability = await minted.json() as { token: string; artifactId: string; files: { path: string }[] };
+      assert.equal(minted.headers.get("access-control-allow-origin"), null);
+      const capability = await minted.json() as { token: string; artifactId: string; version: number; files: { path: string }[] };
       assert.equal(capability.artifactId, INFO_ARTIFACT);
+      assert.equal(capability.version, 1);
       assert.ok(capability.files.some((file) => file.path === "brief.css"));
-      const pagePath = `/v1/artifacts/${INFO_ARTIFACT}/${capability.token}/files/index.html`;
+      const pagePath = `/v1/artifacts/${INFO_ARTIFACT}/v/1/${capability.token}/files/index.html`;
       const page = await fetch(`${base}${pagePath}`);
       const html = await page.text();
       assert.equal(page.status, 200);
       assert.match(html, /三个入口/);
       assert.match(html, /href="brief.css"/);
-      assert.match(html, /人工发布/);
+      assert.match(html, /项目说明/);
       assert.equal(html.includes("83 美元"), false);
       assert.equal(html.includes("<script"), false);
       assert.match(page.headers.get("content-security-policy") ?? "", /connect-src 'none'/);
@@ -172,16 +198,17 @@ test("seed, feeds, follow, and bundle access against temporary postgres", { time
 
       const english = await json(base, `/v1/cards/${ENGLISH}/capability`, { method: "POST", body: "{}" });
       const englishBody = await english.json() as { token: string };
-      const phrase = await (await fetch(`${base}/v1/artifacts/00000000-0000-4000-8000-0000000000d2/${englishBody.token}/files/index.html`)).text();
+      const phrase = await (await fetch(`${base}/v1/artifacts/00000000-0000-4000-8000-0000000000d2/v/1/${englishBody.token}/files/index.html`)).text();
       assert.match(phrase, /get this over/);
       assert.equal(phrase.includes("<audio"), false);
       assert.equal(phrase.includes("样例"), false);
 
       assert.equal((await raw(open.port, `${pagePath.replace("index.html", "secret.txt")}`)).status, 404);
       assert.equal((await raw(open.port, `${pagePath.replace("index.html", "extra.png")}`)).status, 401);
-      assert.equal((await raw(open.port, `/v1/artifacts/${INFO_ARTIFACT}/${capability.token}/files/..%2Fsecret.txt`)).status, 404);
-      assert.equal((await raw(open.port, `/v1/artifacts/${INFO_ARTIFACT}/${capability.token}/files/%2e%2e/%2e%2e/secret.txt`)).status, 404);
-      const crossed = await fetch(`${base}/v1/artifacts/${INFO_ARTIFACT}/${englishBody.token}/files/index.html`);
+      assert.equal((await raw(open.port, `/v1/artifacts/${INFO_ARTIFACT}/v/1/${capability.token}/files/..%2Fsecret.txt`)).status, 404);
+      assert.equal((await raw(open.port, `/v1/artifacts/${INFO_ARTIFACT}/v/1/${capability.token}/files/%2e%2e/%2e%2e/secret.txt`)).status, 404);
+      assert.equal((await fetch(`${base}/v1/artifacts/${INFO_ARTIFACT}/v/2/${capability.token}/files/index.html`)).status, 401);
+      const crossed = await fetch(`${base}/v1/artifacts/${INFO_ARTIFACT}/v/1/${englishBody.token}/files/index.html`);
       assert.equal(crossed.status, 401);
 
       const hash = createHash("sha256").update(capability.token).digest();
@@ -266,6 +293,18 @@ function stubRuntime(): ConversationEngine {
   return { engine: "dsh", id: "fixture", run() { throw new Error("unused"); }, async close() {} };
 }
 
+async function poolTimes(pool: ReturnType<typeof createPool>, agentId: string): Promise<{ publishedAt: string; authoredAt: string }[]> {
+  try {
+    const result = await pool.query<{ id: string; published_at: Date; authored_at: Date }>(
+      "SELECT id, published_at, authored_at FROM cards WHERE agent_id = $1",
+      [agentId],
+    );
+    return result.rows.map((row) => ({ publishedAt: row.published_at.toISOString(), authoredAt: row.authored_at.toISOString() }));
+  } finally {
+    await pool.end();
+  }
+}
+
 async function counts(pool: ReturnType<typeof createPool>): Promise<{ conversations: number; runs: number; messages: number }> {
   const conversations = await pool.query<{ n: number }>("SELECT count(*)::int AS n FROM conversations");
   const runs = await pool.query<{ n: number }>("SELECT count(*)::int AS n FROM runs");
@@ -282,7 +321,7 @@ async function insertCard(pool: ReturnType<typeof createPool>, input: {
   publishedAt: string;
 }): Promise<void> {
   await pool.query(
-    `INSERT INTO cards (id, agent_id, visibility, title, published_at, provenance) VALUES ($1, $2, $3, $4, $5, 'manual')`,
+    `INSERT INTO cards (id, agent_id, visibility, title, published_at, authored_at, provenance) VALUES ($1, $2, $3, $4, $5, $5, 'manual')`,
     [input.cardId, input.agentId, input.visibility, input.title, input.publishedAt],
   );
   await pool.query(

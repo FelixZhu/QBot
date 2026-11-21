@@ -17,9 +17,9 @@ test("the feed states stay empty when the server fails and a wide column stays p
 });
 
 test("a relative asset keeps the bundle token in the path", () => {
-  const page = artifactUrl("http://127.0.0.1:8787", "00000000-0000-4000-8000-0000000000d1", "token", "index.html");
-  assert.equal(new URL("brief.css", page).toString(), artifactUrl("http://127.0.0.1:8787", "00000000-0000-4000-8000-0000000000d1", "token", "brief.css"));
-  assert.equal(page.includes("token/files/index.html"), true);
+  const page = artifactUrl("http://127.0.0.1:8787", "00000000-0000-4000-8000-0000000000d1", 1, "token", "index.html");
+  assert.equal(new URL("brief.css", page).toString(), artifactUrl("http://127.0.0.1:8787", "00000000-0000-4000-8000-0000000000d1", 1, "token", "brief.css"));
+  assert.equal(page.includes("/v/1/token/files/index.html"), true);
 });
 
 test("a failed feed does not invent a card", async () => {

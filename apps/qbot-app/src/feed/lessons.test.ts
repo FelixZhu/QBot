@@ -60,8 +60,9 @@ test("the six lessons keep the corrected web copy", () => {
   assert.match(web, /data-day="2"\] \.pf-main\{bottom:88px/);
 });
 
-test("the proactive tab mounts the lesson feed, not the fictional cards", () => {
-  assert.match(appSrc, /LessonFeed/);
+test("the today tab mounts the card feed, not the lesson feed", () => {
+  assert.match(appSrc, /CardFeed/);
+  assert.equal(appSrc.includes("LessonFeed"), false);
   assert.equal(appSrc.includes("FeedPane"), false);
   assert.match(appSrc, /#FF6A2B/);
   assert.equal(appSrc.includes("#F5A623"), false);

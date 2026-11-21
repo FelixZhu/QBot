@@ -12,15 +12,15 @@
       "artifactId": "00000000-0000-4000-8000-0000000000d1",
       "version": 1,
       "title": "三个入口：今日、对话、知识库",
-      "publishedAt": "2026-11-21T08:44:00.000Z",
+      "authoredAt": "2026-11-21T09:21:18.000Z",
       "provenance": "manual",
       "visibility": "public",
       "dir": "info",
-      "manifestSha256": "4719cc800464b6aad0ddd5bf4f3eab6a04925e789ed62bcc0a6f6f53488e1668",
+      "manifestSha256": "8942ce7f050ecc0f386edc4b07f90055ea6647954f8748f400bcf40c76d007ba",
       "files": [
         { "path": "brief.css", "role": "asset", "contentType": "text/css; charset=utf-8", "sha256": "e00711576545770991e2bc551438de677a9122d122b46303785397be796dc395" },
-        { "path": "cover.png", "role": "cover", "contentType": "image/png", "sha256": "1c38983c293eeca4b6a54a1497c9af039f7a1b2ee2d8fa5ed9e5d9b041ffe970" },
-        { "path": "index.html", "role": "page", "contentType": "text/html; charset=utf-8", "sha256": "882997dccdda934c6e3878d97667cf359660275c05a111cdc7ae5ee3b8a58909" },
+        { "path": "cover.png", "role": "cover", "contentType": "image/png", "sha256": "64cbcd8b2c30ec740c9be5167e8b8f247bf1ed11cfa6d615007df0108c9823f0" },
+        { "path": "index.html", "role": "page", "contentType": "text/html; charset=utf-8", "sha256": "6ac0f481fc69ce4473ff1cab4c16b93373cec00f61467396ed5b17ed4a5621bc" },
         { "path": "mark.svg", "role": "asset", "contentType": "image/svg+xml", "sha256": "88e720011542a939f41c663cbaa7c282db4f5a96cd476eca6e37ce7a09cd4305" }
       ]
     },
@@ -29,14 +29,14 @@
       "artifactId": "00000000-0000-4000-8000-0000000000d2",
       "version": 1,
       "title": "get this over the line",
-      "publishedAt": "2026-11-21T08:48:00.000Z",
+      "authoredAt": "2026-11-21T09:21:18.000Z",
       "provenance": "manual",
       "visibility": "public",
       "dir": "english",
-      "manifestSha256": "b732ab502f3d38c78d9396401b3c5cf55e823d0948ae766bbbe269286da1f206",
+      "manifestSha256": "a08bced094317d88e5b755402cb06fe07c9c5c7e322a920b3d5b641c4930b84d",
       "files": [
-        { "path": "cover.png", "role": "cover", "contentType": "image/png", "sha256": "4a18a686874b680ef513e9ef7a79f78569717fdc9bf69bcaf083e017719b83bd" },
-        { "path": "index.html", "role": "page", "contentType": "text/html; charset=utf-8", "sha256": "375beeb9ce9bb22c82820bf7caaa0425c7d5b0d6a81f2fac9e412caee87618df" },
+        { "path": "cover.png", "role": "cover", "contentType": "image/png", "sha256": "85e2476a5e1fbad1a169f7a97da71489de675ade08d4911d26c11d7a0b8d64be" },
+        { "path": "index.html", "role": "page", "contentType": "text/html; charset=utf-8", "sha256": "c4cb610ef43fc51f7d7fca011601ac29900525be060a8050177c7a3a099c7239" },
         { "path": "phrase.css", "role": "asset", "contentType": "text/css; charset=utf-8", "sha256": "24c62236ee93abea5a9d9a04bc00ca7ba5ab9e2e235daf8ad6ecd11e223fd6d9" }
       ]
     }

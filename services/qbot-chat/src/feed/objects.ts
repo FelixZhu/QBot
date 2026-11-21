@@ -4,8 +4,10 @@ import path from "node:path";
 import { LIMITS } from "../limits.ts";
 import { bundlePath, isUuid } from "./paths.ts";
 
+export const DEFAULT_KEY_PREFIX = "qbot/cards/";
+
 export type ObjectStore = {
-  read(artifactId: string, relPath: string): Promise<Buffer | null>;
+  read(artifactId: string, version: number, relPath: string): Promise<Buffer | null>;
 };
 
 export type OssConfig = {
@@ -29,55 +31,54 @@ export function parseOssEndpoint(raw: string): string {
 }
 
 export function normalizePrefix(raw: string): string {
-  const prefix = raw.trim() || "qbot-cards/";
-  if (prefix.includes("..") || prefix.startsWith("/") || !/^[A-Za-z0-9][A-Za-z0-9._/-]{0,80}$/.test(prefix)) {
+  const prefix = (raw.trim() || DEFAULT_KEY_PREFIX).replace(/^\/+/, "");
+  if (!prefix.startsWith("qbot/")) throw new Error("QBOT_OSS_KEY_PREFIX must stay under qbot/");
+  if (prefix.includes("..") || !/^[A-Za-z0-9][A-Za-z0-9._/-]{0,80}$/.test(prefix)) {
     throw new Error("QBOT_OSS_KEY_PREFIX is not a relative prefix");
   }
   return prefix.endsWith("/") ? prefix : `${prefix}/`;
 }
 
-export function objectKey(prefix: string, artifactId: string, relPath: string): string | null {
-  if (!isUuid(artifactId)) return null;
+/** Immutable key. A new artifact version is a new prefix; this never rewrites an older one. */
+export function objectKey(prefix: string, artifactId: string, version: number, relPath: string): string | null {
+  if (!isUuid(artifactId) || !Number.isInteger(version) || version < 1 || version > 9999) return null;
   const safe = bundlePath(relPath);
   if (!safe) return null;
-  return `${prefix}${artifactId}/${safe}`;
+  const key = `${prefix}${artifactId}/v${version}/${safe}`;
+  if (!key.startsWith("qbot/")) return null;
+  return key;
 }
 
 /** Aliyun OSS signature v1. The secret stays in the HMAC and is not part of the URL. */
 export function authorizeOss(input: {
-  method: "GET" | "PUT";
+  method: "GET";
   bucket: string;
   key: string;
   endpointHost: string;
   accessKeyId: string;
   accessKeySecret: string;
   date: string;
-  contentType?: string;
-  aclPrivate?: boolean;
 }): { url: string; headers: Record<string, string> } {
-  const canonicalHeaders = input.aclPrivate ? "x-oss-object-acl:private\n" : "";
-  const contentType = input.contentType ?? "";
+  const contentType = "";
   const resource = `/${input.bucket}/${input.key}`;
-  const stringToSign = `${input.method}\n\n${contentType}\n${input.date}\n${canonicalHeaders}${resource}`;
+  const stringToSign = `${input.method}\n\n${contentType}\n${input.date}\n${resource}`;
   const signature = createHmac("sha1", input.accessKeySecret).update(stringToSign).digest("base64");
   const headers: Record<string, string> = {
     Date: input.date,
     Authorization: `OSS ${input.accessKeyId}:${signature}`,
   };
-  if (contentType) headers["Content-Type"] = contentType;
-  if (input.aclPrivate) headers["x-oss-object-acl"] = "private";
   const encoded = input.key.split("/").map((part) => encodeURIComponent(part)).join("/");
   return { url: `https://${input.bucket}.${input.endpointHost}/${encoded}`, headers };
 }
 
-export function createLocalObjectStore(root: string): ObjectStore {
+export function createLocalObjectStore(root: string, prefix = DEFAULT_KEY_PREFIX): ObjectStore {
   const base = path.resolve(root);
   return {
-    async read(artifactId, relPath) {
-      const key = objectKey("", artifactId, relPath);
+    async read(artifactId, version, relPath) {
+      const key = objectKey(prefix, artifactId, version, relPath);
       if (!key) return null;
       const full = path.resolve(base, key);
-      const directory = path.resolve(base, artifactId) + path.sep;
+      const directory = path.resolve(base, prefix, artifactId, `v${version}`) + path.sep;
       if (!full.startsWith(directory)) return null;
       try {
         const info = await stat(full);
@@ -92,8 +93,8 @@ export function createLocalObjectStore(root: string): ObjectStore {
 
 export function createOssObjectStore(config: OssConfig, fetchImpl: typeof fetch = fetch): ObjectStore {
   return {
-    async read(artifactId, relPath) {
-      const key = objectKey(config.keyPrefix, artifactId, relPath);
+    async read(artifactId, version, relPath) {
+      const key = objectKey(config.keyPrefix, artifactId, version, relPath);
       if (!key) return null;
       const signed = authorizeOss({
         method: "GET",

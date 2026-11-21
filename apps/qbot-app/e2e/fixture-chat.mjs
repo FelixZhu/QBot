@@ -276,6 +276,7 @@ function cardBody(card) {
     artifactId: card.artifactId,
     manifestSha256: card.manifestSha256,
     coverPath: cover.path,
+    artifactVersion: card.version,
     bot: { id: BOT, slug: "qbot", displayName: "Qbot", followed },
   };
 }
@@ -309,21 +310,22 @@ function handleCards(req, res, url) {
       return true;
     }
     const token = randomBytes(32).toString("base64url");
-    capabilities.set(token, { artifactId: card.artifactId, expires: Date.now() + 600_000 });
+    capabilities.set(token, { artifactId: card.artifactId, version: card.version, expires: Date.now() + 600_000 });
     send(res, 201, {
       token,
       expiresAt: new Date(Date.now() + 600_000).toISOString(),
       artifactId: card.artifactId,
+      version: card.version,
       files: card.files.map((file) => ({ path: file.path, contentType: file.contentType, sha256: file.sha256, role: file.role })),
     });
     return true;
   }
-  const file = /^\/v1\/artifacts\/([^/]+)\/([^/]+)\/files\/(.+)$/.exec(pathName);
+  const file = /^\/v1\/artifacts\/([^/]+)\/v\/([^/]+)\/([^/]+)\/files\/(.+)$/.exec(pathName);
   if (req.method === "GET" && file) {
-    const grant = capabilities.get(file[2]);
+    const grant = capabilities.get(file[3]);
     const card = MANIFEST.cards.find((item) => item.artifactId === file[1]);
-    const entry = card?.files.find((item) => item.path === decodeURIComponent(file[3]));
-    if (!grant || grant.artifactId !== file[1] || grant.expires <= Date.now() || !entry || entry.path.includes("..")) {
+    const entry = card?.files.find((item) => item.path === decodeURIComponent(file[4]));
+    if (!grant || grant.artifactId !== file[1] || String(grant.version) !== file[2] || grant.expires <= Date.now() || !entry || entry.path.includes("..")) {
       send(res, 401, { error: { message: "链接无效" } });
       return true;
     }

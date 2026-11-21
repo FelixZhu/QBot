@@ -22,7 +22,7 @@ appId: io.github.felixzhu.qiandrive
 - assertVisible: "三个入口：今日、对话、知识库"
 - tapOn: "三个入口：今日、对话、知识库"
 - extendedWaitUntil:
-    visible: "人工发布"
+    visible: "项目说明"
     timeout: 20000
 - tapOn: "返回"
 - assertVisible: "三个入口：今日、对话、知识库"
