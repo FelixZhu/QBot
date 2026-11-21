@@ -44,7 +44,7 @@ export function CardWork({
       </View>
       <WebView
         source={{ uri: url }}
-        originWhitelist={[new URL(url).origin]}
+        originWhitelist={["*"]}
         onShouldStartLoadWithRequest={(request: { url?: string }) => allow(request.url ?? "")}
         javaScriptEnabled
         sharedCookiesEnabled={false}
