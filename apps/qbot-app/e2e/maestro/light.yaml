@@ -196,7 +196,7 @@ appId: io.github.felixzhu.qiandrive
     path: light-feed-scrolled-up
 - tapOn: "get this over the line"
 - extendedWaitUntil:
-    visible: "没有音频"
+    visible: ".*没有音频.*"
     timeout: 20000
 - takeScreenshot:
     path: light-feed-detail
@@ -204,7 +204,7 @@ appId: io.github.felixzhu.qiandrive
 - extendedWaitUntil:
     visible: "get this over the line"
     timeout: 10000
-- assertNotVisible: "没有音频"
+- assertNotVisible: ".*没有音频.*"
 - takeScreenshot:
     path: light-feed-restored
 - tapOn: "推荐"
