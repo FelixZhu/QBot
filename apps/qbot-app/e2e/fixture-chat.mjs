@@ -257,7 +257,13 @@ const server = createServer(async (req, res) => {
     stream.finish();
     return;
   }
-  if (handleCards(req, res, url)) return;
+  try {
+    if (handleCards(req, res, url)) return;
+  } catch (error) {
+    console.error(`fixture card route failed ${error instanceof Error ? error.message : "error"}`);
+    if (!res.headersSent) send(res, 500, { error: { message: "夹具没有完成" } });
+    return;
+  }
   send(res, 404, { error: { message: "没有这个接口" } });
 });
 
@@ -267,10 +273,12 @@ function botBody() {
 
 function cardBody(card) {
   const cover = card.files.find((file) => file.role === "cover");
+  // Local display order only. Production published_at is assigned by the seed.
+  const publishedAt = card.id.endsWith("c2") ? "2026-11-21T09:21:18.000Z" : "2026-11-21T09:21:17.000Z";
   return {
     id: card.id,
     title: card.title,
-    publishedAt: card.publishedAt,
+    publishedAt,
     visibility: card.visibility,
     provenance: "manual",
     artifactId: card.artifactId,
@@ -298,7 +306,9 @@ function handleCards(req, res, url) {
   }
   if (req.method === "GET" && pathName === "/v1/feed") {
     const scope = url.searchParams.get("scope");
-    const cards = scope === "following" && !followed ? [] : [...MANIFEST.cards].sort((a, b) => b.publishedAt.localeCompare(a.publishedAt)).map(cardBody);
+    const cards = scope === "following" && !followed
+      ? []
+      : MANIFEST.cards.map(cardBody).sort((a, b) => b.publishedAt.localeCompare(a.publishedAt) || b.id.localeCompare(a.id));
     send(res, 200, { cards, next: null });
     return true;
   }
