@@ -76,11 +76,21 @@ test("authenticated SSE persists a server-owned run and reloads it", { timeout: 
 
   const runtimePool = createPool(runtimeUrl);
   const migratePool = createPool(migrateUrl);
-  await runtimePool.query("DELETE FROM messages");
-  await runtimePool.query("DELETE FROM runs");
-  await runtimePool.query("DELETE FROM conversations");
-  await runtimePool.query("DELETE FROM agents");
-  await runtimePool.query("DELETE FROM owners");
+  for (const table of [
+    "artifact_capabilities",
+    "artifact_files",
+    "artifacts",
+    "cards",
+    "follows",
+    "owner_bootstrap",
+    "messages",
+    "runs",
+    "conversations",
+    "agents",
+    "owners",
+  ]) {
+    await runtimePool.query(`DELETE FROM ${table}`);
+  }
   await assert.rejects(() => runtimePool.query("CREATE EXTENSION qbot_absent_extension"));
 
   const fixture = await startFixture();

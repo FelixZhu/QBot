@@ -24,7 +24,8 @@ import { createServerClient } from "./src/chat/serverClient";
 import type { ConnectionView } from "./src/chat/serverSession";
 import { TabBarIcon } from "./src/TabBarIcon";
 import { chatChrome, isSplit, listPaneWidth, palette, resolveScheme } from "./src/theme";
-import { LessonFeed } from "./src/feed/LessonFeed";
+import { createFeedClient } from "./src/feed/feedClient";
+import { CardFeed } from "./src/feed/CardFeed";
 import { pullUpdate } from "./src/updates";
 import { WebPane, type WebPaneHandle } from "./src/WebPane";
 import * as Updates from "expo-updates";
@@ -45,7 +46,9 @@ function Shell() {
   const feedBack = useRef<() => boolean>(() => false);
   const lastExit = useRef(0);
   const [tab, setTab] = useState<Tab>("feed");
-  const [todayUnread, setTodayUnread] = useState(true);
+  const [todayUnread] = useState(false);
+  const [follow, setFollow] = useState<"loading" | "on" | "off" | "error">("loading");
+  const origin = configuredOrigin();
   const [thread, setThread] = useState(false);
   const boot = useChatBoot();
   const connectionView: ConnectionView = boot.phase === "ready"
@@ -71,12 +74,27 @@ function Shell() {
   const showList = tab === "chat" && (split || !live);
   const showThread = tab === "chat" && (split || live);
   const screenChrome = chatChrome(scheme);
-  const feedOn = tab === "feed" || coverTabs;
 
   useEffect(() => {
-    const background = feedOn ? "#0B0B0F" : inThread ? screenChrome.canvas : colors.canvas;
+    if (!origin) {
+      setFollow("error");
+      return;
+    }
+    let alive = true;
+    createFeedClient({ origin }).botBySlug("qbot").then((bot) => {
+      if (alive) setFollow(bot.followed ? "on" : "off");
+    }).catch(() => { if (alive) setFollow("error"); });
+    return () => { alive = false; };
+  }, [origin]);
+
+  useEffect(() => {
+    if (follow === "off") setThread(false);
+  }, [follow]);
+
+  useEffect(() => {
+    const background = inThread ? screenChrome.canvas : colors.canvas;
     setBackgroundColorAsync(background).catch(() => {});
-  }, [colors.canvas, feedOn, inThread, screenChrome.canvas]);
+  }, [colors.canvas, inThread, screenChrome.canvas]);
 
   useEffect(() => {
     // Native ON_LOAD also checks. This fetch does not reload; the next cold start picks it up.
@@ -160,18 +178,19 @@ function Shell() {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: feedOn ? "#0B0B0F" : inThread ? screenChrome.canvas : colors.canvas, paddingTop: insets.top }}>
-      <StatusBar style={feedOn ? "light" : colors.status} />
+    <View style={{ flex: 1, backgroundColor: inThread ? screenChrome.canvas : colors.canvas, paddingTop: insets.top }}>
+      <StatusBar style={colors.status} />
       <View style={{ flex: 1, position: "relative", flexDirection: split && tab === "chat" ? "row" : "column" }}>
         <View
           pointerEvents={tab === "feed" ? "auto" : "none"}
           style={tab === "feed" ? { flex: 1 } : { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, opacity: 0, zIndex: -1 }}
         >
-          <LessonFeed
+          <CardFeed
             active={tab === "feed"}
+            origin={origin}
             onBackReady={(back) => { feedBack.current = back; }}
             onCover={setCoverTabs}
-            onUnread={setTodayUnread}
+            onFollowChange={(bot) => { if (bot.slug === "qbot") setFollow(bot.followed ? "on" : "off"); }}
           />
         </View>
         <ChatRuntime boot={boot}>
@@ -182,6 +201,7 @@ function Shell() {
                 colors={colors}
                 badge={liveBadge(connectionView)}
                 onOpen={() => setThread(true)}
+                follow={follow}
               />
             ) : (
               <View style={{ flex: 1, backgroundColor: colors.bg, padding: 16 }}>

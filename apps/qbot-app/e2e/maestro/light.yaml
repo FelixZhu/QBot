@@ -168,248 +168,47 @@ appId: io.github.felixzhu.qiandrive
     timeout: 20000
 - assertNotVisible: "返回会话列表"
 
-# 底栏在安全区上方。用坐标点标签，避免无障碍树里父节点和文字各算一个。
+# 今日是 Qbot 的两张手写卡。点开的是种子 HTML，返回留在原来的列表。
 - tapOn:
     point: "17%,93%"
     retryTapIfNoChange: true
 - extendedWaitUntil:
-    visible: "AI DAILY SIGNAL"
+    visible: "get this over the line"
     timeout: 20000
-- swipe:
-    start: "50%,75%"
-    end: "50%,30%"
-    duration: 600
-- extendedWaitUntil:
-    visible: "English Bot 样例封面"
-    timeout: 8000
-- swipe:
-    start: "50%,75%"
-    end: "50%,30%"
-    duration: 600
-- extendedWaitUntil:
-    visible: "Study Bot 样例封面"
-    timeout: 8000
-- swipe:
-    start: "50%,75%"
-    end: "50%,30%"
-    duration: 600
-- extendedWaitUntil:
-    visible: "追加进上下文"
-    timeout: 20000
-- assertVisible: "DAY 01 / 30"
-- assertVisible: "Study Bot"
+- assertVisible: "Qbot"
 - assertVisible: "关注"
-- assertNotVisible: "点赞"
-- assertNotVisible: "看讲义"
+- assertNotVisible: "样例"
+- assertNotVisible: "Study Bot"
+- assertNotVisible: "AI DAILY SIGNAL"
 - takeScreenshot:
     path: light-feed-top
-# 一次滑动只翻一张。不用 scrollUntilVisible，那一下会甩过后面的课。
-- swipe:
-    start: "50%,75%"
-    end: "50%,30%"
-    duration: 600
-- extendedWaitUntil:
-    visible: "同一模型，差距在 Harness"
-    timeout: 8000
-- assertNotVisible: "追加进上下文"
-- assertNotVisible: "消息列表"
+- scrollUntilVisible:
+    element: "三个入口：今日、对话、知识库"
+    direction: DOWN
+    timeout: 15000
 - takeScreenshot:
     path: light-feed-scrolled-down
-- swipe:
-    start: "50%,30%"
-    end: "50%,75%"
-    duration: 600
-- extendedWaitUntil:
-    visible: "追加进上下文"
-    timeout: 8000
-- assertVisible: "DAY 01 / 30"
-- assertNotVisible: "同一模型，差距在 Harness"
+- scrollUntilVisible:
+    element: "get this over the line"
+    direction: UP
+    timeout: 15000
 - takeScreenshot:
     path: light-feed-scrolled-up
-- tapOn: "DAY 01 / 30，轻点进入"
+- tapOn: "get this over the line"
 - extendedWaitUntil:
-    visible: "返回信息流"
-    timeout: 15000
-- assertVisible: "模拟"
-- waitForAnimationToEnd:
-    timeout: 2000
+    visible: ".*没有音频.*"
+    timeout: 20000
 - takeScreenshot:
     path: light-feed-detail
-- tapOn: "视频"
+- tapOn: "返回"
 - extendedWaitUntil:
-    visible: "演示"
-    timeout: 8000
-- assertVisible: "播放演示"
-- takeScreenshot:
-    path: light-feed-video
-- tapOn: "小游戏"
-- extendedWaitUntil:
-    visible: "检查答案"
-    timeout: 8000
-- takeScreenshot:
-    path: light-feed-game
-- tapOn: "返回信息流"
-- extendedWaitUntil:
-    notVisible: "返回信息流"
-    timeout: 15000
-- assertVisible: "追加进上下文"
-- assertVisible: "DAY 01 / 30"
-- waitForAnimationToEnd:
-    timeout: 2000
+    visible: "get this over the line"
+    timeout: 10000
+- assertNotVisible: ".*没有音频.*"
 - takeScreenshot:
     path: light-feed-restored
-
-# 样例在六课前面。从第 6 课逐张回到第一张样例。
-- swipe:
-    start: "50%,75%"
-    end: "50%,30%"
-    duration: 600
-- extendedWaitUntil:
-    visible: "同一模型，差距在 Harness"
-    timeout: 8000
-- swipe:
-    start: "50%,75%"
-    end: "50%,30%"
-    duration: 600
-- extendedWaitUntil:
-    visible: "通用工具探索，专用工具守底线"
-    timeout: 8000
-- swipe:
-    start: "50%,75%"
-    end: "50%,30%"
-    duration: 600
-- extendedWaitUntil:
-    visible: "DAY 04 / 30"
-    timeout: 8000
-- swipe:
-    start: "50%,75%"
-    end: "50%,30%"
-    duration: 600
-- extendedWaitUntil:
-    visible: "DAY 05 / 30"
-    timeout: 8000
-- swipe:
-    start: "50%,75%"
-    end: "50%,30%"
-    duration: 600
-- extendedWaitUntil:
-    visible: "DAY 06 / 30"
-    timeout: 8000
-- extendedWaitUntil:
-    visible: "DAY 06 / 30"
-    timeout: 8000
-- swipe:
-    start: "50%,30%"
-    end: "50%,75%"
-    duration: 600
-- swipe:
-    start: "50%,30%"
-    end: "50%,75%"
-    duration: 600
-- swipe:
-    start: "50%,30%"
-    end: "50%,75%"
-    duration: 600
-- swipe:
-    start: "50%,30%"
-    end: "50%,75%"
-    duration: 600
-- swipe:
-    start: "50%,30%"
-    end: "50%,75%"
-    duration: 600
-- swipe:
-    start: "50%,30%"
-    end: "50%,75%"
-    duration: 600
-- swipe:
-    start: "50%,30%"
-    end: "50%,75%"
-    duration: 600
-- swipe:
-    start: "50%,30%"
-    end: "50%,75%"
-    duration: 600
-- extendedWaitUntil:
-    visible: "Info Bot 样例封面"
-    timeout: 8000
-- assertVisible: "样例"
-- takeScreenshot:
-    path: light-feed-demo-info
-- tapOn: "Info Bot 样例封面"
-- extendedWaitUntil:
-    visible: "今日三条信号"
-    timeout: 8000
-- assertVisible: "模拟"
-- takeScreenshot:
-    path: light-feed-demo-info-open
-- tapOn: "Info Bot 账号"
-- extendedWaitUntil:
-    visible: "连续出刊"
-    timeout: 8000
-- assertNotVisible: "粉丝"
-- takeScreenshot:
-    path: light-feed-demo-info-account
-- tapOn: "返回上一页"
-- extendedWaitUntil:
-    visible: "今日三条信号"
-    timeout: 8000
-- tapOn: "返回封面"
-- extendedWaitUntil:
-    visible: "Info Bot 样例封面"
-    timeout: 8000
-- swipe:
-    start: "50%,75%"
-    end: "50%,30%"
-    duration: 600
-- extendedWaitUntil:
-    visible: "English Bot 样例封面"
-    timeout: 8000
-- takeScreenshot:
-    path: light-feed-demo-english
-- tapOn: "English Bot 样例封面"
-- extendedWaitUntil:
-    visible: "别搞混"
-    timeout: 8000
-- assertVisible: "模拟"
-- takeScreenshot:
-    path: light-feed-demo-english-open
-- tapOn: "English Bot 账号"
-- extendedWaitUntil:
-    visible: "今日音频"
-    timeout: 8000
-- takeScreenshot:
-    path: light-feed-demo-english-account
-- tapOn: "返回上一页"
-- tapOn: "返回封面"
-- extendedWaitUntil:
-    visible: "English Bot 样例封面"
-    timeout: 8000
-- swipe:
-    start: "50%,75%"
-    end: "50%,30%"
-    duration: 600
-- extendedWaitUntil:
-    visible: "Study Bot 样例封面"
-    timeout: 8000
-- takeScreenshot:
-    path: light-feed-demo-study
-- tapOn: "Study Bot 样例封面"
-- extendedWaitUntil:
-    visible: "手算锚点 · N = 8B"
-    timeout: 8000
-- assertVisible: "演示"
-- assertVisible: "模拟"
-- takeScreenshot:
-    path: light-feed-demo-study-open
-- tapOn: "Study Bot 账号"
-- extendedWaitUntil:
-    visible: "Agent 已学完"
-    timeout: 8000
-- takeScreenshot:
-    path: light-feed-demo-study-account
-- tapOn: "返回上一页"
-- tapOn: "返回封面"
+- tapOn: "推荐"
+- assertVisible: "三个入口：今日、对话、知识库"
 
 - tapOn:
     point: "83%,93%"

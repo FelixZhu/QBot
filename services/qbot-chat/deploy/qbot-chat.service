@@ -11,7 +11,8 @@ User=qbot
 Group=qbot
 WorkingDirectory=/opt/qbot/services/qbot-chat
 EnvironmentFile=/etc/qbot-chat.env
-ExecStart=/usr/bin/node --experimental-strip-types src/main.ts
+# ipv4first avoids a missing IPv6 route stalling OpenRouter. The DSH child sets the same flags.
+ExecStart=/usr/bin/node --dns-result-order=ipv4first --no-network-family-autoselection --experimental-strip-types src/main.ts
 Restart=on-failure
 NoNewPrivileges=true
 PrivateTmp=true

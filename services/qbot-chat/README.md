@@ -90,11 +90,34 @@ npm start
 
 An example unit is [`deploy/qbot-chat.service`](deploy/qbot-chat.service). Replace `ExecStart` with the absolute path of Node >= 24.9, not the Node 22 binary already on the host. Replace `After=` with the PostgreSQL unit that is already running. Set `QBOT_DSH_HOME` in the environment file to a mode 700 directory. Do not put `OPENROUTER_API_KEY` in the app or in git.
 
+## Upstream connection
+
+The DSH child starts with `--dns-result-order=ipv4first` and `--no-network-family-autoselection`, so a host that has an IPv6 answer but no IPv6 route does not stall the model request. A transport failure before any text is retried twice inside the same turn (`maxRetries: 2`). The phone is told to send again. The log line is `upstream error code=...` and does not include the model key.
+
+If `package-lock.json` did not change, restart the process after replacing these files. Do not run `npm ci` on a small host.
+
 ## Personal trial
 
 The default process still requires `QBOT_ACCESS_TOKEN`. Set `QBOT_PERSONAL_OPEN=1` in the private env file only for this one-person trial. That flag skips the bearer check on the existing chat and history routes. It does not open PostgreSQL, a shell, or any other route. Unset it to require the token again.
 
 The phone build reads `EXPO_PUBLIC_QBOT_ORIGIN` at publish time. Leave it unset in git. Set it to the HTTPS origin already in front of this process only in the private publish environment.
+
+## Cards
+
+`QBOT_FEED_OPEN` stays off. Feed, follow, and card routes keep requiring `QBOT_ACCESS_TOKEN`. If that flag is later set, a request without a bearer can list, mint, and read only a public card on a public bot. Follow acts for the configured owner and only on a public bot. A private bot and a followers-only card stay unreachable. The flag does not skip the bearer on chat. These routes set no CORS header, and follow accepts only JSON.
+
+`authored_at` on the two cards is when the text was recorded, `2026-11-21T09:21:18Z`. `published_at` is the clock of the first successful seed and is not rewritten later. The seed does not delete conversations. A second run does not publish them again, and it does not follow Qbot again after an unfollow.
+
+```bash
+cd services/qbot-chat
+npm run migrate
+QBOT_SEED_CONFIRM=cards npm run seed
+npm run seed-keys
+```
+
+`package-lock.json` is unchanged, so do not run `npm ci`. Restart the existing process. `npm run upload-seed` refuses. Put the printed keys in the private bucket with the existing helper. This repo does not upload and does not change a bucket ACL. Do not set `QBOT_OBJECT_ROOT` on the host.
+
+The server reads objects with `QBOT_OSS_ENDPOINT`, `QBOT_OSS_BUCKET`, `QBOT_OSS_ACCESS_KEY_ID`, and `QBOT_OSS_ACCESS_KEY_SECRET`. `QBOT_OSS_KEY_PREFIX` must stay under `qbot/`. The default is `qbot/cards/`, then `<artifact id>/v<version>/<file>`. A phone receives a ten-minute token for that exact artifact version. The token is in the file path so relative CSS and SVG use the same grant. A public bot does not make a non-public card readable.
 
 ## Verify on the server
 

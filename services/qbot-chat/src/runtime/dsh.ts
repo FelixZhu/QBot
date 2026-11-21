@@ -6,6 +6,10 @@ import { DeepSeekHarness } from "@deepseek-ai/dsh-sdk-client";
 import type { HarnessNotification } from "@deepseek-ai/dsh-sdk-client";
 import { DEFAULT_MODEL } from "../config.ts";
 import { SERVER_PERSONA } from "./persona.ts";
+import { isUserFacingUpstream, upstreamLogLine, userTextForUpstream } from "./upstream-error.ts";
+
+/** Passed to the DSH child. Prefer IPv4 and do not race an unreachable IPv6 address. */
+export const DSH_NODE_OPTIONS = "--dns-result-order=ipv4first --no-network-family-autoselection";
 
 const PATCH = fileURLToPath(new URL("../../dsh/qbot.cordis.patch.yml", import.meta.url));
 
@@ -48,6 +52,7 @@ export function createDshEngine(options: {
     for (const name of ["PATH", "HOME", "TMPDIR", "LANG", "LC_ALL", "USER", "LOGNAME", "SHELL"]) {
       if (process.env[name]) env[name] = process.env[name];
     }
+    env.NODE_OPTIONS = DSH_NODE_OPTIONS;
     env.OPENROUTER_API_KEY = options.apiKey;
     env.DSH_SYSTEM_PROMPT = options.persona;
     if (options.openaiBaseUrl) env.QBOT_OPENAI_BASE_URL = options.openaiBaseUrl;
@@ -107,7 +112,7 @@ export function createDshEngine(options: {
             });
             active = result.sessionId;
             known.add(result.sessionId);
-            if (result.finishReason === "error") throw new Error("模型上游中断");
+            if (result.finishReason === "error") throw failUpstream(result.finalResponse || "finishReason=error", sent.length > 0, options.apiKey);
             const finalText = result.finalResponse;
             if (finalText.startsWith(sent) && finalText.length > sent.length) deltas.push(finalText.slice(sent.length));
             if (!finalText) throw new Error("模型没有返回文字");
@@ -118,10 +123,9 @@ export function createDshEngine(options: {
           }
         }).catch((error: unknown) => {
           const detail = error instanceof Error ? error.message : "";
-          const safe = detail.toLowerCase().includes("not found")
-            ? new Error("模型会话不在这台服务器上")
-            : error instanceof Error ? error : new Error("模型上游中断");
-          failure = safe;
+          if (detail.toLowerCase().includes("not found")) failure = new Error("模型会话不在这台服务器上");
+          else if (isUserFacingUpstream(detail)) failure = error instanceof Error ? error : new Error(detail);
+          else failure = failUpstream(detail || "unknown", deltas.length > 0, options.apiKey);
           finished = true;
           poke();
         });
@@ -166,6 +170,11 @@ function assistantDelta(notification: HarnessNotification, sent: string): string
     .join("");
   if (!text.startsWith(sent)) return "";
   return text.slice(sent.length);
+}
+
+function failUpstream(detail: string, sawText: boolean, secret = ""): Error {
+  console.error(upstreamLogLine(detail, secret));
+  return new Error(userTextForUpstream(detail, sawText));
 }
 
 function abortError(): Error {
