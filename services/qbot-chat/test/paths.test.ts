@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { test } from "node:test";
 import { loadConfig } from "../src/config.ts";
-import { authorizeOss, createLocalObjectStore, normalizePrefix, objectKey } from "../src/feed/objects.ts";
+import { authorizeOss, createLocalObjectStore, createPublicOssObjectStore, normalizePrefix, objectKey } from "../src/feed/objects.ts";
 import { bundlePath, contentTypeFor, decodeCursor, encodeCursor } from "../src/feed/paths.ts";
 
 const base = {
@@ -68,10 +68,45 @@ test("feed access is a separate switch from personal chat", () => {
   assert.equal(loadConfig({ ...base, QBOT_PERSONAL_OPEN: "1" }).feedOpen, false);
   assert.equal(loadConfig({ ...base, QBOT_FEED_OPEN: "1" }).feedOpen, true);
   assert.equal(loadConfig({ ...base, QBOT_FEED_OPEN: "1" }).personalOpen, false);
+  assert.equal(loadConfig(base).publicOss, null);
+  assert.equal(loadConfig({ ...base, QBOT_OSS_PUBLIC: "yes" }).publicOss, null);
   assert.throws(() => loadConfig({ ...base, QBOT_OBJECT_ROOT: "/tmp/qbot-objects", QBOT_OSS_BUCKET: "cards" }), /not both/);
   const secret = "test-secret-value";
   assert.throws(() => loadConfig({ ...base, QBOT_OSS_ACCESS_KEY_SECRET: secret }), (error: unknown) => {
     assert.equal(error instanceof Error && error.message.includes(secret), false);
     return true;
   });
+});
+
+test("public card reads use the fixed https origin and send no credential", async () => {
+  const origin = "https://cards.example.invalid";
+  const artifact = "00000000-0000-4000-8000-0000000000d1";
+  const config = loadConfig({ ...base, QBOT_OSS_PUBLIC: "1", QBOT_OSS_PUBLIC_ORIGIN: origin });
+  assert.equal(config.publicOss?.origin, origin);
+  assert.equal(config.publicOss?.keyPrefix, "qbot/cards/");
+  assert.equal(config.oss, null);
+  assert.throws(() => loadConfig({ ...base, QBOT_OSS_PUBLIC: "1" }), /together/);
+  assert.throws(() => loadConfig({ ...base, QBOT_OSS_PUBLIC_ORIGIN: origin }), /together/);
+  assert.throws(() => loadConfig({ ...base, QBOT_OSS_PUBLIC: "1", QBOT_OSS_PUBLIC_ORIGIN: "http://cards.example.invalid" }), /https/);
+  assert.throws(() => loadConfig({ ...base, QBOT_OSS_PUBLIC: "1", QBOT_OSS_PUBLIC_ORIGIN: "https://127.0.0.1" }), /hostname/);
+  assert.throws(() => loadConfig({ ...base, QBOT_OSS_PUBLIC: "1", QBOT_OSS_PUBLIC_ORIGIN: "https://cards.example.invalid/qbot/cards" }), /path/);
+  assert.throws(() => loadConfig({ ...base, QBOT_OSS_PUBLIC: "1", QBOT_OSS_PUBLIC_ORIGIN: origin, QBOT_OSS_ACCESS_KEY_ID: "test-access-key" }), /access key/);
+  assert.throws(() => loadConfig({ ...base, QBOT_OSS_PUBLIC: "1", QBOT_OSS_PUBLIC_ORIGIN: origin, QBOT_OSS_KEY_PREFIX: "qbot/" }), /qbot\/cards/);
+  const calls: { url: string; authorization: string | null }[] = [];
+  const fetchImpl: typeof fetch = async (input, init) => {
+    const headers = new Headers(init?.headers);
+    calls.push({ url: String(input), authorization: headers.get("authorization") });
+    if (String(input).endsWith("/index.html")) return new Response(Buffer.from("card-bytes"), { status: 200 });
+    return new Response(null, { status: 302, headers: { location: "https://other.example/secret" } });
+  };
+  const store = createPublicOssObjectStore(config.publicOss!, fetchImpl);
+  assert.equal((await store.read(artifact, 1, "index.html"))?.toString(), "card-bytes");
+  assert.deepEqual(calls, [{ url: `${origin}/qbot/cards/${artifact}/v1/index.html`, authorization: null }]);
+  assert.equal(await store.read(artifact, 1, "cover.png"), null);
+  assert.equal(calls.length, 2);
+  assert.equal(calls[1]?.url, `${origin}/qbot/cards/${artifact}/v1/cover.png`);
+  assert.equal(calls.every((call) => call.url.startsWith(`${origin}/qbot/cards/`)), true);
+  assert.equal(await store.read(artifact, 1, "../secret.txt"), null);
+  assert.equal(await store.read(artifact, 1, "qbot/private/note.txt"), null);
+  assert.equal(calls.length, 2);
 });

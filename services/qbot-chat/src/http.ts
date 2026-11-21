@@ -25,7 +25,7 @@ export function createChatServer(deps: ChatServerDeps) {
   const feedHits = new Map<string, number[]>();
   const full: ChatServerDeps = {
     ...deps,
-    objects: deps.objects ?? createObjectStore({ objectRoot: deps.config.objectRoot, oss: deps.config.oss }),
+    objects: deps.objects ?? createObjectStore({ objectRoot: deps.config.objectRoot, oss: deps.config.oss, publicOss: deps.config.publicOss }),
   };
   return createServer((req, res) => {
     void handle(full, req, res, hits, feedHits).catch((error: unknown) => {

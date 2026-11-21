@@ -1,6 +1,6 @@
 import path from "node:path";
 import { LIMITS } from "./limits.ts";
-import { normalizePrefix, parseOssEndpoint, type OssConfig } from "./feed/objects.ts";
+import { DEFAULT_KEY_PREFIX, normalizePrefix, parseOssEndpoint, parsePublicOssOrigin, type OssConfig, type PublicOssConfig } from "./feed/objects.ts";
 
 export const DEFAULT_MODEL = "deepseek/deepseek-v4.1-flash-1017";
 export const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
@@ -31,6 +31,8 @@ export type Config = {
   feedOpen: boolean;
   objectRoot: string | null;
   oss: OssConfig | null;
+  /** Explicit anonymous read of the already-public card objects. Off unless exactly 1. */
+  publicOss: PublicOssConfig | null;
 };
 
 export function loadConfig(env: NodeJS.ProcessEnv): Config {
@@ -80,23 +82,35 @@ export function loadConfig(env: NodeJS.ProcessEnv): Config {
     feedOpen,
     objectRoot: objects.objectRoot,
     oss: objects.oss,
+    publicOss: objects.publicOss,
   };
 }
 
-function objectConfig(env: NodeJS.ProcessEnv): { objectRoot: string | null; oss: OssConfig | null } {
+function objectConfig(env: NodeJS.ProcessEnv): { objectRoot: string | null; oss: OssConfig | null; publicOss: PublicOssConfig | null } {
   const objectRoot = (env.QBOT_OBJECT_ROOT ?? "").trim();
   const accessKeyId = (env.QBOT_OSS_ACCESS_KEY_ID ?? "").trim();
   const accessKeySecret = (env.QBOT_OSS_ACCESS_KEY_SECRET ?? "").trim();
   const bucket = (env.QBOT_OSS_BUCKET ?? "").trim();
   const endpoint = (env.QBOT_OSS_ENDPOINT ?? "").trim();
   const prefix = (env.QBOT_OSS_KEY_PREFIX ?? "").trim();
+  const publicOrigin = (env.QBOT_OSS_PUBLIC_ORIGIN ?? "").trim();
+  const publicOn = env.QBOT_OSS_PUBLIC === "1";
   const ossTouched = Boolean(accessKeyId || accessKeySecret || bucket || endpoint || prefix);
+  if (publicOn || publicOrigin) {
+    if (!publicOn || !publicOrigin) throw new Error("QBOT_OSS_PUBLIC=1 and QBOT_OSS_PUBLIC_ORIGIN must be set together");
+    if (objectRoot || accessKeyId || accessKeySecret || bucket || endpoint) {
+      throw new Error("QBOT_OSS_PUBLIC cannot be combined with an access key or a local object root");
+    }
+    const keyPrefix = normalizePrefix(prefix || DEFAULT_KEY_PREFIX);
+    if (keyPrefix !== DEFAULT_KEY_PREFIX) throw new Error("QBOT_OSS_PUBLIC only reads qbot/cards/");
+    return { objectRoot: null, oss: null, publicOss: { origin: parsePublicOssOrigin(publicOrigin), keyPrefix } };
+  }
   if (objectRoot && ossTouched) throw new Error("Set QBOT_OBJECT_ROOT or the OSS variables, not both");
   if (objectRoot) {
     if (!path.isAbsolute(objectRoot) || objectRoot.includes("\0")) throw new Error("QBOT_OBJECT_ROOT must be an absolute path");
-    return { objectRoot, oss: null };
+    return { objectRoot, oss: null, publicOss: null };
   }
-  if (!ossTouched) return { objectRoot: null, oss: null };
+  if (!ossTouched) return { objectRoot: null, oss: null, publicOss: null };
   if (!accessKeyId || !accessKeySecret || !bucket || !endpoint) {
     throw new Error("OSS settings must include the endpoint, bucket, and both key parts");
   }
@@ -110,6 +124,7 @@ function objectConfig(env: NodeJS.ProcessEnv): { objectRoot: string | null; oss:
       accessKeySecret,
       keyPrefix: normalizePrefix(prefix || "qbot/cards/"),
     },
+    publicOss: null,
   };
 }
 

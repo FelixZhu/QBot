@@ -1,5 +1,6 @@
 import { createHmac } from "node:crypto";
 import { readFile, stat } from "node:fs/promises";
+import { isIP } from "node:net";
 import path from "node:path";
 import { LIMITS } from "../limits.ts";
 import { bundlePath, isUuid } from "./paths.ts";
@@ -16,6 +17,12 @@ export type OssConfig = {
   accessKeyId: string;
   accessKeySecret: string;
   keyPrefix: string;
+};
+
+/** Anonymous read of one fixed HTTPS origin. No access key. The objects are already public. */
+export type PublicOssConfig = {
+  origin: string;
+  keyPrefix: typeof DEFAULT_KEY_PREFIX;
 };
 
 const HOST = /^[A-Za-z0-9.-]+(?::\d+)?$/;
@@ -131,8 +138,60 @@ export function createOssObjectStore(config: OssConfig, fetchImpl: typeof fetch 
   };
 }
 
-export function createObjectStore(input: { objectRoot: string | null; oss: OssConfig | null }): ObjectStore {
+/** HTTPS origin only. No user, path, query, or IP. The value stays in the private env. */
+export function parsePublicOssOrigin(raw: string): string {
+  let url: URL;
+  try {
+    url = new URL(raw.trim());
+  } catch {
+    throw new Error("QBOT_OSS_PUBLIC_ORIGIN must be an https origin");
+  }
+  if (url.protocol !== "https:" || url.username || url.password || url.search || url.hash) {
+    throw new Error("QBOT_OSS_PUBLIC_ORIGIN must be an https origin");
+  }
+  if (url.pathname !== "/" && url.pathname !== "") throw new Error("QBOT_OSS_PUBLIC_ORIGIN must not include a path");
+  const host = url.hostname.replace(/\.$/, "");
+  if (!host || host === "localhost" || host.endsWith(".localhost") || isIP(host) !== 0) {
+    throw new Error("QBOT_OSS_PUBLIC_ORIGIN must be a public https hostname");
+  }
+  return url.origin;
+}
+
+export function createPublicOssObjectStore(config: PublicOssConfig, fetchImpl: typeof fetch = fetch): ObjectStore {
+  return {
+    async read(artifactId, version, relPath) {
+      const key = objectKey(config.keyPrefix, artifactId, version, relPath);
+      if (!key || !key.startsWith(DEFAULT_KEY_PREFIX)) return null;
+      const url = new URL(`${config.origin}/${key.split("/").map((part) => encodeURIComponent(part)).join("/")}`);
+      if (url.origin !== config.origin || !url.pathname.startsWith(`/${DEFAULT_KEY_PREFIX}`)) return null;
+      let response: Response;
+      try {
+        response = await fetchImpl(url.toString(), {
+          method: "GET",
+          redirect: "manual",
+          signal: AbortSignal.timeout(8_000),
+        });
+      } catch {
+        console.error("object read failed");
+        return null;
+      }
+      if (response.status !== 200) {
+        console.error(`object read status=${response.status}`);
+        await response.arrayBuffer().catch(() => {});
+        return null;
+      }
+      const length = Number(response.headers.get("content-length") ?? "0");
+      if (Number.isFinite(length) && length > LIMITS.artifactBytes) return null;
+      const bytes = Buffer.from(await response.arrayBuffer());
+      if (bytes.length === 0 || bytes.length > LIMITS.artifactBytes) return null;
+      return bytes;
+    },
+  };
+}
+
+export function createObjectStore(input: { objectRoot: string | null; oss: OssConfig | null; publicOss: PublicOssConfig | null }): ObjectStore {
   if (input.objectRoot) return createLocalObjectStore(input.objectRoot);
+  if (input.publicOss) return createPublicOssObjectStore(input.publicOss);
   if (input.oss) return createOssObjectStore(input.oss);
   return { async read() { return null; } };
 }

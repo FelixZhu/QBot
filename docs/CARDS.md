@@ -49,7 +49,7 @@ QBOT_SEED_CONFIRM=cards npm run seed
 npm run seed-keys
 ```
 
-然后重启进程。`npm run seed-keys` 只打印键和哈希，不上传，也不改桶的 ACL。用现有的上传工具把这 7 个对象放到私有桶的 `qbot/cards/<artifact id>/v1/<file>`。环境变量是 `QBOT_OSS_ENDPOINT`、`QBOT_OSS_BUCKET`、`QBOT_OSS_ACCESS_KEY_ID`、`QBOT_OSS_ACCESS_KEY_SECRET`。前缀必须留在 `qbot/` 下面，默认 `qbot/cards/`。
+然后重启进程。这 7 个对象已经在桶里，不要再传，也不要改 ACL。没有访问密钥时，在私有环境里另设 `QBOT_OSS_PUBLIC=1` 和 `QBOT_OSS_PUBLIC_ORIGIN`（已经能匿名 GET `qbot/cards/` 的那个 https 源，不要写进仓库）。这个模式不带 `Authorization`，不跟随重定向，只读公开 bot 的公开卡，并且路径只能是 `qbot/cards/<artifact>/v<version>/<清单里的文件>`。手机仍走带令牌的 `/v1/artifacts/...`，因为对象原始响应会强制下载。令牌不把这些公开对象变成私有。`QBOT_PERSONAL_OPEN` 不因此扩大。
 
 App 仍是 `1.0.11` / versionCode `13`，`runtimeVersion` 跟 `appVersion`。没有新的原生模块，用的是已经在包里的 WebView。这一层可以 OTA 到已安装的 1.0.11。不要先发 App、后跑种子：新的今日和对话入口会先看到空或 401。
 
