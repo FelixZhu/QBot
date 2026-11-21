@@ -6,7 +6,7 @@ import { SampleMark } from "./DemoCard";
 
 const INK = "#1C1B19";
 const CREAM = "#F3EFE7";
-const CLAY = "#D9774B";
+const CLAY = "#FF6A2B";
 const AMBER = "#F5A623";
 const MONO = "monospace";
 
@@ -127,7 +127,7 @@ function InfoBody({ ask, onAsk, onSample }: { ask: boolean; onAsk: () => void; o
             </View>
             <Text style={{ color: INK, fontSize: 16, fontWeight: "800", lineHeight: 22 }}>{item.title}</Text>
             <Text style={{ color: "#4A463E", fontSize: 13, lineHeight: 20 }}>{item.body}</Text>
-            <Pressable accessibilityRole="button" onPress={() => onSample("样例 · 没有原帖链接")}><Text style={{ color: "#A94E27", fontWeight: "700" }}>查看原帖</Text></Pressable>
+            <Pressable accessibilityRole="button" onPress={() => onSample("样例 · 没有原帖链接")}><Text style={{ color: "#C24410", fontWeight: "700" }}>查看原帖</Text></Pressable>
           </View>
         </View>
       ))}
@@ -180,7 +180,7 @@ function EnglishBody({ onSample }: { onSample: (message: string) => void }) {
         <Text style={{ color: INK, fontFamily: MONO, fontSize: 10, letterSpacing: 1 }}>别搞混</Text>
         <View style={{ flexDirection: "row", gap: 8 }}>
           {ENGLISH.mix.map((item) => (
-            <View key={item.phrase} style={{ flex: 1, borderRadius: 12, padding: 8, borderWidth: 1, borderColor: item.focus ? CLAY : "rgba(28,27,25,0.2)", backgroundColor: item.focus ? "rgba(217,119,75,0.2)" : "transparent" }}>
+            <View key={item.phrase} style={{ flex: 1, borderRadius: 12, padding: 8, borderWidth: 1, borderColor: item.focus ? CLAY : "rgba(28,27,25,0.2)", backgroundColor: item.focus ? "rgba(255,106,43,0.12)" : "transparent" }}>
               <Text style={{ color: INK, fontWeight: "700" }}>{item.phrase}</Text>
               <Text style={{ color: INK }}>{item.gloss}</Text>
             </View>

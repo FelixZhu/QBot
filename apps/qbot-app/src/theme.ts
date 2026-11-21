@@ -10,6 +10,8 @@ export type Palette = {
   muted: string;
   line: string;
   accent: string;
+  /** Orange used for text and links. The fill accent is too light for small type. */
+  accentInk: string;
   bubbleMe: string;
   bubbleMeText: string;
   bubbleBot: string;
@@ -42,7 +44,8 @@ export const palette: Record<Scheme, Palette> = {
     text: "#1C1B19",
     muted: "#8A8781",
     line: "#EAE7E1",
-    accent: "#D9774B",
+    accent: "#FF6A2B",
+    accentInk: "#C24410",
     bubbleMe: "#1C1B19",
     bubbleMeText: "#FAF9F6",
     bubbleBot: "#FFFFFF",
@@ -57,7 +60,8 @@ export const palette: Record<Scheme, Palette> = {
     text: "#EDE8DF",
     muted: "#9A9386",
     line: "#34312C",
-    accent: "#E58A5E",
+    accent: "#FF6A2B",
+    accentInk: "#FF8A55",
     bubbleMe: "#EDE8DF",
     bubbleMeText: "#1C1B19",
     bubbleBot: "#2E2B27",
@@ -71,6 +75,89 @@ export const palette: Record<Scheme, Palette> = {
 /** A missing or unknown system value stays light. Dark is only the explicit dark scheme. */
 export function resolveScheme(colorScheme: string | null | undefined): Scheme {
   return colorScheme === "dark" ? "dark" : "light";
+}
+
+/** Chat screen colors taken from the approved 2026-11-20 light and dark frames. */
+export type ChatChrome = {
+  canvas: string;
+  text: string;
+  muted: string;
+  userBubble: string;
+  userText: string;
+  composer: string;
+  line: string;
+  send: string;
+  onSend: string;
+  /** Orange for short labels such as 立即发送. */
+  inkText: string;
+  pressed: string;
+  ink: string;
+  onInk: string;
+  sheet: string;
+  tile: string;
+  scrim: string;
+  toast: string;
+  toastText: string;
+  check: string;
+  selection: string;
+  icon: string;
+  disabled: string;
+  soft: string;
+};
+
+export function chatChrome(scheme: Scheme): ChatChrome {
+  if (scheme === "dark") {
+    return {
+      canvas: "#151515",
+      text: "#F3F1EA",
+      muted: "#9B9B96",
+      userBubble: "#2B2B29",
+      userText: "#ECEBE6",
+      composer: "#232322",
+      line: "rgba(255,255,255,0.08)",
+      send: "#FF6A2B",
+      onSend: "#FFFFFF",
+      inkText: "#FF8A55",
+      pressed: "#E85A1F",
+      ink: "#F4F1EA",
+      onInk: "#1C1B19",
+      sheet: "#1F1F1E",
+      tile: "#2A2A28",
+      scrim: "rgba(0,0,0,0.55)",
+      toast: "#3A3A38",
+      toastText: "#F4F1EA",
+      check: "#5FAF6A",
+      selection: "rgba(255,106,43,0.45)",
+      icon: "#B7B7B2",
+      disabled: "#5C5C58",
+      soft: "#2A2A28",
+    };
+  }
+  return {
+    canvas: "#FAF9F5",
+    text: "#1C1B19",
+    muted: "#8E8A82",
+    userBubble: "#EFEDE6",
+    userText: "#1F1E1D",
+    composer: "#FFFFFF",
+    line: "rgba(28,27,25,0.08)",
+    send: "#FF6A2B",
+    onSend: "#FFFFFF",
+    inkText: "#C24410",
+    pressed: "#E85A1F",
+    ink: "#1C1B19",
+    onInk: "#FFFFFF",
+    sheet: "#FFFFFF",
+    tile: "#F6F3EC",
+    scrim: "rgba(28,27,25,0.38)",
+    toast: "#323230",
+    toastText: "#FFFFFF",
+    check: "#5FAF6A",
+    selection: "rgba(255,106,43,0.35)",
+    icon: "#6F6B64",
+    disabled: "#C8C4BC",
+    soft: "#F3F0E8",
+  };
 }
 
 export function isSplit(width: number): boolean {

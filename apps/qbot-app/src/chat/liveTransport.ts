@@ -3,7 +3,7 @@ import { throwIfAborted, type ChatTransport } from "./transport.ts";
 
 /** Sends only the newest user text. The server rebuilds persona and history. */
 export function createServerChatTransport(options: {
-  url: string;
+  url: string | (() => string);
   token?: string;
   fetchImpl?: typeof fetch;
   onStart?: () => void;
@@ -15,8 +15,9 @@ export function createServerChatTransport(options: {
     reply(history, signal) {
       const text = [...history].reverse().find((turn) => turn.role === "user")?.text.trim() ?? "";
       if (!text) throw new Error("没有要发送的文字");
+      const url = typeof options.url === "function" ? options.url() : options.url;
       options.onStart?.();
-      return postText(fetchImpl, options.url, options.token, text, signal, options.onError);
+      return postText(fetchImpl, url, options.token, text, signal, options.onError);
     },
   };
 }
@@ -43,6 +44,7 @@ async function* postText(
       signal,
     });
   } catch (error) {
+    if (signal.aborted) throw aborted(error);
     throw report(error, token, onError);
   }
   if (!response.ok) {
@@ -53,6 +55,7 @@ async function* postText(
   try {
     yield* readAssistantDeltas(response, signal);
   } catch (error) {
+    if (signal.aborted) throw aborted(error);
     throw report(error, token, onError);
   }
 }
@@ -67,7 +70,14 @@ function readError(status: number, text: string): string {
   return `服务器返回 HTTP ${status}`;
 }
 
+function aborted(error: unknown): Error {
+  const next = error instanceof Error ? error : new Error("The operation was aborted.");
+  next.name = "AbortError";
+  return next;
+}
+
 function report(error: unknown, token: string | undefined, onError?: (message: string) => void): Error {
+  if (error instanceof Error && error.name === "AbortError") return error;
   const raw = error instanceof Error ? error.message : "chat stream failed";
   const message = token ? raw.split(token).join("[redacted]") : raw;
   onError?.(message);

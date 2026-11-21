@@ -32,13 +32,20 @@ export type ConnectionView =
   | { phase: "error"; message: string }
   | ReadyConnection;
 
-/** Personal trial. No device credential and no operator token. */
-export async function openChat(input: { origin: string; fetchImpl?: typeof fetch }): Promise<ReadyConnection> {
+/** Personal trial. No device credential and no operator token. Session and the list run together. */
+export async function openChat(input: {
+  origin: string;
+  fetchImpl?: typeof fetch;
+  preferredId?: string | null;
+}): Promise<ReadyConnection> {
   const origin = parseServerOrigin(input.origin);
   const client = createServerClient({ origin, fetchImpl: input.fetchImpl });
-  const session = await client.session();
-  const conversations = await client.listConversations();
-  const conversationId = conversations[0]?.id ?? (await client.createConversation()).id;
+  const [session, conversations] = await Promise.all([
+    client.session(),
+    client.listConversations(),
+  ]);
+  const preferred = conversations.find((item) => item.id === input.preferredId);
+  const conversationId = preferred?.id ?? conversations[0]?.id ?? (await client.createConversation()).id;
   return { phase: "ready", origin, token: "", session, conversationId, client };
 }
 
@@ -86,9 +93,11 @@ async function openStored(
   fetchImpl?: typeof fetch,
 ): Promise<ReadyConnection> {
   const client = createServerClient({ origin, token, fetchImpl });
-  const session = await client.session();
-  const conversations = await client.listConversations();
-  const saved = await settings.getItem(CONVERSATION_KEY);
+  const [session, conversations, saved] = await Promise.all([
+    client.session(),
+    client.listConversations(),
+    settings.getItem(CONVERSATION_KEY),
+  ]);
   const existing = conversations.find((item) => item.id === saved) ?? conversations[0];
   const conversationId = existing?.id ?? (await client.createConversation()).id;
   await settings.setItem(CONVERSATION_KEY, conversationId);

@@ -41,7 +41,7 @@ git worktree add ../QBot-claude -b claude/主题 origin/main
 - 外观跟随系统的 `prefers-color-scheme`。导航里没有外观项。以前存下的浅色或深色选择不会再锁住页面。`<html data-theme>` 是解析后的 `light` 或 `dark`，`data-theme-mode` 保持 `auto`。
 - 安卓返回键调用网页里的 `qbotBack`。对话里先回到会话列表。网页处理不了时，壳提示「再滑一次退出」。这套壳行为写在已安装的包里，本轮没有用真机复验。
 
-安装包版本看 [`apps/qbot-app/app.json`](apps/qbot-app/app.json) 的 `expo.version` 和 `expo.android.versionCode`。当前源码是 `1.0.10` 和 `12`。`1.0.10` 增加了 `expo-secure-store`，不能用 OTA 装进已安装的 `1.0.9`。`package.json` 的 `1.0.0` 不是安装包版本。[`eas.json`](apps/qbot-app/eas.json) 的 `appVersionSource` 是 `local`，preview 的 channel 是 `preview`。包名是 `io.github.felixzhu.qiandrive`。网页改动刷新即可。原生壳这一版要先装一次带 expo-updates 的包；之后同一 `expo.version` 的界面用 `eas update --channel preview` 发，下次冷启动生效。`runtimeVersion` 跟 `expo.version` 走，原生模块变了才升版本并重装。
+安装包版本看 [`apps/qbot-app/app.json`](apps/qbot-app/app.json) 的 `expo.version` 和 `expo.android.versionCode`。当前安装包是 `1.0.11` 和 `13`。颜色和对话头像那一层仍是 `1.0.10`，可以 OTA。`1.0.11` 带桌面图标、启动页和 Markdown 原生组件。`package.json` 的 `1.0.0` 不是安装包版本。[`eas.json`](apps/qbot-app/eas.json) 的 `appVersionSource` 是 `local`，preview 的 channel 是 `preview`。包名是 `io.github.felixzhu.qiandrive`。网页改动刷新即可。原生壳这一版要先装一次带 expo-updates 的包；之后同一 `expo.version` 的界面用 `eas update --channel preview` 发，下次冷启动生效。`runtimeVersion` 跟 `expo.version` 走，原生模块变了才升版本并重装。
 
 原生对话可以连接 [`services/qbot-chat`](services/qbot-chat)。网页对话仍是演示。还没有：通知、私密区解锁、应用商店包、iOS 构建、工具循环、定时卡片。GitHub Actions 不打 APK，也不部署聊天服务器。
 

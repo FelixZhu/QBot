@@ -12,6 +12,7 @@ import { createDemoHistory, createMemoryStorage } from "./history.ts";
 import { createHttpStreamTransport } from "./httpStream.ts";
 import { createLocalTransport } from "./local.ts";
 import { toModelAdapter } from "./transport.ts";
+import { toRepository } from "./serverHistory.ts";
 
 const DEMOS: DemoId[] = ["info", "english", "study"];
 
@@ -235,6 +236,46 @@ test("streaming HTTP reads a local fake server and no other host", { timeout: 10
   ]);
 });
 
+test("an empty cancelled turn reloads as stopped, while a pending one stays unfinished", () => {
+  const cancelled = toRepository([{
+    id: "cancelled-empty",
+    role: "assistant",
+    content: "",
+    status: "cancelled",
+    createdAt: "2026-11-20T00:00:00.000Z",
+  }]);
+  const cancelledMessage = cancelled.messages[0]?.message;
+  assert.equal(cancelledMessage && cancelledMessage.role === "assistant" ? cancelledMessage.status.reason : "", "cancelled");
+  const cancelledText = cancelledMessage?.content[0];
+  assert.equal(cancelledText && cancelledText.type === "text" ? cancelledText.text : "missing", "");
+
+  const pending = toRepository([{
+    id: "pending-empty",
+    role: "assistant",
+    content: "",
+    status: "pending",
+    createdAt: "2026-11-20T00:00:00.000Z",
+  }]);
+  const pendingMessage = pending.messages[0]?.message;
+  assert.equal(pendingMessage && pendingMessage.role === "assistant" ? pendingMessage.status.reason : "", "error");
+  const pendingText = pendingMessage?.content[0];
+  assert.equal(pendingText && pendingText.type === "text" ? pendingText.text : "", "服务器没有完成这条回复。");
+});
+
+test("a cancelled server turn reloads as stopped text, not a generic error", () => {
+  const loaded = toRepository([{
+    id: "cancelled-1",
+    role: "assistant",
+    content: "收到。",
+    status: "cancelled",
+    createdAt: "2026-11-20T00:00:00.000Z",
+  }]);
+  const message = loaded.messages[0]?.message;
+  assert.equal(message && message.role === "assistant" ? message.status.reason : "", "cancelled");
+  const text = message?.content[0];
+  assert.equal(text && text.type === "text" ? text.text : "", "收到。");
+});
+
 test("the home is one Qbot row and the live path does not invent a model reply", () => {
   const root = new URL("../", import.meta.url);
   const read = (name: string) => readFileSync(new URL(name, root), "utf8");
@@ -244,9 +285,12 @@ test("the home is one Qbot row and the live path does not invent a model reply",
   assert.equal(pane.includes("createLocalTransport"), false);
   assert.equal(pane.includes("createHttpStreamTransport"), false);
   const live = read("chat/LiveChat.tsx");
+  const runtime = read("chat/useChatRuntime.tsx");
   assert.equal(live.includes("createLocalTransport"), false);
   assert.equal(live.includes("localReply"), false);
-  assert.match(live, /createServerChatTransport/);
+  assert.match(runtime, /createServerChatTransport/);
+  assert.match(runtime, /useRemoteThreadListRuntime/);
+  assert.match(runtime, /withKey/);
   assert.equal(live.includes("连接码"), false);
   assert.match(live, /ChatThreadSurface/);
   assert.match(live, /maxWidth: READ_MAX/);

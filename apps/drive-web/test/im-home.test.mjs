@@ -32,7 +32,7 @@ test("list, bubble, and composer sizes follow the approved spec", () => {
   assert.match(css, /#1C1B19/);
   assert.match(css, /#8A8781/);
   assert.match(css, /#EAE7E1/);
-  assert.match(css, /#D9774B/);
+  assert.match(css, /#FF6A2B/);
   assert.match(css, /min-height:80px/);
   assert.match(css, /\.qc-conv \.av\{width:48px;height:48px/);
   assert.match(css, /font-size:16px/);

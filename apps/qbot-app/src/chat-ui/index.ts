@@ -6,11 +6,11 @@
  * import { ChatThreadSurface } from "./chat-ui";
  *
  * <AssistantRuntimeProvider runtime={runtime}>
- *   <ChatThreadSurface colors={colors} bottomSafeArea="self" />
+ *   <ChatThreadSurface scheme="light" bottomSafeArea="self" />
  * </AssistantRuntimeProvider>
  *
- * The demo passes bottomSafeArea="parent" because the tab bar owns the
- * home-indicator inset. Pass suggestions and listHeader only for that demo.
+ * Pass bottomSafeArea="parent" when a bar under the thread already pads the
+ * home indicator. The live thread hides that bar and uses "self".
  */
 export { ChatThreadSurface, type ChatThreadSurfaceProps } from "./ChatThreadSurface";
 export { copyText } from "./copyText";

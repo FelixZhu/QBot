@@ -5,8 +5,11 @@ appId: io.github.felixzhu.qiandrive
 - repeat:
     times: 20
     while:
-      notVisible: "Qbot"
+      notVisible: "新对话"
     commands:
+    - tapOn:
+        text: "对话"
+        optional: true
     - runFlow:
         when:
           visible: "Close app"
@@ -18,10 +21,11 @@ appId: io.github.felixzhu.qiandrive
         commands:
           - tapOn: "Wait"
     - extendedWaitUntil:
-        visible: "Qbot"
+        visible: "新对话"
         timeout: 3000
         optional: true
-- assertVisible: "Qbot"
+- assertVisible: "新对话"
+- assertVisible: "个人对话"
 - assertNotVisible: "Info Bot，演示"
 - assertNotVisible: "English Bot，演示"
 - assertNotVisible: "Study Bot，演示"

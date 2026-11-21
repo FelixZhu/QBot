@@ -115,13 +115,13 @@ function CardFace({ card, colors, active, read, onOpen }: { card: FeedCard; colo
           {card.source.name} · {card.kicker}
         </Text>
         {read ? <Text style={{ color: dark ? "#C8C2B8" : colors.muted, fontSize: 12 }}>已读</Text> : null}
-        <Text style={{ color: colors.accent, fontSize: 12, fontWeight: "700" }}>演示</Text>
+        <Text style={{ color: colors.accentInk, fontSize: 12, fontWeight: "700" }}>演示</Text>
       </View>
       {card.type === "gallery" ? <View style={{ marginTop: 10 }}><Gallery frames={card.frames} height={190} /></View> : null}
       {card.type === "invite" ? <View style={{ marginTop: 10, marginHorizontal: 12, borderRadius: 14, overflow: "hidden" }}><Frame id={card.frame} height={150} /></View> : null}
       {card.type === "film" ? <View style={{ marginTop: 10 }}><Film active={active} height={180} /></View> : null}
       <View style={{ padding: 14 }}>
-        <Text style={{ color: dark ? "#FAF9F6" : card.type === "gallery" ? colors.accent : colors.text, fontSize: card.type === "invite" ? 20 : 16, lineHeight: 26, fontWeight: "700" }}>
+        <Text style={{ color: dark ? "#FAF9F6" : card.type === "gallery" ? colors.accentInk : colors.text, fontSize: card.type === "invite" ? 20 : 16, lineHeight: 26, fontWeight: "700" }}>
           {card.type === "invite" ? card.gameTitle : card.title}
         </Text>
         <Text style={{ marginTop: 4, color: dark ? "#C8C2B8" : colors.muted, fontSize: 13, lineHeight: 18 }}>{card.note}</Text>
@@ -156,7 +156,7 @@ function Detail({
         <Text style={{ fontSize: 16, fontWeight: "600", color: colors.text }}>{card.source.name}</Text>
       </View>
       <View style={{ paddingHorizontal: 20, paddingBottom: 12 }}>
-        <Text style={{ color: colors.accent, fontSize: 13 }}>{card.kicker} · 虚构</Text>
+        <Text style={{ color: colors.accentInk, fontSize: 13 }}>{card.kicker} · 虚构</Text>
         <Text style={{ marginTop: 8, fontSize: 28, lineHeight: 36, fontWeight: "700", color: colors.text }}>{card.title}</Text>
         <Text style={{ marginTop: 8, fontSize: 15, lineHeight: 22, color: colors.muted }}>{card.note}</Text>
       </View>
@@ -173,8 +173,8 @@ function Detail({
               </Pressable>
             ))}
           </View>
-          <Pressable onPress={() => setPieces((count) => Math.max(count, 1))} style={({ pressed }) => ({ minHeight: 48, borderRadius: 14, alignItems: "center", justifyContent: "center", backgroundColor: pressed ? "#E58A5E" : colors.accent })}>
-            <Text style={{ color: "#FAF9F6", fontWeight: "700" }}>一起玩</Text>
+          <Pressable onPress={() => setPieces((count) => Math.max(count, 1))} style={({ pressed }) => ({ minHeight: 48, borderRadius: 14, alignItems: "center", justifyContent: "center", backgroundColor: pressed ? "#E85A1F" : colors.accent })}>
+            <Text style={{ color: "#1C1B19", fontWeight: "700" }}>一起玩</Text>
           </Pressable>
           <Pressable onPress={onClose} style={({ pressed }) => ({ minHeight: 44, alignItems: "center", justifyContent: "center", opacity: pressed ? 0.6 : 1 })}>
             <Text style={{ color: colors.muted }}>稍后再说</Text>
@@ -254,7 +254,7 @@ export function FeedPane({
             <Text style={{ fontSize: 16, fontWeight: "700", color: colors.text }}>主动服务</Text>
           </View>
           <Text style={{ marginTop: 18, fontSize: 14, color: colors.muted }}>由 Agent 为你连接</Text>
-          <Text style={{ marginTop: 6, fontSize: 34, lineHeight: 42, fontWeight: "700", color: colors.accent }}>世界很大，{"\n"}与你有关</Text>
+          <Text style={{ marginTop: 6, fontSize: 34, lineHeight: 42, fontWeight: "700", color: colors.accentInk }}>世界很大，{"\n"}与你有关</Text>
           {memory.dismissed.length > 0 ? (
             <Pressable
               onPress={() => setMemory((prev) => undoDismiss(prev))}
