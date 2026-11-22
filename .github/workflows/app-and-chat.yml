@@ -22,6 +22,24 @@ permissions:
 jobs:
   app:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:0.8.7-pg15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      # One live.test.ts starts the chat server. It uses this job's container only.
+      DATABASE_MIGRATE_URL: postgres://postgres:postgres@127.0.0.1:5432/qbot
+      DATABASE_URL: postgres://qbot:qbot@127.0.0.1:5432/qbot
     steps:
       - uses: actions/checkout@v4
 
@@ -30,6 +48,18 @@ jobs:
           node-version: 24
           cache: npm
           cache-dependency-path: apps/qbot-app/package-lock.json
+
+      - name: Create the throwaway role and database
+        run: |
+          PGPASSWORD=postgres psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 <<'SQL'
+          CREATE ROLE qbot LOGIN PASSWORD 'qbot' NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT;
+          CREATE DATABASE qbot OWNER qbot ENCODING 'UTF8' LC_COLLATE 'C.UTF-8' LC_CTYPE 'C.UTF-8' TEMPLATE template0;
+          REVOKE ALL ON DATABASE qbot FROM PUBLIC;
+          GRANT CONNECT, TEMPORARY ON DATABASE qbot TO qbot;
+          SQL
+          PGPASSWORD=postgres psql -h 127.0.0.1 -U postgres -d qbot -v ON_ERROR_STOP=1 <<'SQL'
+          ALTER SCHEMA public OWNER TO qbot;
+          SQL
 
       - name: App typecheck and unit tests
         working-directory: apps/qbot-app
