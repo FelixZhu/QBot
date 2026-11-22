@@ -45,7 +45,7 @@ docs/DESIGN.md          视觉参考
 
 依赖只向下。导航调用模块已导出的 `back` / `closeDetail`。Feed 在有 `qbotShell` 时调用 `openArticle` / `openExternal`。文件卡若要打开知识库，走导航注入的 `qbotKb.open`，该函数不存在则只切 Tab。
 
-`apps/qbot-app/app.json` 里安装包版本是 `1.0.9`，`versionCode` 是 `11`。`package.json` 的 `1.0.0` 不是安装包版本。包名是 `io.github.felixzhu.qiandrive`。`runtimeVersion` 策略是 `appVersion`。preview 构建写入 channel `preview`。同一版本的 JS 用 `eas update --channel preview` 发布，启动时后台下载，下次冷启动生效；失败保持已安装的包。原生依赖变了要升 `expo.version` 再发 APK。这一轮不在这里打包，也不发布更新。
+`apps/qbot-app/app.json` 里安装包版本是 `1.0.10`，`versionCode` 是 `12`。`1.0.10` 新增 `expo-secure-store`，`runtimeVersion` 仍跟 `expo.version`，所以已安装的 `1.0.9` 不能靠 OTA 收到这一版。`package.json` 的 `1.0.0` 不是安装包版本。包名是 `io.github.felixzhu.qiandrive`。`runtimeVersion` 策略是 `appVersion`。preview 构建写入 channel `preview`。同一版本的 JS 用 `eas update --channel preview` 发布，启动时后台下载，下次冷启动生效；失败保持已安装的包。原生依赖变了要升 `expo.version` 再发 APK。这一轮不在这里打包，也不发布更新。
 
 ## 3. closeDetail 与 back()
 
@@ -91,7 +91,7 @@ python3 apps/drive-web/build_pinned.py --repo /tmp/qbot-site --strict
 
 ## 6. 尚未落地
 
-- 真实对话后端、会话持久化、原生语音识别、通知、私密区解锁、应用商店包、iOS 构建。
+- 原生对话的服务器在 `services/qbot-chat`：一个进程、一份 agent 定义、每次交互或以后的后台产物各记一条 run。网页 `apps/chat-web` 仍是演示。还没有工具、定时卡片、通知、私密区解锁、应用商店包、iOS 构建。
 - 目录拆分，以及策略（触发、排序、去重、推送）与 Feed 展示分开。
 - `template_v1.html` 仍在仓库里，没有引用。本文不删除它。
 - 安卓 WebView、已装 APK、系统返回键本轮没有复验。网页通过不代替真机。

@@ -15,9 +15,11 @@ import {
 import { StatusBar } from "expo-status-bar";
 import { setBackgroundColorAsync } from "expo-system-ui";
 import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context";
-import { ChatEmpty, ChatList, ChatThread } from "./src/ChatPane";
+import { ChatEmpty, ChatList } from "./src/ChatPane";
+import { LiveChat } from "./src/chat/LiveChat";
+import { liveBadge } from "./src/chat/connectionCopy";
+import { useServerConnection } from "./src/chat/useServerConnection";
 import { BookIcon, BubbleIcon, StarIcon } from "./src/TabIcons";
-import { findDemo, type DemoId } from "./src/demos";
 import { isSplit, listPaneWidth, palette, resolveScheme } from "./src/theme";
 import { LessonFeed } from "./src/feed/LessonFeed";
 import { pullUpdate } from "./src/updates";
@@ -49,13 +51,13 @@ function Shell() {
   const feedBack = useRef<() => boolean>(() => false);
   const lastExit = useRef(0);
   const [tab, setTab] = useState<Tab>("chat");
-  const [thread, setThread] = useState<DemoId | null>(null);
-  const [query, setQuery] = useState("");
+  const [thread, setThread] = useState(false);
+  const connection = useServerConnection();
   const [keyboard, setKeyboard] = useState(false);
   const [webReady, setWebReady] = useState(false);
   const [coverTabs, setCoverTabs] = useState(false);
   const tabOpacity = useRef(new Animated.Value(1)).current;
-  const demo = findDemo(thread);
+  const live = thread;
 
   useEffect(() => {
     setBackgroundColorAsync(colors.canvas).catch(() => {});
@@ -116,7 +118,7 @@ function Shell() {
     if (Platform.OS !== "android") return;
     const sub = BackHandler.addEventListener("hardwareBackPress", () => {
       if (tab === "chat" && thread) {
-        setThread(null);
+        setThread(false);
         return true;
       }
       if (tab === "feed" && feedBack.current()) return true;
@@ -137,8 +139,8 @@ function Shell() {
   };
 
   const showTabs = !(keyboard && tab === "chat");
-  const showList = tab === "chat" && (split || !demo);
-  const showThread = tab === "chat" && (split || !!demo);
+  const showList = tab === "chat" && (split || !live);
+  const showThread = tab === "chat" && (split || live);
 
   const feedOn = tab === "feed" || coverTabs;
   return (
@@ -157,13 +159,23 @@ function Shell() {
         </View>
         {showList ? (
           <View style={split ? { width: listWidth, borderRightWidth: 1, borderRightColor: colors.line } : { flex: 1 }}>
-            <ChatList colors={colors} query={query} onQuery={setQuery} selected={thread} onOpen={setThread} />
+            <ChatList
+              colors={colors}
+              badge={liveBadge(connection.view)}
+              selected={live}
+              onOpen={() => setThread(true)}
+            />
           </View>
         ) : null}
         {showThread ? (
           <View style={{ flex: 1, minWidth: 0 }}>
-            {demo ? (
-              <ChatThread demo={demo} colors={colors} showBack={!split} onBack={() => setThread(null)} />
+            {live ? (
+              <LiveChat
+                colors={colors}
+                showBack={!split}
+                onBack={() => setThread(false)}
+                view={connection.view}
+              />
             ) : (
               <ChatEmpty colors={colors} />
             )}

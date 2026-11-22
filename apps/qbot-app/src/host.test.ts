@@ -52,10 +52,11 @@ test("wide panes share one 38% width, clamped to 320–400", () => {
   assert.equal(app.includes("0.42"), false);
   assert.match(feedPane, /listPaneWidth\(width\)/);
   assert.equal(feedPane.includes("0.42"), false);
-  assert.match(chat, /READ_MAX/);
+  const live = readFileSync(new URL("./chat/LiveChat.tsx", import.meta.url), "utf8");
+  assert.match(live, /maxWidth: READ_MAX/);
   assert.match(chat, /colors\.selected/);
-  assert.match(chat, /width: 3/);
-  assert.match(chat, /ellipsizeMode="tail"/);
+  assert.match(chat, />Qbot</);
+  assert.equal(chat.includes("Info Bot"), false);
 });
 
 test("demo replies stay local and labeled", () => {
