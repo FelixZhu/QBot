@@ -1,9 +1,10 @@
 name: pages
 
+# Manual only. A push to main must not publish https://felixzhu.github.io/QBot/.
+# The live server and app can land on main without replacing the public site.
+# The old pins are unchanged. Run this workflow by hand only when a publish is authorized.
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
 
 permissions:
   contents: read
