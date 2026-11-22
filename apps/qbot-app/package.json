@@ -29,7 +29,7 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "node --experimental-strip-types --test src/host.test.ts src/updates.test.ts src/feed/feed.test.ts src/feed/feedClient.test.ts src/kb/indexFilter.test.ts src/feed/memory.test.ts src/feed/lessons.test.ts src/feed/paging.test.ts src/feed/game.test.ts src/feed/demo/demo.test.ts src/feed/order.test.ts src/chat/chat.test.ts src/chat/live.test.ts src/chat/bundle-origin.test.ts src/chat/threadCache.test.ts src/chat/remoteThreads.test.ts src/chat-ui/chat-ui.test.ts src/chat-ui/chat-model.test.ts",
+    "test": "node --experimental-strip-types --test src/host.test.ts src/updates.test.ts src/feed/feed.test.ts src/feed/feedClient.test.ts src/kb/indexFilter.test.ts src/feed/memory.test.ts src/feed/lessons.test.ts src/feed/paging.test.ts src/feed/immersive.test.ts src/feed/game.test.ts src/feed/demo/demo.test.ts src/feed/order.test.ts src/chat/chat.test.ts src/chat/live.test.ts src/chat/bundle-origin.test.ts src/chat/threadCache.test.ts src/chat/remoteThreads.test.ts src/chat-ui/chat-ui.test.ts src/chat-ui/chat-model.test.ts",
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",

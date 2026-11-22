@@ -26,6 +26,7 @@ import { TabBarIcon } from "./src/TabBarIcon";
 import { chatChrome, isSplit, listPaneWidth, palette, resolveScheme } from "./src/theme";
 import { createFeedClient } from "./src/feed/feedClient";
 import { CardFeed } from "./src/feed/CardFeed";
+import type { StatusIcons } from "./src/feed/immersive";
 import { pullUpdate } from "./src/updates";
 import { WebPane, type WebPaneHandle } from "./src/WebPane";
 import * as Updates from "expo-updates";
@@ -67,6 +68,7 @@ function Shell() {
   const [webReady, setWebReady] = useState(false);
   const [libraryReady, setLibraryReady] = useState(false);
   const [coverTabs, setCoverTabs] = useState(false);
+  const [feedStatus, setFeedStatus] = useState<StatusIcons | null>(null);
   const tabOpacity = useRef(new Animated.Value(1)).current;
   const live = thread;
   const inThread = tab === "chat" && thread;
@@ -178,8 +180,8 @@ function Shell() {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: inThread ? screenChrome.canvas : colors.canvas, paddingTop: insets.top }}>
-      <StatusBar style={colors.status} />
+    <View style={{ flex: 1, backgroundColor: inThread ? screenChrome.canvas : colors.canvas, paddingTop: tab === "feed" ? 0 : insets.top }}>
+      <StatusBar style={tab === "feed" && feedStatus ? feedStatus : colors.status} />
       <View style={{ flex: 1, position: "relative", flexDirection: split && tab === "chat" ? "row" : "column" }}>
         <View
           pointerEvents={tab === "feed" ? "auto" : "none"}
@@ -188,9 +190,11 @@ function Shell() {
           <CardFeed
             active={tab === "feed"}
             origin={origin}
+            topInset={insets.top}
             onBackReady={(back) => { feedBack.current = back; }}
             onCover={setCoverTabs}
             onFollowChange={(bot) => { if (bot.slug === "qbot") setFollow(bot.followed ? "on" : "off"); }}
+            onStatusStyle={setFeedStatus}
           />
         </View>
         <ChatRuntime boot={boot}>
@@ -244,7 +248,7 @@ function Shell() {
           />
         ) : null}
       </View>
-      {showTabs ? (
+      {showTabs && !coverTabs ? (
         <Animated.View
           pointerEvents={coverTabs ? "none" : "auto"}
           style={{

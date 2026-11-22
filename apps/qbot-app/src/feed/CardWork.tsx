@@ -12,11 +12,13 @@ export function CardWork({
   url,
   title,
   colors,
+  topInset = 0,
   onClose,
 }: {
   url: string;
   title: string;
   colors: Palette;
+  topInset?: number;
   onClose: () => void;
 }) {
   const allow = useMemo(() => {
@@ -35,7 +37,7 @@ export function CardWork({
     };
   }, [url]);
   return (
-    <View style={{ flex: 1, backgroundColor: colors.bg }}>
+    <View style={{ flex: 1, backgroundColor: colors.bg, paddingTop: topInset }}>
       <View style={{ height: 48, flexDirection: "row", alignItems: "center", paddingHorizontal: 8, borderBottomWidth: 1, borderBottomColor: colors.line }}>
         <Pressable accessibilityRole="button" accessibilityLabel="返回" onPress={onClose} style={{ minWidth: 64, minHeight: 40, justifyContent: "center", paddingHorizontal: 8 }}>
           <Text style={{ color: colors.accentInk, fontSize: 16, fontWeight: "700" }}>返回</Text>
