@@ -9,27 +9,190 @@ appId: io.github.felixzhu.qiandrive
 - takeScreenshot:
     path: light-chat-home
 
-- tapOn: "Qbot"
+- tapOn: "新对话"
 - extendedWaitUntil:
-    visible: "发消息"
-    timeout: 20000
-- assertVisible: "这一版没有带上服务器地址"
+    visible: ".*这句可以长按选择.*"
+    timeout: 30000
+- assertVisible: ".*不是真实模型.*"
 - assertNotVisible: "连接码"
+- assertNotVisible: "这一版没有带上服务器地址"
 - takeScreenshot:
     path: light-qbot-thread
+
+# The button keeps the copy result after the two-second check fades.
+- tapOn:
+    text: "复制"
+    waitToSettleTimeoutMs: 0
+- extendedWaitUntil:
+    visible: "已复制到剪贴板"
+    timeout: 5000
+- takeScreenshot:
+    path: light-chat-copied
+
+- longPressOn: ".*这句可以长按选择.*"
+- extendedWaitUntil:
+    visible: "Select all"
+    timeout: 8000
+- assertVisible: "Copy"
+- takeScreenshot:
+    path: light-chat-select
+- runFlow:
+    when:
+      visible: "Copy"
+    commands:
+      - tapOn: "Copy"
+- runFlow:
+    when:
+      visible: "Select all"
+    commands:
+      - tapOn: "Select all"
+- tapOn: "QBot"
+
+- swipe:
+    start: "50%,70%"
+    end: "50%,45%"
+    duration: 400
+- takeScreenshot:
+    path: light-chat-scrolled
+- swipe:
+    start: "50%,45%"
+    end: "50%,75%"
+    duration: 400
+
+- tapOn: "添加"
+- extendedWaitUntil:
+    visible: ".*不会上传.*"
+    timeout: 8000
+- assertVisible: ".*模型也读不了.*"
+- takeScreenshot:
+    path: light-chat-add
+- tapOn: "关闭"
+- extendedWaitUntil:
+    visible: "回复，或按住说话"
+    timeout: 8000
+
+- tapOn: "回复，或按住说话"
+- extendedWaitUntil:
+    visible: "回复 QBot"
+    timeout: 8000
+- takeScreenshot:
+    path: light-chat-keyboard
+- inputText: "请慢点"
+- extendedWaitUntil:
+    visible: "请慢点"
+    timeout: 8000
+- tapOn: "发送"
+- extendedWaitUntil:
+    visible: "正在回复"
+    timeout: 10000
+- takeScreenshot:
+    path: light-chat-sending
+- tapOn: "发送中…"
+- inputText: "马上这句"
+- tapOn: "发送"
+- extendedWaitUntil:
+    visible: "立即发送"
+    timeout: 10000
+- takeScreenshot:
+    path: light-chat-queued
+- tapOn: "立即发送"
+- extendedWaitUntil:
+    notVisible: "立即发送"
+    timeout: 10000
+- tapOn: "停止"
+- extendedWaitUntil:
+    visible: "已停止"
+    timeout: 15000
+- takeScreenshot:
+    path: light-chat-stopped
+
 - tapOn: "返回会话列表"
 - extendedWaitUntil:
-    visible: "Qbot"
+    visible: "新对话"
+    timeout: 20000
+- assertNotVisible: "返回会话列表"
+- tapOn: "新对话"
+- extendedWaitUntil:
+    visible: "马上这句"
+    timeout: 20000
+- assertVisible: "已停止"
+- assertNotVisible: "An error occurred"
+- assertNotVisible: "服务器没有完成这条回复"
+- takeScreenshot:
+    path: light-chat-history
+- tapOn: "添加"
+- extendedWaitUntil:
+    visible: ".*不会上传.*"
+    timeout: 8000
+- tapOn: "文件"
+- extendedWaitUntil:
+    visible: "qbot-local.txt"
+    timeout: 8000
+    optional: true
+- runFlow:
+    when:
+      visible: "qbot-local.txt"
+    commands:
+      - tapOn: "qbot-local.txt"
+- runFlow:
+    when:
+      notVisible: "添加"
+    commands:
+      - pressKey: back
+- runFlow:
+    when:
+      notVisible: ".*没有上传.*"
+    commands:
+      - tapOn: "添加"
+      - extendedWaitUntil:
+          visible: "放上本地示例"
+          timeout: 8000
+      - tapOn: "放上本地示例"
+- extendedWaitUntil:
+    visible: ".*没有上传.*"
+    timeout: 10000
+- assertVisible: ".*模型读不了.*"
+- assertVisible: "不能发送"
+- assertNotVisible: "正在回复"
+- takeScreenshot:
+    path: light-chat-file
+- tapOn: "不能发送"
+- assertNotVisible: "正在回复"
+- tapOn: "移除 qbot-local.txt"
+- extendedWaitUntil:
+    notVisible: "qbot-local.txt"
+    timeout: 8000
+- tapOn: "返回会话列表"
+- extendedWaitUntil:
+    visible: "个人对话"
     timeout: 20000
 - assertNotVisible: "返回会话列表"
 
 # 底栏在安全区上方。用坐标点标签，避免无障碍树里父节点和文字各算一个。
 - tapOn:
-    point: "50%,93%"
+    point: "17%,93%"
     retryTapIfNoChange: true
 - extendedWaitUntil:
-    notVisible: "Qbot"
+    visible: "AI DAILY SIGNAL"
     timeout: 20000
+- swipe:
+    start: "50%,75%"
+    end: "50%,30%"
+    duration: 600
+- extendedWaitUntil:
+    visible: "English Bot 样例封面"
+    timeout: 8000
+- swipe:
+    start: "50%,75%"
+    end: "50%,30%"
+    duration: 600
+- extendedWaitUntil:
+    visible: "Study Bot 样例封面"
+    timeout: 8000
+- swipe:
+    start: "50%,75%"
+    end: "50%,30%"
+    duration: 600
 - extendedWaitUntil:
     visible: "追加进上下文"
     timeout: 20000
@@ -96,7 +259,7 @@ appId: io.github.felixzhu.qiandrive
 - takeScreenshot:
     path: light-feed-restored
 
-# 六课后面接着三张样例。每次只翻一张。
+# 样例在六课前面。从第 6 课逐张回到第一张样例。
 - swipe:
     start: "50%,75%"
     end: "50%,30%"
@@ -132,9 +295,40 @@ appId: io.github.felixzhu.qiandrive
 - extendedWaitUntil:
     visible: "DAY 06 / 30"
     timeout: 8000
+- extendedWaitUntil:
+    visible: "DAY 06 / 30"
+    timeout: 8000
 - swipe:
-    start: "50%,75%"
-    end: "50%,30%"
+    start: "50%,30%"
+    end: "50%,75%"
+    duration: 600
+- swipe:
+    start: "50%,30%"
+    end: "50%,75%"
+    duration: 600
+- swipe:
+    start: "50%,30%"
+    end: "50%,75%"
+    duration: 600
+- swipe:
+    start: "50%,30%"
+    end: "50%,75%"
+    duration: 600
+- swipe:
+    start: "50%,30%"
+    end: "50%,75%"
+    duration: 600
+- swipe:
+    start: "50%,30%"
+    end: "50%,75%"
+    duration: 600
+- swipe:
+    start: "50%,30%"
+    end: "50%,75%"
+    duration: 600
+- swipe:
+    start: "50%,30%"
+    end: "50%,75%"
     duration: 600
 - extendedWaitUntil:
     visible: "Info Bot 样例封面"
@@ -228,10 +422,10 @@ appId: io.github.felixzhu.qiandrive
     path: light-kb
 
 - tapOn:
-    point: "17%,93%"
+    point: "50%,93%"
     retryTapIfNoChange: true
 - extendedWaitUntil:
-    visible: "Qbot"
+    visible: "新对话"
     timeout: 20000
 - assertNotVisible: "Info Bot，演示"
 - takeScreenshot:

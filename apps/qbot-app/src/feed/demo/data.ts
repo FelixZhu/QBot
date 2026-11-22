@@ -186,7 +186,7 @@ export function demoById(id: string): DemoId | null {
 /** Feed, immersive, and account chrome for one sample. Gutters darken this color. */
 export function demoSurface(id: DemoId): string {
   if (id === "demo-info") return "#F3EFE7";
-  if (id === "demo-english") return "#D9774B";
+  if (id === "demo-english") return "#FF6A2B";
   return "#0F0F11";
 }
 

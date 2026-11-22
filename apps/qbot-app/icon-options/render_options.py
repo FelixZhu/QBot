@@ -13,7 +13,7 @@ OUT.mkdir(parents=True, exist_ok=True)
 CREAM = (243, 239, 231)
 INK = (28, 27, 25)
 INK_DEEP = (22, 21, 19)
-TERRACOTTA = (217, 119, 75)  # #D9774B
+TERRACOTTA = (217, 119, 75)  # retired option C; the shipped mark is C1 #FF6A2B
 OFFWHITE = (247, 243, 235)
 SHEET_BG = (232, 228, 220)
 LABEL = (28, 27, 25)

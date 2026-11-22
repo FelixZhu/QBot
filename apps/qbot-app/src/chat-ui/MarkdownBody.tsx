@@ -6,9 +6,18 @@ import { openableHref, parseMarkdown, type Inline } from "./markdown";
 
 const mono = Platform.select({ ios: "Menlo", default: "monospace" });
 
-function InlineRun({ inlines, color, fontSize, lineHeight }: { inlines: Inline[]; color: string; fontSize: number; lineHeight: number }) {
+export type ReadingStyle = {
+  fontSize: number;
+  lineHeight: number;
+  fontFamily?: string;
+  selectionColor?: string;
+};
+
+const DEFAULT_READING: ReadingStyle = { fontSize: 16, lineHeight: 24 };
+
+function InlineRun({ inlines, color, reading }: { inlines: Inline[]; color: string; reading: ReadingStyle }) {
   return (
-    <Text selectable style={{ color, fontSize, lineHeight }}>
+    <Text selectable selectionColor={reading.selectionColor} style={{ color, fontSize: reading.fontSize, lineHeight: reading.lineHeight, fontFamily: reading.fontFamily }}>
       {inlines.map((part, index) => {
         if (part.type === "strong") {
           return <Text key={index} style={{ fontWeight: "700" }}>{part.text}</Text>;
@@ -39,7 +48,7 @@ function InlineRun({ inlines, color, fontSize, lineHeight }: { inlines: Inline[]
   );
 }
 
-function CodeBlock({ language, code, colors }: { language: string; code: string; colors: Palette }) {
+function CodeBlock({ language, code, colors }: { language: string; code: string; colors: Palette & { selection?: string } }) {
   const [copied, setCopied] = useState(false);
   const canCopy = clipboardAvailable();
   useEffect(() => { setCopied(false); }, [code]);
@@ -60,39 +69,40 @@ function CodeBlock({ language, code, colors }: { language: string; code: string;
           </Pressable>
         ) : null}
       </View>
-      <Text selectable style={{ fontFamily: mono, fontSize: 13, lineHeight: 20, color: colors.text, padding: 10 }}>
+      <Text selectable selectionColor={colors.selection} style={{ fontFamily: mono, fontSize: 13, lineHeight: 20, color: colors.text, padding: 10 }}>
         {code}
       </Text>
     </View>
   );
 }
 
-export function MarkdownBody({ text, colors }: { text: string; colors: Palette }) {
+export function MarkdownBody({ text, colors, reading = DEFAULT_READING }: { text: string; colors: Palette; reading?: ReadingStyle }) {
   const blocks = parseMarkdown(text);
   if (blocks.length === 0) return null;
+  const body = reading;
   return (
     <View>
       {blocks.map((block, index) => {
         const key = `${block.type}-${index}`;
-        if (block.type === "code") return <CodeBlock key={key} language={block.language} code={block.code} colors={colors} />;
+        if (block.type === "code") return <CodeBlock key={key} language={block.language} code={block.code} colors={{ ...colors, selection: reading.selectionColor }} />;
         if (block.type === "heading") {
-          const size = block.level === 1 ? 22 : block.level === 2 ? 18 : 16;
+          const size = block.level === 1 ? 22 : block.level === 2 ? 20 : 18;
           return (
-            <View key={key} style={{ marginTop: index === 0 ? 0 : 10 }}>
-              <InlineRun inlines={block.inlines} color={colors.text} fontSize={size} lineHeight={size + 8} />
+            <View key={key} style={{ marginTop: index === 0 ? 0 : 14 }}>
+              <InlineRun inlines={block.inlines} color={colors.text} reading={{ ...body, fontSize: size, lineHeight: Math.round(size * 1.45) }} />
             </View>
           );
         }
         if (block.type === "list") {
           return (
-            <View key={key} style={{ marginTop: index === 0 ? 0 : 8, gap: 4 }}>
+            <View key={key} style={{ marginTop: index === 0 ? 0 : 10, gap: 8 }}>
               {block.items.map((item, itemIndex) => (
                 <View key={itemIndex} style={{ flexDirection: "row", alignItems: "flex-start", gap: 8 }}>
-                  <Text selectable style={{ width: 22, color: colors.muted, fontSize: 16, lineHeight: 24 }}>
-                    {block.ordered ? `${itemIndex + 1}.` : "·"}
+                  <Text selectable selectionColor={body.selectionColor} style={{ width: 18, color: colors.text, fontSize: body.fontSize, lineHeight: body.lineHeight, fontFamily: body.fontFamily }}>
+                    {block.ordered ? `${itemIndex + 1}.` : "•"}
                   </Text>
                   <View style={{ flex: 1 }}>
-                    <InlineRun inlines={item} color={colors.text} fontSize={16} lineHeight={24} />
+                    <InlineRun inlines={item} color={colors.text} reading={body} />
                   </View>
                 </View>
               ))}
@@ -100,8 +110,8 @@ export function MarkdownBody({ text, colors }: { text: string; colors: Palette }
           );
         }
         return (
-          <View key={key} style={{ marginTop: index === 0 ? 0 : 8 }}>
-            <InlineRun inlines={block.inlines} color={colors.text} fontSize={16} lineHeight={24} />
+          <View key={key} style={{ marginTop: index === 0 ? 0 : 10 }}>
+            <InlineRun inlines={block.inlines} color={colors.text} reading={body} />
           </View>
         );
       })}

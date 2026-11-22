@@ -1,69 +1,111 @@
-import { useMemo } from "react";
-import { Pressable, Text, View } from "react-native";
-import { AssistantRuntimeProvider, useLocalRuntime } from "@assistant-ui/react-native";
+import { useEffect, useState } from "react";
+import { BackHandler, Platform, Pressable, Text, View } from "react-native";
+import { useThreadListNew } from "@assistant-ui/core/react";
 import { ChatThreadSurface } from "../chat-ui";
-import { liveBadge, liveNote } from "./connectionCopy";
-import { createServerHistory } from "./serverHistory";
-import { messageUrl } from "./serverClient";
-import { createServerChatTransport } from "./liveTransport";
+import { ChatMark } from "../chat-ui/ChatMarks";
+import { QbotAvatar } from "../QbotAvatar";
+import { liveNote } from "./connectionCopy";
 import type { ConnectionView } from "./serverSession";
-import { toModelAdapter, type ChatTransport } from "./transport";
-import { READ_MAX, type Palette } from "../theme";
+import { useSyncLine } from "./useChatRuntime";
+import { READ_MAX, chatChrome, type Scheme } from "../theme";
 
 export function LiveChat({
-  colors,
+  scheme,
   showBack,
   onBack,
   view,
+  onOpenLibrary,
+  active = true,
 }: {
-  colors: Palette;
+  scheme: Scheme;
   showBack: boolean;
   onBack: () => void;
   view: ConnectionView;
+  onOpenLibrary?: () => void;
+  active?: boolean;
 }) {
+  const chrome = chatChrome(scheme);
+  const syncLine = useSyncLine();
   return (
-    <View style={{ flex: 1, backgroundColor: colors.bg }}>
-      <View style={{ height: 52, alignItems: "center", justifyContent: "center", borderBottomWidth: 1, borderBottomColor: colors.line }}>
-        {showBack ? (
-          <Pressable onPress={onBack} accessibilityRole="button" accessibilityLabel="返回会话列表" hitSlop={8} style={{ position: "absolute", left: 8, width: 44, height: 44, alignItems: "center", justifyContent: "center" }}>
-            <Text style={{ fontSize: 28, lineHeight: 32, color: colors.text }}>‹</Text>
-          </Pressable>
-        ) : null}
-        <Text style={{ fontSize: 16, lineHeight: 24, fontWeight: "600", color: colors.text }}>Qbot</Text>
-        <Text style={{ position: "absolute", right: 16, fontSize: 12, fontWeight: "600", color: colors.accent }}>{liveBadge(view)}</Text>
+    <View style={{ flex: 1, backgroundColor: chrome.canvas }}>
+      <View style={{ flex: 1, width: "100%", maxWidth: READ_MAX, alignSelf: "center" }}>
+        <ChatHeader scheme={scheme} showBack={showBack} onBack={onBack} view={view} syncLine={syncLine} />
+        <ChatThreadSurface
+          scheme={scheme}
+          listHeader={view.phase === "ready" && view.session.upstream === "fixture" ? (
+            <Text style={{ fontSize: 13, lineHeight: 18, color: chrome.muted, marginBottom: 12 }}>{liveNote(view)}</Text>
+          ) : undefined}
+          bottomSafeArea="self"
+          active={active}
+          onOpenLibrary={onOpenLibrary}
+          localSample={view.phase === "ready" && view.session.upstream === "fixture"}
+        />
       </View>
-      <LiveRuntime key={view.phase === "ready" ? view.conversationId : "offline"} colors={colors} view={view} />
     </View>
   );
 }
 
-function LiveRuntime({ colors, view }: { colors: Palette; view: ConnectionView }) {
-  const ready = view.phase === "ready" ? view : null;
-  const transport = useMemo(() => ready
-    ? createServerChatTransport({ url: messageUrl(ready.origin, ready.conversationId) })
-    : unavailableTransport(view.phase === "error" ? view.message : "正在连接。"), [ready, view]);
-  const history = useMemo(() => ready
-    ? createServerHistory(() => ready.client.listMessages(ready.conversationId))
-    : { load: async () => ({ headId: null, messages: [] }), append: async () => {}, update: async () => {} }, [ready]);
-  const adapter = useMemo(() => toModelAdapter(transport), [transport]);
-  const runtime = useLocalRuntime(adapter, { adapters: { history } });
-  const listHeader = useMemo(() => (
-    <Text style={{ fontSize: 12, lineHeight: 18, color: colors.muted, textAlign: "center", marginBottom: 12 }}>{liveNote(view)}</Text>
-  ), [colors.muted, view]);
-  return (
-    <AssistantRuntimeProvider runtime={runtime}>
-      <View style={{ flex: 1, width: "100%", maxWidth: READ_MAX, alignSelf: "center" }}>
-        <ChatThreadSurface colors={colors} listHeader={listHeader} bottomSafeArea="parent" />
-      </View>
-    </AssistantRuntimeProvider>
-  );
-}
-
-function unavailableTransport(message: string): ChatTransport {
-  return {
-    label: "未连接",
-    async *reply(): AsyncGenerator<string> {
-      throw new Error(message);
-    },
+function ChatHeader({
+  scheme,
+  showBack,
+  onBack,
+  view,
+  syncLine,
+}: {
+  scheme: Scheme;
+  showBack: boolean;
+  onBack: () => void;
+  view: ConnectionView;
+  syncLine: string | null;
+}) {
+  const chrome = chatChrome(scheme);
+  const { switchToNewThread } = useThreadListNew();
+  const [more, setMore] = useState(false);
+  const [problem, setProblem] = useState<string | null>(null);
+  useEffect(() => {
+    if (!more || Platform.OS !== "android") return;
+    const sub = BackHandler.addEventListener("hardwareBackPress", () => {
+      setMore(false);
+      return true;
+    });
+    return () => sub.remove();
+  }, [more]);
+  const start = () => {
+    if (view.phase !== "ready") return;
+    setProblem(null);
+    switchToNewThread();
   };
+  return (
+    <View style={{ paddingHorizontal: 8, paddingBottom: problem ? 8 : 0 }}>
+      <View style={{ height: 48, flexDirection: "row", alignItems: "center" }}>
+        {showBack ? (
+          <Pressable onPress={onBack} accessibilityRole="button" accessibilityLabel="返回会话列表" hitSlop={8} style={{ width: 40, height: 40, alignItems: "center", justifyContent: "center" }}>
+            <ChatMark name="menu" color={chrome.text} size={20} />
+          </Pressable>
+        ) : <View style={{ width: 40 }} />}
+        <View style={{ flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 }}>
+          <QbotAvatar size={32} />
+          <Text style={{ fontSize: 17, lineHeight: 24, fontWeight: "700", color: chrome.text }}>QBot</Text>
+        </View>
+        <Pressable onPress={start} disabled={view.phase !== "ready"} accessibilityRole="button" accessibilityLabel="新建对话" hitSlop={8} style={{ width: 40, height: 40, alignItems: "center", justifyContent: "center", opacity: view.phase === "ready" ? 1 : 0.4 }}>
+          <ChatMark name="pencil" color={chrome.text} size={20} />
+        </Pressable>
+        <Pressable onPress={() => setMore((open) => !open)} accessibilityRole="button" accessibilityLabel="更多" hitSlop={8} style={{ width: 40, height: 40, alignItems: "center", justifyContent: "center" }}>
+          <ChatMark name="more" color={chrome.text} size={20} />
+        </Pressable>
+      </View>
+      {syncLine ? (
+        <Text style={{ textAlign: "center", color: chrome.muted, fontSize: 12, lineHeight: 16, marginBottom: 4 }}>{syncLine}</Text>
+      ) : null}
+      {problem ? <Text style={{ color: chrome.inkText, fontSize: 13, lineHeight: 18, paddingHorizontal: 8 }}>{problem}</Text> : null}
+      {more ? (
+        <View style={{ marginHorizontal: 8, marginBottom: 8, borderRadius: 16, backgroundColor: chrome.composer, borderWidth: 1, borderColor: chrome.line, padding: 14, gap: 12 }}>
+          <Text style={{ color: chrome.muted, fontSize: 13, lineHeight: 18 }}>{liveNote(view)}</Text>
+          <Pressable onPress={() => { setMore(false); start(); }} accessibilityRole="button" accessibilityLabel="新建对话">
+            <Text style={{ color: chrome.text, fontSize: 15, lineHeight: 22 }}>新建对话</Text>
+          </Pressable>
+        </View>
+      ) : null}
+    </View>
+  );
 }
