@@ -170,13 +170,36 @@ maestro test --no-ansi --format junit --output "$OUT/dark-junit.xml" \
 maestro test --no-ansi --format junit --output "$OUT/tabs-junit.xml" \
   --test-output-dir "$OUT/tabs" \
   "$APP/e2e/maestro/tabs.yaml" || dark_status=$?
+maestro test --no-ansi --format junit --output "$OUT/cards-junit.xml" \
+  --test-output-dir "$OUT/cards" \
+  "$APP/e2e/maestro/cards.yaml" || dark_status=$?
+today_status=0
+maestro test --no-ansi --format junit --output "$OUT/today-junit.xml" \
+  --test-output-dir "$OUT/today" \
+  "$APP/e2e/maestro/today.yaml" || today_status=$?
+curl -sf -X POST http://127.0.0.1:8799/e2e/feed-up || true
+maestro test --no-ansi --format junit --output "$OUT/today-dark-junit.xml" \
+  --test-output-dir "$OUT/today" \
+  "$APP/e2e/maestro/today-dark.yaml" || today_status=$?
+curl -sf -X POST http://127.0.0.1:8799/e2e/feed-down || true
+maestro test --no-ansi --format junit --output "$OUT/today-error-junit.xml" \
+  --test-output-dir "$OUT/today" \
+  "$APP/e2e/maestro/today-error.yaml" || today_status=$?
+curl -sf -X POST http://127.0.0.1:8799/e2e/feed-up || true
+adb shell wm size 840x1200 || true
+adb shell wm density 240 || true
+maestro test --no-ansi --format junit --output "$OUT/today-wide-junit.xml" \
+  --test-output-dir "$OUT/today" \
+  "$APP/e2e/maestro/today-wide.yaml" || today_status=$?
+adb shell wm size reset || true
+adb shell wm density reset || true
 python3 "$APP/e2e/check_light_screenshots.py" "$OUT" || check_status=$?
 {
   echo "method: API 34 emulator logcat. QBOT_TIMING is milliseconds after the JS module loaded."
   echo "cache = cold start that already had AsyncStorage. network = cold start with an empty cache."
   adb logcat -d | grep "QBOT_TIMING" || true
 } > "$OUT/timing.txt" || true
-echo "light=${light_status} dark=${dark_status} check=${check_status}"
-if [[ "$light_status" -ne 0 || "$dark_status" -ne 0 || "$check_status" -ne 0 ]]; then
+echo "light=${light_status} dark=${dark_status} today=${today_status} check=${check_status}"
+if [[ "$light_status" -ne 0 || "$dark_status" -ne 0 || "$today_status" -ne 0 || "$check_status" -ne 0 ]]; then
   exit 1
 fi

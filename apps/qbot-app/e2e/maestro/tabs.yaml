@@ -7,9 +7,13 @@ appId: io.github.felixzhu.qiandrive
     clearState: true
     stopApp: true
 - extendedWaitUntil:
-    visible: "AI DAILY SIGNAL"
+    visible: "get this over the line"
     timeout: 30000
-- assertVisible: "样例"
+- assertVisible: "Qbot"
+- assertVisible: "关注"
+- assertNotVisible: "样例"
+- assertNotVisible: "AI DAILY SIGNAL"
+- assertNotVisible: "Study Bot"
 - assertVisible: "今日"
 - assertVisible: "对话"
 - assertVisible: "知识库"
@@ -48,8 +52,10 @@ appId: io.github.felixzhu.qiandrive
     clearState: true
     stopApp: true
 - extendedWaitUntil:
-    visible: "AI DAILY SIGNAL"
+    visible: "get this over the line"
     timeout: 30000
+- assertVisible: "Qbot"
+- assertNotVisible: "样例"
 - assertVisible: "今日"
 - takeScreenshot:
     path: dark-tab-today

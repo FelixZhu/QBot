@@ -1,0 +1,129 @@
+appId: io.github.felixzhu.qiandrive
+---
+# Local fixture only. Covers are the seed images, not a live bucket.
+- setDarkMode: disabled
+- assertLightMode
+- launchApp:
+    clearState: true
+    stopApp: true
+- extendedWaitUntil:
+    visible: "get this over the line"
+    timeout: 30000
+- assertVisible: "已关注 Qbot"
+- assertVisible: "今日"
+- assertVisible: "对话"
+- assertVisible: "知识库"
+- takeScreenshot:
+    path: today-narrow-light-english
+- swipe:
+    start: "50%,70%"
+    end: "50%,30%"
+    duration: 400
+- extendedWaitUntil:
+    visible: "三个入口：今日、对话、知识库"
+    timeout: 10000
+- assertNotVisible: "返回"
+- assertVisible: "已关注 Qbot"
+- takeScreenshot:
+    path: today-narrow-light-info
+- swipe:
+    start: "50%,30%"
+    end: "50%,70%"
+    duration: 400
+- extendedWaitUntil:
+    visible: "get this over the line"
+    timeout: 10000
+- assertNotVisible: "返回"
+- assertVisible: "已关注 Qbot"
+- takeScreenshot:
+    path: today-narrow-light-page
+- tapOn: "get this over the line"
+- extendedWaitUntil:
+    visible: "返回"
+    timeout: 20000
+- assertVisible: ".*不是模型回答.*"
+- takeScreenshot:
+    path: today-narrow-light-work
+- tapOn: "返回"
+- extendedWaitUntil:
+    visible: "已关注 Qbot"
+    timeout: 10000
+- assertNotVisible: "返回"
+- tapOn: "get this over the line"
+- extendedWaitUntil:
+    visible: "返回"
+    timeout: 20000
+- tapOn: "返回"
+- extendedWaitUntil:
+    visible: "已关注 Qbot"
+    timeout: 10000
+- assertNotVisible: "返回"
+- assertVisible: "get this over the line"
+- takeScreenshot:
+    path: today-narrow-light-restored
+- assertVisible: "已关注 Qbot"
+- assertNotVisible: "返回"
+# 手指从右向左：关注到推荐。再从左向右回到关注。源标签用选中状态区分，卡和底栏不变，不打开作品。
+- swipe:
+    start: "80%,50%"
+    end: "20%,50%"
+    duration: 400
+- extendedWaitUntil:
+    visible:
+      text: "^推荐$"
+      selected: true
+    timeout: 10000
+- assertVisible:
+    text: "^关注$"
+    selected: false
+- assertVisible: "get this over the line"
+- assertVisible: "已关注 Qbot"
+- assertVisible: "今日"
+- assertVisible: "对话"
+- assertVisible: "知识库"
+- assertNotVisible: "返回"
+- assertNotVisible: "三个入口：今日、对话、知识库"
+- takeScreenshot:
+    path: today-narrow-light-scope-recommended
+- swipe:
+    start: "20%,50%"
+    end: "80%,50%"
+    duration: 400
+- extendedWaitUntil:
+    visible:
+      text: "^关注$"
+      selected: true
+    timeout: 10000
+- assertVisible:
+    text: "^推荐$"
+    selected: false
+- assertVisible: "get this over the line"
+- assertVisible: "已关注 Qbot"
+- assertVisible: "今日"
+- assertVisible: "对话"
+- assertVisible: "知识库"
+- assertNotVisible: "返回"
+- assertNotVisible: "三个入口：今日、对话、知识库"
+- takeScreenshot:
+    path: today-narrow-light-scope-following
+- tapOn: "已关注 Qbot"
+- extendedWaitUntil:
+    visible: "暂时没有新内容"
+    timeout: 10000
+- assertVisible: "去推荐看看"
+- takeScreenshot:
+    path: today-narrow-light-empty
+- tapOn: "去推荐看看"
+- extendedWaitUntil:
+    visible: "关注 Qbot"
+    timeout: 10000
+- assertVisible: "get this over the line"
+- takeScreenshot:
+    path: today-narrow-light-follow-sync
+- tapOn: "关注 Qbot"
+- tapOn: "关注"
+- extendedWaitUntil:
+    visible: "已关注 Qbot"
+    timeout: 10000
+- takeScreenshot:
+    path: today-narrow-light-refollowed

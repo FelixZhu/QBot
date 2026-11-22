@@ -11,7 +11,10 @@
     "migrate": "node --experimental-strip-types src/migrate.ts",
     "check-db": "node --experimental-strip-types src/check-db.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "node --experimental-strip-types --test test/context.test.ts test/dsh-profile.test.ts test/server.test.ts test/scan-secrets.ts"
+    "seed": "node --experimental-strip-types src/seed-cards.ts",
+    "seed-keys": "node --experimental-strip-types src/seed-keys.ts",
+    "upload-seed": "node --experimental-strip-types src/upload-seed.ts",
+    "test": "node --experimental-strip-types --test test/context.test.ts test/dsh-profile.test.ts test/upstream-error.test.ts test/paths.test.ts test/feed.test.ts test/server.test.ts test/scan-secrets.ts"
   },
   "dependencies": {
     "@deepseek-ai/dsh": "0.2.2-rc.5",

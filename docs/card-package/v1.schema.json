@@ -1,0 +1,196 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "qbot.card-package.v1.0",
+  "title": "Qbot card package manifest v1.0",
+  "description": "Proposal only. Unknown fields and protocolMinor other than 0 are rejected. Passing this schema is not authentication and is not a claim that the text is true. How contentDigest and manifestDigest are computed is defined in CARD-PACKAGE.md.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "protocol",
+    "protocolMajor",
+    "protocolMinor",
+    "packageId",
+    "sample",
+    "manifestDigest",
+    "contentDigest",
+    "botRef",
+    "cardKey",
+    "contentVersion",
+    "expectedPreviousVersion",
+    "idempotencyKey",
+    "authoringClaim",
+    "createdAt",
+    "timezone",
+    "card",
+    "sources",
+    "claims",
+    "referenceCanvas",
+    "contentSafe",
+    "visibility",
+    "notification",
+    "files"
+  ],
+  "properties": {
+    "exampleOnly": { "type": "boolean" },
+    "importable": { "type": "boolean" },
+    "note": { "type": "string" },
+    "protocol": { "const": "qbot.card-package" },
+    "protocolMajor": { "const": 1 },
+    "protocolMinor": { "const": 0 },
+    "packageId": { "type": "string", "minLength": 1, "maxLength": 80 },
+    "sample": { "type": "boolean" },
+    "manifestDigest": { "$ref": "#/$defs/digest" },
+    "contentDigest": { "$ref": "#/$defs/digest" },
+    "botRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["slug"],
+      "properties": {
+        "slug": { "type": "string", "pattern": "^[a-z0-9-]{1,40}$" }
+      }
+    },
+    "cardKey": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,63}$" },
+    "contentVersion": { "type": "integer", "minimum": 1 },
+    "expectedPreviousVersion": { "type": ["integer", "null"], "minimum": 1 },
+    "idempotencyKey": { "type": "string", "minLength": 8, "maxLength": 200 },
+    "authoringClaim": { "enum": ["human", "bot"] },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "timezone": { "const": "Asia/Shanghai" },
+    "card": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["title", "authoredAt"],
+      "properties": {
+        "title": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "authoredAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "sources": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 8,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "url", "retrievedAt", "freshUntil", "private"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1, "maxLength": 64 },
+          "url": { "type": "string", "format": "uri" },
+          "retrievedAt": { "type": "string", "format": "date-time" },
+          "freshUntil": { "type": "string", "format": "date-time" },
+          "private": { "type": "boolean" }
+        }
+      }
+    },
+    "claims": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 16,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "text", "sourceIds", "bodyAnchor"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1, "maxLength": 64 },
+          "text": { "type": "string", "minLength": 1, "maxLength": 500 },
+          "sourceIds": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 8,
+            "items": { "type": "string" }
+          },
+          "bodyAnchor": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["path", "elementId", "fragment", "quote"],
+            "properties": {
+              "path": { "const": "work/index.html" },
+              "elementId": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,64}$" },
+              "fragment": { "type": "string", "pattern": "^#[A-Za-z][A-Za-z0-9_-]{0,64}$" },
+              "quote": { "type": "string", "minLength": 1, "maxLength": 500 }
+            }
+          }
+        }
+      }
+    },
+    "referenceCanvas": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["width", "height", "insetTop", "insetBottom"],
+      "properties": {
+        "width": { "type": "number", "exclusiveMinimum": 0 },
+        "height": { "type": "number", "exclusiveMinimum": 0 },
+        "insetTop": { "type": "number", "minimum": 0 },
+        "insetBottom": { "type": "number", "minimum": 0 }
+      }
+    },
+    "contentSafe": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["top", "right", "bottom", "left"],
+      "properties": {
+        "top": { "type": "number", "minimum": 0 },
+        "right": { "type": "number", "minimum": 0 },
+        "bottom": { "type": "number", "minimum": 0 },
+        "left": { "type": "number", "minimum": 0 }
+      }
+    },
+    "visibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "notBefore", "notAfter"],
+      "properties": {
+        "mode": { "enum": ["manual", "schedule"] },
+        "notBefore": { "type": "string", "format": "date-time" },
+        "notAfter": { "type": "string", "format": "date-time" }
+      }
+    },
+    "notification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "dedupeKey", "cooldownMinutes", "quietHours"],
+      "properties": {
+        "mode": { "enum": ["none", "schedule"] },
+        "dedupeKey": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "cooldownMinutes": { "type": "integer", "minimum": 0, "maximum": 10080 },
+        "quietHours": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["start", "end"],
+          "properties": {
+            "start": { "type": "string", "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$" },
+            "end": { "type": "string", "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$" }
+          }
+        }
+      }
+    },
+    "files": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 32,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "role", "sha256", "bytes", "contentType"],
+        "properties": {
+          "path": { "type": "string", "minLength": 1, "maxLength": 128 },
+          "role": { "enum": ["cover", "page", "asset"] },
+          "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+          "bytes": { "type": "integer", "minimum": 1, "maximum": 8388608 },
+          "contentType": { "type": "string", "minLength": 1, "maxLength": 80 }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "digest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["alg", "value"],
+      "properties": {
+        "alg": { "const": "sha256-jcs" },
+        "value": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+      }
+    }
+  }
+}

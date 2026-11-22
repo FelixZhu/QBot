@@ -1,0 +1,100 @@
+{
+  "exampleOnly": true,
+  "importable": false,
+  "note": "占位示例。digest、hash 和 bytes 都不是真实 JCS 或文件，不能导入，也不能发布。cover-dark.png 只说明路径约定，当前 App 不读取这个文件名。",
+  "protocol": "qbot.card-package",
+  "protocolMajor": 1,
+  "protocolMinor": 0,
+  "packageId": "example-package",
+  "sample": true,
+  "manifestDigest": {
+    "alg": "sha256-jcs",
+    "value": "0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "contentDigest": {
+    "alg": "sha256-jcs",
+    "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "botRef": { "slug": "example-bot" },
+  "cardKey": "example-card-key",
+  "contentVersion": 2,
+  "expectedPreviousVersion": 1,
+  "idempotencyKey": "client-label-not-the-unique-key",
+  "authoringClaim": "human",
+  "createdAt": "2026-11-22T18:00:00Z",
+  "timezone": "Asia/Shanghai",
+  "card": {
+    "title": "example title",
+    "authoredAt": "2026-11-22T10:00:00+08:00"
+  },
+  "sources": [
+    {
+      "id": "src-1",
+      "url": "https://example.invalid/source",
+      "retrievedAt": "2026-11-22T09:00:00+08:00",
+      "freshUntil": "2026-11-23T09:00:00+08:00",
+      "private": false
+    }
+  ],
+  "claims": [
+    {
+      "id": "claim-1",
+      "text": "example conclusion",
+      "sourceIds": ["src-1"],
+      "bodyAnchor": {
+        "path": "work/index.html",
+        "elementId": "claim1",
+        "fragment": "#claim1",
+        "quote": "example conclusion"
+      }
+    }
+  ],
+  "referenceCanvas": {
+    "width": 390,
+    "height": 844,
+    "insetTop": 44,
+    "insetBottom": 34
+  },
+  "contentSafe": { "top": 98, "right": 20, "bottom": 148, "left": 20 },
+  "visibility": {
+    "mode": "schedule",
+    "notBefore": "2026-11-22T18:00:00+08:00",
+    "notAfter": "2026-11-23T18:00:00+08:00"
+  },
+  "notification": {
+    "mode": "none",
+    "dedupeKey": "example-card-key-2",
+    "cooldownMinutes": 360,
+    "quietHours": { "start": "22:00", "end": "08:00" }
+  },
+  "files": [
+    {
+      "path": "cover-light.png",
+      "role": "cover",
+      "sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+      "bytes": 1,
+      "contentType": "image/png"
+    },
+    {
+      "path": "cover-dark.png",
+      "role": "cover",
+      "sha256": "4444444444444444444444444444444444444444444444444444444444444444",
+      "bytes": 1,
+      "contentType": "image/png"
+    },
+    {
+      "path": "work/index.html",
+      "role": "page",
+      "sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+      "bytes": 1,
+      "contentType": "text/html; charset=utf-8"
+    },
+    {
+      "path": "work/assets/page.css",
+      "role": "asset",
+      "sha256": "3333333333333333333333333333333333333333333333333333333333333333",
+      "bytes": 1,
+      "contentType": "text/css; charset=utf-8"
+    }
+  ]
+}
