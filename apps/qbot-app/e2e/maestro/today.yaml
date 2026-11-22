@@ -33,7 +33,7 @@ appId: io.github.felixzhu.qiandrive
     path: today-narrow-light-page
 - tapOn: "get this over the line"
 - extendedWaitUntil:
-    visible: ".*没有音频.*"
+    visible: ".*不是模型回答.*"
     timeout: 20000
 - takeScreenshot:
     path: today-narrow-light-work
@@ -51,6 +51,7 @@ appId: io.github.felixzhu.qiandrive
     timeout: 10000
 - takeScreenshot:
     path: today-narrow-light-recommended
+- tapOn: "关注"
 - tapOn: "已关注 Qbot"
 - extendedWaitUntil:
     visible: "暂时没有新内容"

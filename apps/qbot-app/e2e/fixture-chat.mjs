@@ -136,6 +136,7 @@ const server = createServer(async (req, res) => {
   }
   if (req.method === "POST" && url.pathname === "/e2e/feed-up") {
     feedDown = false;
+    followed = true;
     send(res, 200, { ok: true });
     return;
   }

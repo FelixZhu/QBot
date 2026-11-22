@@ -12,14 +12,19 @@ appId: io.github.felixzhu.qiandrive
 - assertNotVisible: "Study Bot"
 - tapOn: "get this over the line"
 - extendedWaitUntil:
-    visible: ".*没有音频.*"
+    visible: ".*不是模型回答.*"
     timeout: 20000
 - tapOn: "返回"
 - extendedWaitUntil:
     visible: "get this over the line"
     timeout: 10000
 - tapOn: "推荐"
-- assertVisible: "三个入口：今日、对话、知识库"
+- swipe:
+    direction: UP
+    duration: 600
+- extendedWaitUntil:
+    visible: "三个入口：今日、对话、知识库"
+    timeout: 10000
 - tapOn: "三个入口：今日、对话、知识库"
 - extendedWaitUntil:
     visible: ".*项目说明.*"

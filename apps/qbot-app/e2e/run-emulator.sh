@@ -177,6 +177,7 @@ today_status=0
 maestro test --no-ansi --format junit --output "$OUT/today-junit.xml" \
   --test-output-dir "$OUT/today" \
   "$APP/e2e/maestro/today.yaml" || today_status=$?
+curl -sf -X POST http://127.0.0.1:8799/e2e/feed-up || true
 maestro test --no-ansi --format junit --output "$OUT/today-dark-junit.xml" \
   --test-output-dir "$OUT/today" \
   "$APP/e2e/maestro/today-dark.yaml" || today_status=$?

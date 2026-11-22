@@ -22,6 +22,7 @@ import {
   clampPage,
   coverSurface,
   EMPTY_ACTION,
+  horizontalStep,
   EMPTY_BODY,
   EMPTY_TITLE,
   overlayInk,
@@ -223,14 +224,10 @@ export function CardFeed({
       onTouchStart={(event) => {
         touch.current = { x: event.nativeEvent.pageX, y: event.nativeEvent.pageY, moved: false };
       }}
-      onTouchMove={(event) => {
-        const dx = event.nativeEvent.pageX - touch.current.x;
-        const dy = event.nativeEvent.pageY - touch.current.y;
-        if (Math.abs(dx) > 12 || Math.abs(dy) > 12) touch.current.moved = true;
-      }}
       onTouchEnd={(event) => {
         const dx = event.nativeEvent.pageX - touch.current.x;
         const dy = event.nativeEvent.pageY - touch.current.y;
+        if (horizontalStep(dx, dy) !== 0) touch.current.moved = true;
         const nextScope = scopeAfterSwipe(scope, dx, dy);
         if (nextScope !== scope) setScope(nextScope);
       }}

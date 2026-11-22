@@ -2,12 +2,19 @@ appId: io.github.felixzhu.qiandrive
 ---
 - setDarkMode: disabled
 - launchApp:
+    clearState: true
     stopApp: true
 - extendedWaitUntil:
-    visible: "get this over the line|三个入口：今日、对话、知识库|暂时没有新内容"
+    visible: "get this over the line"
     timeout: 30000
 - takeScreenshot:
     path: today-wide-light
 - setDarkMode: enabled
+- swipe:
+    direction: UP
+    duration: 600
+- extendedWaitUntil:
+    visible: "三个入口：今日、对话、知识库"
+    timeout: 10000
 - takeScreenshot:
     path: today-wide-dark

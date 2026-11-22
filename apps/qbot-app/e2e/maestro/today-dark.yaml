@@ -3,6 +3,7 @@ appId: io.github.felixzhu.qiandrive
 - setDarkMode: enabled
 - assertDarkMode
 - launchApp:
+    clearState: true
     stopApp: true
 - extendedWaitUntil:
     visible: "get this over the line|三个入口：今日、对话、知识库"
