@@ -19,9 +19,13 @@ appId: io.github.felixzhu.qiandrive
     visible: "get this over the line"
     timeout: 10000
 - tapOn: "推荐"
+- extendedWaitUntil:
+    visible: "get this over the line"
+    timeout: 10000
 - swipe:
-    direction: UP
-    duration: 600
+    start: "50%,70%"
+    end: "50%,30%"
+    duration: 400
 - extendedWaitUntil:
     visible: "三个入口：今日、对话、知识库"
     timeout: 10000
