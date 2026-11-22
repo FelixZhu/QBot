@@ -1,8 +1,8 @@
 name: app-and-chat
 
 # Typecheck and unit tests for the app and the chat server.
-# The database is the Postgres container started below. Nothing here
-# reads or writes a database outside this job.
+# The database is the Postgres container started below. The app's
+# live.test.ts and the server tests delete rows only in that database.
 on:
   pull_request:
     paths:
@@ -20,8 +20,9 @@ permissions:
   contents: read
 
 jobs:
-  app:
+  check:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     services:
       postgres:
         image: pgvector/pgvector:0.8.7-pg15
@@ -37,7 +38,7 @@ jobs:
           --health-timeout 5s
           --health-retries 20
     env:
-      # One live.test.ts starts the chat server. It uses this job's container only.
+      # This job's own container. Not a database outside the runner.
       DATABASE_MIGRATE_URL: postgres://postgres:postgres@127.0.0.1:5432/qbot
       DATABASE_URL: postgres://qbot:qbot@127.0.0.1:5432/qbot
     steps:
@@ -47,55 +48,9 @@ jobs:
         with:
           node-version: 24
           cache: npm
-          cache-dependency-path: apps/qbot-app/package-lock.json
-
-      - name: Create the throwaway role and database
-        run: |
-          PGPASSWORD=postgres psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 <<'SQL'
-          CREATE ROLE qbot LOGIN PASSWORD 'qbot' NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT;
-          CREATE DATABASE qbot OWNER qbot ENCODING 'UTF8' LC_COLLATE 'C.UTF-8' LC_CTYPE 'C.UTF-8' TEMPLATE template0;
-          REVOKE ALL ON DATABASE qbot FROM PUBLIC;
-          GRANT CONNECT, TEMPORARY ON DATABASE qbot TO qbot;
-          SQL
-          PGPASSWORD=postgres psql -h 127.0.0.1 -U postgres -d qbot -v ON_ERROR_STOP=1 <<'SQL'
-          ALTER SCHEMA public OWNER TO qbot;
-          SQL
-
-      - name: App typecheck and unit tests
-        working-directory: apps/qbot-app
-        run: |
-          npm ci --no-audit --no-fund
-          npx tsc --noEmit
-          npm test
-
-  chat:
-    runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: pgvector/pgvector:0.8.7-pg15
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: postgres
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U postgres -d postgres"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 20
-    env:
-      # This job's own container. server.test.ts deletes rows only here.
-      DATABASE_MIGRATE_URL: postgres://postgres:postgres@127.0.0.1:5432/qbot
-      DATABASE_URL: postgres://qbot:qbot@127.0.0.1:5432/qbot
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: npm
-          cache-dependency-path: services/qbot-chat/package-lock.json
+          cache-dependency-path: |
+            services/qbot-chat/package-lock.json
+            apps/qbot-app/package-lock.json
 
       - name: Create the throwaway role and database
         run: |
@@ -114,4 +69,11 @@ jobs:
         run: |
           npm ci
           npm run typecheck
+          npm test
+
+      - name: App typecheck and unit tests
+        working-directory: apps/qbot-app
+        run: |
+          npm ci --no-audit --no-fund
+          npx tsc --noEmit
           npm test
