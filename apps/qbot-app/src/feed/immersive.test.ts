@@ -12,7 +12,9 @@ import {
   EMPTY_BODY,
   EMPTY_TITLE,
   fractionClearsOverlays,
+  classifyFeedGesture,
   scopeAfterSwipe,
+  verticalStep,
   showsAttribution,
   statusIcons,
   surfaceColor,
@@ -55,13 +57,21 @@ test("a real status inset moves the safe rect and the published titles stay clea
   assert.equal(fractionClearsOverlays(0.97, { height: 760, topInset: 24 }), false);
 });
 
-test("a horizontal swipe changes source once and a vertical move does not", () => {
+test("a swipe never opens the work and a short touch is the only tap", () => {
+  assert.equal(classifyFeedGesture(2, 3), "tap");
+  assert.equal(classifyFeedGesture(-80, 10), "horizontal");
+  assert.equal(classifyFeedGesture(80, 4), "horizontal");
+  assert.equal(classifyFeedGesture(8, -90), "vertical");
+  assert.equal(classifyFeedGesture(4, 80), "vertical");
+  assert.equal(classifyFeedGesture(-30, 20), "ignore");
+  assert.equal(classifyFeedGesture(-80, 90), "ignore");
+  assert.equal(verticalStep(8, -90), 1);
+  assert.equal(verticalStep(4, 80), -1);
+  assert.equal(verticalStep(-80, 10), 0);
   assert.equal(scopeAfterSwipe("following", -80, 10), "recommended");
   assert.equal(scopeAfterSwipe("recommended", 80, 4), "following");
-  assert.equal(scopeAfterSwipe("following", 80, 4), "following");
-  assert.equal(scopeAfterSwipe("recommended", -80, 4), "recommended");
-  assert.equal(scopeAfterSwipe("following", -20, 4), "following");
-  assert.equal(scopeAfterSwipe("following", -80, 90), "following");
+  assert.equal(scopeAfterSwipe("following", 8, -90), "following");
+  assert.equal(scopeAfterSwipe("following", 2, 3), "following");
 });
 
 test("unfollowing hides the card on 关注 and leaves it on 推荐", () => {

@@ -189,6 +189,8 @@ appId: io.github.felixzhu.qiandrive
 - extendedWaitUntil:
     visible: "三个入口：今日、对话、知识库"
     timeout: 15000
+- assertNotVisible: "返回"
+- assertVisible: "已关注 Qbot"
 - takeScreenshot:
     path: light-feed-scrolled-down
 - swipe:
@@ -202,8 +204,9 @@ appId: io.github.felixzhu.qiandrive
     path: light-feed-scrolled-up
 - tapOn: "get this over the line"
 - extendedWaitUntil:
-    visible: ".*不是模型回答.*"
+    visible: "返回"
     timeout: 20000
+- assertVisible: ".*不是模型回答.*"
 - takeScreenshot:
     path: light-feed-detail
 - tapOn: "返回"

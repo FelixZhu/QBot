@@ -114,10 +114,27 @@ export function fractionClearsOverlays(fraction: number, input: { height: number
   return y >= switchBottom && y <= accountTop;
 }
 
+export type FeedGesture = "tap" | "vertical" | "horizontal" | "ignore";
+
+/** One touch, one result. A swipe never opens the work. Only a short movement is a tap. */
+export function classifyFeedGesture(dx: number, dy: number): FeedGesture {
+  if (!Number.isFinite(dx) || !Number.isFinite(dy)) return "ignore";
+  const adx = Math.abs(dx);
+  const ady = Math.abs(dy);
+  if (adx < 12 && ady < 12) return "tap";
+  if (adx >= 48 && adx > ady * 1.4) return "horizontal";
+  if (ady >= 48 && ady > adx * 1.4) return "vertical";
+  return "ignore";
+}
+
 export function horizontalStep(dx: number, dy: number): -1 | 0 | 1 {
-  if (!Number.isFinite(dx) || !Number.isFinite(dy)) return 0;
-  if (Math.abs(dx) < 48 || Math.abs(dx) < Math.abs(dy) * 1.4) return 0;
+  if (classifyFeedGesture(dx, dy) !== "horizontal") return 0;
   return dx < 0 ? 1 : -1;
+}
+
+export function verticalStep(dx: number, dy: number): -1 | 0 | 1 {
+  if (classifyFeedGesture(dx, dy) !== "vertical") return 0;
+  return dy < 0 ? 1 : -1;
 }
 
 export function scopeAfterSwipe(scope: FeedScope, dx: number, dy: number): FeedScope {

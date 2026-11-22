@@ -20,9 +20,10 @@ import {
   ACCOUNT_HEIGHT,
   applyFollow,
   clampPage,
+  classifyFeedGesture,
   coverSurface,
   EMPTY_ACTION,
-  horizontalStep,
+  verticalStep,
   EMPTY_BODY,
   EMPTY_TITLE,
   overlayInk,
@@ -58,7 +59,7 @@ export function CardFeed({
   const scheme = resolveScheme(useColorScheme());
   const colors = palette[scheme];
   const listRef = useRef<FlatList<FeedCard>>(null);
-  const touch = useRef({ x: 0, y: 0, moved: false });
+  const touch = useRef({ x: 0, y: 0, blocked: false });
   const page = useRef(0);
   const [width, setWidth] = useState(0);
   const [height, setHeight] = useState(0);
@@ -141,7 +142,9 @@ export function CardFeed({
     const restore = work?.index ?? page.current;
     setWork(null);
     onCover(false);
-    requestAnimationFrame(() => listRef.current?.scrollToIndex({ index: clampPage(restore, cards.length), animated: false }));
+    const at = clampPage(restore, cards.length);
+    console.log(`QBOT_NAV cover index=${at}`);
+    requestAnimationFrame(() => listRef.current?.scrollToIndex({ index: at, animated: false }));
   }, [cards.length, onCover, work]);
 
   const back = useCallback(() => {
@@ -171,13 +174,14 @@ export function CardFeed({
   }, [cached, cards.length, message, onStatusStyle, phase, scheme, surface, work]);
 
   const open = async (card: FeedCard, at: number) => {
-    if (!origin || touch.current.moved) return;
+    if (!origin || touch.current.blocked) return;
     setBusy(card.id);
     try {
       const capability = await createFeedClient({ origin }).capability(card.id);
       const pagePath = capability.files.find((file) => file.path === "index.html")?.path ?? "index.html";
       setWork({ title: card.title, url: artifactUrl(origin, capability.artifactId, capability.version, capability.token, pagePath), index: at });
       onCover(true);
+      console.log(`QBOT_NAV work card=${card.id} index=${at}`);
     } catch (error) {
       setPhase("error");
       setMessage(error instanceof Error ? error.message : "无法连接服务器");
@@ -222,19 +226,32 @@ export function CardFeed({
         setHeight(event.nativeEvent.layout.height);
       }}
       onTouchStart={(event) => {
-        touch.current = { x: event.nativeEvent.pageX, y: event.nativeEvent.pageY, moved: false };
-      }}
-      onTouchMove={(event) => {
-        const dx = event.nativeEvent.pageX - touch.current.x;
-        const dy = event.nativeEvent.pageY - touch.current.y;
-        if (horizontalStep(dx, dy) !== 0) touch.current.moved = true;
+        touch.current.x = event.nativeEvent.pageX;
+        touch.current.y = event.nativeEvent.pageY;
       }}
       onTouchEnd={(event) => {
+        if (touch.current.blocked || work) {
+          touch.current.blocked = false;
+          return;
+        }
         const dx = event.nativeEvent.pageX - touch.current.x;
         const dy = event.nativeEvent.pageY - touch.current.y;
-        if (horizontalStep(dx, dy) !== 0) touch.current.moved = true;
-        const nextScope = scopeAfterSwipe(scope, dx, dy);
-        if (nextScope !== scope) setScope(nextScope);
+        const kind = classifyFeedGesture(dx, dy);
+        const card = cards[page.current];
+        console.log(`QBOT_GESTURE ${kind} dx=${Math.round(dx)} dy=${Math.round(dy)} card=${card?.id ?? "none"}`);
+        if (kind === "tap" && card) {
+          void open(card, page.current);
+          return;
+        }
+        if (kind === "horizontal") {
+          setScope(scopeAfterSwipe(scope, dx, dy));
+          return;
+        }
+        if (kind === "vertical" && height > 0) {
+          const nextIndex = clampPage(page.current + verticalStep(dx, dy), cards.length);
+          setIndex(nextIndex);
+          listRef.current?.scrollToIndex({ index: nextIndex, animated: true });
+        }
       }}
     >
       <View style={{ width: column || "100%", alignSelf: "center", flex: 1 }}>
@@ -266,10 +283,7 @@ export function CardFeed({
             ref={listRef}
             data={cards}
             keyExtractor={(card) => card.id}
-            pagingEnabled
-            decelerationRate="fast"
-            snapToInterval={height || undefined}
-            disableIntervalMomentum
+            scrollEnabled={false}
             showsVerticalScrollIndicator={false}
             getItemLayout={(_, itemIndex) => ({ length: height, offset: height * itemIndex, index: itemIndex })}
             onMomentumScrollEnd={(event) => {
@@ -285,7 +299,7 @@ export function CardFeed({
               const itemInk = overlayInk(tone, scheme);
               return (
                 <View style={{ height, backgroundColor: surfaceColor(tone, scheme) }}>
-                  <Pressable accessibilityRole="button" accessibilityLabel={item.title} onPress={() => void open(item, itemIndex)} style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0 }}>
+                  <View accessibilityLabel={item.title} style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0 }}>
                     {publishedFace(item.id) ? (
                       <CoverFace cardId={item.id} surface={tone} scheme={scheme} topInset={topInset} />
                     ) : covers[item.id] ? (
@@ -295,8 +309,8 @@ export function CardFeed({
                         {busy === item.id ? <ActivityIndicator color={itemInk} /> : <Text style={{ color: itemInk }}>封面没有载入</Text>}
                       </View>
                     )}
-                  </Pressable>
-                  <View style={{ position: "absolute", left: 16, right: 16, bottom: ACCOUNT_GAP, height: ACCOUNT_HEIGHT, flexDirection: "row", alignItems: "center", gap: 10 }}>
+                  </View>
+                  <View onTouchStart={() => { touch.current.blocked = true; }} style={{ position: "absolute", left: 16, right: 16, bottom: ACCOUNT_GAP, height: ACCOUNT_HEIGHT, flexDirection: "row", alignItems: "center", gap: 10 }}>
                     <View style={{ width: 36, height: 36, borderRadius: 18, borderWidth: 1.5, borderColor: itemInk, overflow: "hidden" }}>
                       <QbotAvatar size={36} />
                     </View>
@@ -314,7 +328,7 @@ export function CardFeed({
         {view.kind === "cached" ? (
           <Text style={{ position: "absolute", top: topInset + SWITCH_GAP + SWITCH_HEIGHT, left: 0, right: 0, textAlign: "center", color: ink, fontSize: 12 }}>{view.message}</Text>
         ) : null}
-        <View pointerEvents="box-none" style={{ position: "absolute", top: topInset + SWITCH_GAP, left: 0, right: 0, height: SWITCH_HEIGHT, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 14 }}>
+        <View onTouchStart={() => { touch.current.blocked = true; }} pointerEvents="box-none" style={{ position: "absolute", top: topInset + SWITCH_GAP, left: 0, right: 0, height: SWITCH_HEIGHT, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 14 }}>
           {([
             ["following", "关注"],
             ["recommended", "推荐"],
