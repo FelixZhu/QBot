@@ -20,8 +20,11 @@ A fixture upstream is not a DeepSeek or OpenRouter acceptance test. Without `OPE
 | POST | `/v1/conversations` | bearer | optional `{ title }` |
 | GET | `/v1/conversations/:id/messages` | bearer | `{ messages }` |
 | POST | `/v1/conversations/:id/messages` | bearer | `{ text }` then assistant-ui SSE |
+| POST | `/v1/card-imports/dry-run` | bearer, same owner check | raw `application/zip` |
 
 `upstream` is `openrouter` or `fixture`. A fixture is a test double, not a model acceptance. The client cannot send `model`, `messages`, `role`, `system`, `persona`, `owner`, or `kind`. The server loads the agent row and complete history, then calls the model adapter.
+
+`POST /v1/card-imports/dry-run` checks a card package for the authenticated owner. `Idempotency-Key` must equal the manifest `idempotencyKey`. `botRef.slug` must be an `agents.slug` row for `QBOT_OWNER_ID`. The handler only runs `SELECT 1 FROM agents WHERE owner_id = $1 AND slug = $2`. It does not write, fetch source URLs, or send notifications. `versionCheck` stays `unavailable` because this slice does not create `card_package_versions`. Stage, commit, publish, rollback, and import status return 501. `commitAllowed` and `publishAllowed` are false.
 
 SSE is `text/event-stream` from `assistant-stream` (`text-delta` chunks, then `[DONE]`). A failure after headers is an `error` chunk. A failure before headers is JSON.
 

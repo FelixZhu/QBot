@@ -1,0 +1,71 @@
+{
+  "protocol": "qbot.card-package",
+  "protocolMajor": 1,
+  "protocolMinor": 0,
+  "packageId": "example-package",
+  "sample": true,
+  "botRef": {
+    "slug": "example-bot"
+  },
+  "cardKey": "example-card-key",
+  "contentVersion": 2,
+  "expectedPreviousVersion": 1,
+  "idempotencyKey": "client-label-not-the-unique-key",
+  "authoringClaim": "human",
+  "createdAt": "2026-11-22T18:00:00Z",
+  "timezone": "Asia/Shanghai",
+  "card": {
+    "title": "example title",
+    "authoredAt": "2026-11-22T10:00:00+08:00"
+  },
+  "sources": [
+    {
+      "id": "src-1",
+      "url": "https://example.com/a",
+      "retrievedAt": "2026-11-22T09:00:00+08:00",
+      "freshUntil": "2026-11-23T09:00:00+08:00",
+      "private": false
+    }
+  ],
+  "claims": [
+    {
+      "id": "claim-1",
+      "text": "测试结论 一句话",
+      "sourceIds": [
+        "src-1"
+      ],
+      "bodyAnchor": {
+        "path": "work/index.html",
+        "elementId": "c1",
+        "fragment": "#c1",
+        "quote": "测试结论 一句话"
+      }
+    }
+  ],
+  "referenceCanvas": {
+    "width": 390,
+    "height": 844,
+    "insetTop": 44,
+    "insetBottom": 34
+  },
+  "contentSafe": {
+    "top": 98,
+    "right": 20,
+    "bottom": 148,
+    "left": 20
+  },
+  "visibility": {
+    "mode": "schedule",
+    "notBefore": "2026-11-22T18:00:00+08:00",
+    "notAfter": "2026-11-23T18:00:00+08:00"
+  },
+  "notification": {
+    "mode": "none",
+    "dedupeKey": "example-card-key-2",
+    "cooldownMinutes": 360,
+    "quietHours": {
+      "start": "22:00",
+      "end": "08:00"
+    }
+  }
+}

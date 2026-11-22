@@ -4,6 +4,7 @@ import { tokenDigest, tokensMatch, readBearer } from "./auth.ts";
 import type { Config } from "./config.ts";
 import { errorBody, HttpError, publicErrorMessage } from "./errors.ts";
 import { createObjectStore, type ObjectStore } from "./feed/objects.ts";
+import { tryCardImport } from "./card-import/routes.ts";
 import { tryFeed } from "./feed/routes.ts";
 import { LIMITS } from "./limits.ts";
 import type { ConversationEngine } from "./runtime/dsh.ts";
@@ -67,6 +68,7 @@ async function handle(deps: ChatServerDeps, req: IncomingMessage, res: ServerRes
     sendJson(res, 429, errorBody("rate_limited", "请求太频繁"));
     return;
   }
+  if (await tryCardImport(deps, req, res)) return;
   if (req.method === "GET" && path === "/v1/session") {
     const agent = await deps.store.getAgent(deps.config.ownerId);
     sendJson(res, 200, {

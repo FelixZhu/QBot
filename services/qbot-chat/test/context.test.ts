@@ -82,8 +82,13 @@ test("dependencies do not adopt an agent framework", () => {
     "@deepseek-ai/dsh",
     "@deepseek-ai/dsh-llm-pi-ai",
     "@deepseek-ai/dsh-sdk-client",
+    "ajv",
+    "ajv-formats",
     "assistant-stream",
+    "canonicalize",
+    "parse5",
     "pg",
+    "yauzl",
   ]);
   for (const name of names) assert.equal(/pi-agent-core/i.test(name), false, name);
 });
