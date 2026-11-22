@@ -102,6 +102,31 @@ The default process still requires `QBOT_ACCESS_TOKEN`. Set `QBOT_PERSONAL_OPEN=
 
 The phone build reads `EXPO_PUBLIC_QBOT_ORIGIN` at publish time. Leave it unset in git. Set it to the HTTPS origin already in front of this process only in the private publish environment.
 
+## Cards
+
+`QBOT_FEED_OPEN` stays off. Feed, follow, and card routes keep requiring `QBOT_ACCESS_TOKEN`. If that flag is later set, a request without a bearer can list, mint, and read only a public card on a public bot. Follow acts for the configured owner and only on a public bot. A private bot and a followers-only card stay unreachable. The flag does not skip the bearer on chat. These routes set no CORS header, and follow accepts only JSON.
+
+`authored_at` on the two cards is when the text was recorded, `2026-11-21T09:21:18Z`. `published_at` is the clock of the first successful seed and is not rewritten later. The seed does not delete conversations. A second run does not publish them again, and it does not follow Qbot again after an unfollow.
+
+```bash
+cd services/qbot-chat
+npm run migrate
+QBOT_SEED_CONFIRM=cards npm run seed
+npm run seed-keys
+```
+
+`package-lock.json` is unchanged, so do not run `npm ci`. Restart the existing process. `npm run upload-seed` refuses. The seven objects are already in the bucket. Do not upload them again and do not change a bucket ACL. Do not set `QBOT_OBJECT_ROOT` on the host.
+
+Signed reads still need `QBOT_OSS_ENDPOINT`, `QBOT_OSS_BUCKET`, `QBOT_OSS_ACCESS_KEY_ID`, and `QBOT_OSS_ACCESS_KEY_SECRET`. Leave those unset when the objects are already anonymously readable. For that host, set only:
+
+```
+QBOT_FEED_OPEN=1
+QBOT_OSS_PUBLIC=1
+QBOT_OSS_PUBLIC_ORIGIN=https://<the https host that already answers anonymous GET for qbot/cards/>
+```
+
+`QBOT_OSS_PUBLIC` must be exactly `1`. The origin is https, with no user, path, query, or IP address. Do not commit that origin. This mode reads only `qbot/cards/<artifact id>/v<version>/<file>` and only after the card is public on a public bot and the file is in that artifact version. It sends no `Authorization` header and does not follow a redirect. A missing flag, a partial key, or any other prefix leaves object reads closed. The phone still loads `/v1/artifacts/.../files/...` with the short-lived token so the response can set the MIME type and CSP. The raw object response forces a download, so the WebView must not open it directly. The token does not make those objects private. `QBOT_PERSONAL_OPEN` is unchanged and does not open the feed.
+
 ## Verify on the server
 
 PostgreSQL and this process stay on `127.0.0.1`. Do not publish 5432 or 8787. This repository does not record the public name.

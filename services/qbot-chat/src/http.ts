@@ -1,7 +1,10 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import type pg from "pg";
 import { tokenDigest, tokensMatch, readBearer } from "./auth.ts";
 import type { Config } from "./config.ts";
 import { errorBody, HttpError, publicErrorMessage } from "./errors.ts";
+import { createObjectStore, type ObjectStore } from "./feed/objects.ts";
+import { tryFeed } from "./feed/routes.ts";
 import { LIMITS } from "./limits.ts";
 import type { ConversationEngine } from "./runtime/dsh.ts";
 import type { ChatStore } from "./store.ts";
@@ -13,12 +16,19 @@ export type ChatServerDeps = {
   config: Config;
   store: ChatStore;
   runtime: ConversationEngine;
+  pool?: pg.Pool;
+  objects?: ObjectStore;
 };
 
 export function createChatServer(deps: ChatServerDeps) {
   const hits = new Map<string, number[]>();
+  const feedHits = new Map<string, number[]>();
+  const full: ChatServerDeps = {
+    ...deps,
+    objects: deps.objects ?? createObjectStore({ objectRoot: deps.config.objectRoot, oss: deps.config.oss, publicOss: deps.config.publicOss }),
+  };
   return createServer((req, res) => {
-    void handle(deps, req, res, hits).catch((error: unknown) => {
+    void handle(full, req, res, hits, feedHits).catch((error: unknown) => {
       if (res.headersSent || res.writableEnded) return;
       if (error instanceof HttpError) {
         sendJson(res, error.status, errorBody(error.code, error.message));
@@ -30,7 +40,7 @@ export function createChatServer(deps: ChatServerDeps) {
   });
 }
 
-async function handle(deps: ChatServerDeps, req: IncomingMessage, res: ServerResponse, hits: Map<string, number[]>): Promise<void> {
+async function handle(deps: ChatServerDeps, req: IncomingMessage, res: ServerResponse, hits: Map<string, number[]>, feedHits: Map<string, number[]>): Promise<void> {
   const url = new URL(req.url ?? "/", "http://127.0.0.1");
   const path = url.pathname;
   if (req.method === "GET" && path === "/health") {
@@ -42,6 +52,7 @@ async function handle(deps: ChatServerDeps, req: IncomingMessage, res: ServerRes
     }
     return;
   }
+  if (await tryFeed(deps, req, res, feedHits)) return;
   if (!deps.config.personalOpen) {
     const token = readBearer(req.headers.authorization);
     if (!token || !tokensMatch(token, deps.config.accessToken)) {

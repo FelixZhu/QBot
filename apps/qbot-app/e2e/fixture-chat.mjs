@@ -1,8 +1,20 @@
 /**
- * Local test double for the Android emulator. Not a model and not the chat server.
+ * LOCAL test double for the Android emulator. Not a model, not OSS, and not the
+ * production chat process. Card bytes are the seed bundles on disk.
  * The app labels upstream "fixture" as 测试夹具.
  */
+import { createHash, randomBytes } from "node:crypto";
+import { readFileSync } from "node:fs";
 import { createServer } from "node:http";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const BOT = "00000000-0000-4000-8000-000000000002";
+const SEED = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../services/qbot-chat/seed");
+const MANIFEST = JSON.parse(readFileSync(path.join(SEED, "manifest.json"), "utf8"));
+const CSP = "default-src 'none'; style-src 'self'; img-src 'self' data:; font-src 'none'; script-src 'self'; connect-src 'none'; media-src 'none'; object-src 'none'; frame-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'";
+let followed = true;
+const capabilities = new Map();
 
 const CONV = "00000000-0000-4000-8000-000000000010";
 const OTHER = "00000000-0000-4000-8000-000000000011";
@@ -89,6 +101,7 @@ function sse(res, pieces, closed) {
 let holdMessagesMs = 0;
 let failMessages = false;
 let fresh = false;
+let feedDown = false;
 
 const server = createServer(async (req, res) => {
   if (req.method === "OPTIONS") {
@@ -112,6 +125,18 @@ const server = createServer(async (req, res) => {
   if (req.method === "POST" && url.pathname === "/e2e/ok") {
     holdMessagesMs = 0;
     failMessages = false;
+    feedDown = false;
+    send(res, 200, { ok: true });
+    return;
+  }
+  if (req.method === "POST" && url.pathname === "/e2e/feed-down") {
+    feedDown = true;
+    send(res, 200, { ok: true });
+    return;
+  }
+  if (req.method === "POST" && url.pathname === "/e2e/feed-up") {
+    feedDown = false;
+    followed = true;
     send(res, 200, { ok: true });
     return;
   }
@@ -245,8 +270,114 @@ const server = createServer(async (req, res) => {
     stream.finish();
     return;
   }
+  try {
+    if (handleCards(req, res, url)) return;
+  } catch (error) {
+    console.error(`fixture card route failed ${error instanceof Error ? error.message : "error"}`);
+    if (!res.headersSent) send(res, 500, { error: { message: "夹具没有完成" } });
+    return;
+  }
   send(res, 404, { error: { message: "没有这个接口" } });
 });
+
+function botBody() {
+  return { id: BOT, slug: "qbot", displayName: "Qbot", visibility: "public", bio: "手写卡片和对话。这一版没有别的 bot。", followed };
+}
+
+function cardBody(card) {
+  const cover = card.files.find((file) => file.role === "cover");
+  // Local display order only. Production published_at is assigned by the seed.
+  const publishedAt = card.id.endsWith("c2") ? "2026-11-21T09:21:18.000Z" : "2026-11-21T09:21:17.000Z";
+  return {
+    id: card.id,
+    title: card.title,
+    publishedAt,
+    visibility: card.visibility,
+    provenance: "manual",
+    artifactId: card.artifactId,
+    manifestSha256: card.manifestSha256,
+    coverPath: cover.path,
+    artifactVersion: card.version,
+    bot: { id: BOT, slug: "qbot", displayName: "Qbot", followed },
+  };
+}
+
+function handleCards(req, res, url) {
+  const pathName = url.pathname;
+  if (req.method === "GET" && pathName === "/v1/bots/by-slug/qbot") {
+    send(res, 200, botBody());
+    return true;
+  }
+  if (req.method === "GET" && pathName === `/v1/bots/${BOT}`) {
+    send(res, 200, botBody());
+    return true;
+  }
+  if ((req.method === "POST" || req.method === "DELETE") && pathName === `/v1/bots/${BOT}/follow`) {
+    followed = req.method === "POST";
+    send(res, 200, botBody());
+    return true;
+  }
+  if (req.method === "GET" && pathName === "/v1/feed") {
+    if (feedDown) {
+      send(res, 503, { error: { message: "无法连接服务器" } });
+      return true;
+    }
+    const scope = url.searchParams.get("scope");
+    const cards = scope === "following" && !followed
+      ? []
+      : MANIFEST.cards.map(cardBody).sort((a, b) => b.publishedAt.localeCompare(a.publishedAt) || b.id.localeCompare(a.id));
+    send(res, 200, { cards, next: null });
+    return true;
+  }
+  const capability = /^\/v1\/cards\/([^/]+)\/capability$/.exec(pathName);
+  if (req.method === "POST" && capability) {
+    const card = MANIFEST.cards.find((item) => item.id === capability[1]);
+    if (!card) {
+      send(res, 404, { error: { message: "没有这张卡片" } });
+      return true;
+    }
+    const token = randomBytes(32).toString("base64url");
+    capabilities.set(token, { artifactId: card.artifactId, version: card.version, expires: Date.now() + 600_000 });
+    send(res, 201, {
+      token,
+      expiresAt: new Date(Date.now() + 600_000).toISOString(),
+      artifactId: card.artifactId,
+      version: card.version,
+      files: card.files.map((file) => ({ path: file.path, contentType: file.contentType, sha256: file.sha256, role: file.role })),
+    });
+    return true;
+  }
+  const file = /^\/v1\/artifacts\/([^/]+)\/v\/([^/]+)\/([^/]+)\/files\/(.+)$/.exec(pathName);
+  if (req.method === "GET" && file) {
+    const grant = capabilities.get(file[3]);
+    const card = MANIFEST.cards.find((item) => item.artifactId === file[1]);
+    const entry = card?.files.find((item) => item.path === decodeURIComponent(file[4]));
+    if (!grant || grant.artifactId !== file[1] || String(grant.version) !== file[2] || grant.expires <= Date.now() || !entry || entry.path.includes("..")) {
+      send(res, 401, { error: { message: "链接无效" } });
+      return true;
+    }
+    const bytes = readFileSync(path.join(SEED, "bundles", card.dir, entry.path));
+    if (createHash("sha256").update(bytes).digest("hex") !== entry.sha256) {
+      send(res, 404, { error: { message: "内容不在这台服务器上" } });
+      return true;
+    }
+    res.writeHead(200, {
+      "Content-Type": entry.contentType,
+      "Content-Length": bytes.length,
+      "Content-Security-Policy": CSP,
+      "X-Content-Type-Options": "nosniff",
+      "Cache-Control": "private, max-age=60",
+      "X-Qbot-Local": "fixture",
+    });
+    res.end(bytes);
+    return true;
+  }
+  if (pathName === "/v1/feed" || pathName.startsWith("/v1/bots/") || pathName.startsWith("/v1/cards") || pathName.startsWith("/v1/artifacts/")) {
+    send(res, 404, { error: { message: "没有这个接口" } });
+    return true;
+  }
+  return false;
+}
 
 server.listen(8799, "127.0.0.1", () => {
   console.log("fixture-chat listening 8799");

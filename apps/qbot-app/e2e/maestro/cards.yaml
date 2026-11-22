@@ -1,0 +1,37 @@
+appId: io.github.felixzhu.qiandrive
+---
+# LOCAL fixture. The card HTML is the seed bundle, not a live OSS object.
+- launchApp:
+    clearState: true
+    stopApp: true
+- extendedWaitUntil:
+    visible: "get this over the line"
+    timeout: 30000
+- assertVisible: "Qbot"
+- assertNotVisible: "样例"
+- assertNotVisible: "Study Bot"
+- tapOn: "get this over the line"
+- extendedWaitUntil:
+    visible: ".*不是模型回答.*"
+    timeout: 20000
+- tapOn: "返回"
+- extendedWaitUntil:
+    visible: "get this over the line"
+    timeout: 10000
+- tapOn: "推荐"
+- extendedWaitUntil:
+    visible: "get this over the line"
+    timeout: 10000
+- swipe:
+    start: "50%,70%"
+    end: "50%,30%"
+    duration: 400
+- extendedWaitUntil:
+    visible: "三个入口：今日、对话、知识库"
+    timeout: 10000
+- tapOn: "三个入口：今日、对话、知识库"
+- extendedWaitUntil:
+    visible: ".*项目说明.*"
+    timeout: 20000
+- tapOn: "返回"
+- assertVisible: "三个入口：今日、对话、知识库"

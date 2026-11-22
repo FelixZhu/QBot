@@ -13,4 +13,7 @@ export const LIMITS = {
   ratePerMinute: 60,
   tokenMin: 16,
   tokenMax: 256,
+  feedPage: 20,
+  capabilitySeconds: 600,
+  artifactBytes: 1_500_000,
 } as const;

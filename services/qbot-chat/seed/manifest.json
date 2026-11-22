@@ -1,0 +1,44 @@
+{
+  "note": "Two manually published Qbot cards. Hashes are of these bytes. Publishing again does not rewrite a card that already matches.",
+  "bot": {
+    "slug": "qbot",
+    "displayName": "Qbot",
+    "visibility": "public",
+    "bio": "手写卡片和对话。这一版没有别的 bot。"
+  },
+  "cards": [
+    {
+      "id": "00000000-0000-4000-8000-0000000000c1",
+      "artifactId": "00000000-0000-4000-8000-0000000000d1",
+      "version": 1,
+      "title": "三个入口：今日、对话、知识库",
+      "authoredAt": "2026-11-21T09:21:18.000Z",
+      "provenance": "manual",
+      "visibility": "public",
+      "dir": "info",
+      "manifestSha256": "8942ce7f050ecc0f386edc4b07f90055ea6647954f8748f400bcf40c76d007ba",
+      "files": [
+        { "path": "brief.css", "role": "asset", "contentType": "text/css; charset=utf-8", "sha256": "e00711576545770991e2bc551438de677a9122d122b46303785397be796dc395" },
+        { "path": "cover.png", "role": "cover", "contentType": "image/png", "sha256": "64cbcd8b2c30ec740c9be5167e8b8f247bf1ed11cfa6d615007df0108c9823f0" },
+        { "path": "index.html", "role": "page", "contentType": "text/html; charset=utf-8", "sha256": "6ac0f481fc69ce4473ff1cab4c16b93373cec00f61467396ed5b17ed4a5621bc" },
+        { "path": "mark.svg", "role": "asset", "contentType": "image/svg+xml", "sha256": "88e720011542a939f41c663cbaa7c282db4f5a96cd476eca6e37ce7a09cd4305" }
+      ]
+    },
+    {
+      "id": "00000000-0000-4000-8000-0000000000c2",
+      "artifactId": "00000000-0000-4000-8000-0000000000d2",
+      "version": 1,
+      "title": "get this over the line",
+      "authoredAt": "2026-11-21T09:21:18.000Z",
+      "provenance": "manual",
+      "visibility": "public",
+      "dir": "english",
+      "manifestSha256": "a08bced094317d88e5b755402cb06fe07c9c5c7e322a920b3d5b641c4930b84d",
+      "files": [
+        { "path": "cover.png", "role": "cover", "contentType": "image/png", "sha256": "85e2476a5e1fbad1a169f7a97da71489de675ade08d4911d26c11d7a0b8d64be" },
+        { "path": "index.html", "role": "page", "contentType": "text/html; charset=utf-8", "sha256": "c4cb610ef43fc51f7d7fca011601ac29900525be060a8050177c7a3a099c7239" },
+        { "path": "phrase.css", "role": "asset", "contentType": "text/css; charset=utf-8", "sha256": "24c62236ee93abea5a9d9a04bc00ca7ba5ab9e2e235daf8ad6ecd11e223fd6d9" }
+      ]
+    }
+  ]
+}
