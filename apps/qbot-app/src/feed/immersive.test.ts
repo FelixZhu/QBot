@@ -5,6 +5,7 @@ import type { FeedCard } from "./feedClient.ts";
 import {
   applyFollow,
   clampPage,
+  contentBand,
   coverSurface,
   deviceSafeRect,
   EMPTY_ACTION,
@@ -12,6 +13,7 @@ import {
   EMPTY_TITLE,
   fractionClearsOverlays,
   scopeAfterSwipe,
+  showsAttribution,
   statusIcons,
   surfaceColor,
 } from "./immersive.ts";
@@ -24,10 +26,22 @@ test("the two published covers keep their surfaces and a third card does not bor
   assert.equal(coverSurface(english.id), "orange");
   assert.equal(coverSurface("00000000-0000-4000-8000-000000000099"), "system");
   assert.equal(surfaceColor("orange", "dark"), "#FF6A2B");
-  assert.equal(surfaceColor("paper", "dark"), "#F3EFE7");
+  assert.equal(surfaceColor("paper", "light"), "#F3EFE7");
+  assert.equal(surfaceColor("paper", "dark"), "#171614");
   assert.equal(statusIcons("orange", "dark"), "dark");
-  assert.equal(statusIcons("paper", "dark"), "dark");
+  assert.equal(statusIcons("paper", "light"), "dark");
+  assert.equal(statusIcons("paper", "dark"), "light");
   assert.equal(statusIcons("system", "dark"), "light");
+});
+
+test("the text band follows the real status inset and leaves the native row clear", () => {
+  const short = contentBand({ topInset: 24 });
+  const tall = contentBand({ topInset: 52 });
+  assert.equal(short.paddingTop, 24 + 6 + 36 + 16);
+  assert.equal(tall.paddingTop, 52 + 6 + 36 + 16);
+  assert.equal(short.paddingBottom, 8 + 44 + 16);
+  assert.equal(showsAttribution("empty"), false);
+  assert.equal(showsAttribution("card"), true);
 });
 
 test("a real status inset moves the safe rect and the published titles stay clear", () => {
@@ -63,11 +77,15 @@ test("unfollowing hides the card on 关注 and leaves it on 推荐", () => {
 test("the today screen does not replace the published works with the sample board", () => {
   const source = [
     readFileSync(new URL("./CardFeed.tsx", import.meta.url), "utf8"),
+    readFileSync(new URL("./CoverFace.tsx", import.meta.url), "utf8"),
     readFileSync(new URL("./immersive.ts", import.meta.url), "utf8"),
   ].join("\n");
   for (const phrase of ["今天，先看这三件事", "今日三件事", "样例", "音频尚未接通", "波形为版式示意", "AI DAILY SIGNAL"]) {
     assert.equal(source.includes(phrase), false, phrase);
   }
+  assert.equal(source.includes("三个入口：今日、对话、知识库"), true);
+  assert.equal(source.includes("Let's get that over the line today, so marketing can schedule spend tonight."), true);
+  assert.equal(source.includes("没有音频，也没有跟读打分。"), true);
   assert.equal(source.includes(EMPTY_TITLE), true);
   assert.equal(source.includes(EMPTY_BODY), true);
   assert.equal(source.includes(EMPTY_ACTION), true);

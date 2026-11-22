@@ -6,7 +6,7 @@ import type { FeedCard, FeedScope } from "./feedClient.ts";
  */
 export const SWITCH_GAP = 6;
 export const SWITCH_HEIGHT = 36;
-export const CONTENT_GAP = 12;
+export const CONTENT_GAP = 16;
 export const ACCOUNT_HEIGHT = 44;
 export const ACCOUNT_GAP = 8;
 
@@ -33,19 +33,32 @@ export function coverSurface(cardId: string): CoverSurface {
 
 export function surfaceColor(surface: CoverSurface, scheme: "light" | "dark"): string {
   if (surface === "orange") return "#FF6A2B";
-  if (surface === "paper") return "#F3EFE7";
+  if (surface === "paper") return scheme === "dark" ? "#171614" : "#F3EFE7";
   return scheme === "dark" ? "#171614" : "#F3EFE7";
 }
 
-/** The published covers are cream and orange under the status bar, so the icons stay dark. */
+/** Orange stays dark icons. A dark paper cover fills the status bar, so those icons are light. */
 export function statusIcons(surface: CoverSurface, scheme: "light" | "dark"): StatusIcons {
-  if (surface === "orange" || surface === "paper") return "dark";
+  if (surface === "orange") return "dark";
+  if (surface === "paper") return scheme === "dark" ? "light" : "dark";
   return scheme === "dark" ? "light" : "dark";
 }
 
 export function overlayInk(surface: CoverSurface, scheme: "light" | "dark"): string {
-  if (surface === "system" && scheme === "dark") return "#EDE8DF";
+  if ((surface === "paper" || surface === "system") && scheme === "dark") return "#EDE8DF";
   return "#1C1B19";
+}
+
+/** Mast starts under the real status inset and the switch. Body stops above the native attribution row. */
+export function contentBand(input: { topInset: number }): { paddingTop: number; paddingBottom: number } {
+  return {
+    paddingTop: Math.max(0, input.topInset) + SWITCH_GAP + SWITCH_HEIGHT + CONTENT_GAP,
+    paddingBottom: ACCOUNT_GAP + ACCOUNT_HEIGHT + CONTENT_GAP,
+  };
+}
+
+export function showsAttribution(kind: "card" | "empty"): boolean {
+  return kind === "card";
 }
 
 export type ReferenceCanvas = {

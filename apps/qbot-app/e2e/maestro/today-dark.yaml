@@ -9,4 +9,12 @@ appId: io.github.felixzhu.qiandrive
     timeout: 30000
 - assertVisible: "今日"
 - takeScreenshot:
-    path: today-narrow-dark
+    path: today-narrow-dark-english
+- swipe:
+    direction: UP
+    duration: 600
+- extendedWaitUntil:
+    visible: "三个入口：今日、对话、知识库"
+    timeout: 10000
+- takeScreenshot:
+    path: today-narrow-dark-info

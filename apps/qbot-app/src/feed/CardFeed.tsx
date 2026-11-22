@@ -4,6 +4,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { QbotAvatar } from "../QbotAvatar";
 import { palette, resolveScheme } from "../theme";
 import { CardWork } from "./CardWork";
+import { CoverFace, publishedFace } from "./CoverFace";
 import {
   artifactUrl,
   createFeedClient,
@@ -204,8 +205,7 @@ export function CardFeed({
   };
 
   const view = presentFeed({ phase, count: cards.length, cached, message });
-  const overlayScheme = view.kind === "empty" ? "light" : scheme;
-  const ink = overlayInk(view.kind === "empty" ? "paper" : surface, overlayScheme);
+  const ink = overlayInk(view.kind === "empty" ? "paper" : surface, scheme);
   const quiet = ink === "#EDE8DF" ? "rgba(237,232,223,0.6)" : "rgba(28,27,25,0.6)";
   const ground = view.kind === "empty" || view.kind === "ready" || view.kind === "cached"
     ? surfaceColor(view.kind === "empty" ? "paper" : surface, scheme)
@@ -250,12 +250,12 @@ export function CardFeed({
           </View>
         ) : null}
         {view.kind === "empty" ? (
-          <View style={{ flex: 1, backgroundColor: "#F3EFE7", alignItems: "center", justifyContent: "center", paddingHorizontal: 32 }}>
+          <View style={{ flex: 1, backgroundColor: scheme === "dark" ? "#171614" : "#F3EFE7", alignItems: "center", justifyContent: "center", paddingHorizontal: 32 }}>
             <QbotAvatar size={48} />
-            <Text style={{ marginTop: 22, color: "#1C1B19", fontSize: 26, lineHeight: 34, fontWeight: "700", textAlign: "center" }}>{EMPTY_TITLE}</Text>
-            <Text style={{ marginTop: 10, color: "#5C574E", fontSize: 15, lineHeight: 24, textAlign: "center" }}>{EMPTY_BODY}</Text>
-            <Pressable accessibilityRole="button" accessibilityLabel={EMPTY_ACTION} onPress={() => setScope("recommended")} style={{ marginTop: 22, height: 44, paddingHorizontal: 22, borderRadius: 22, backgroundColor: "#1C1B19", alignItems: "center", justifyContent: "center" }}>
-              <Text style={{ color: "#F3EFE7", fontSize: 16, fontWeight: "700" }}>{EMPTY_ACTION}</Text>
+            <Text style={{ marginTop: 22, color: scheme === "dark" ? "#EDE8DF" : "#1C1B19", fontSize: 26, lineHeight: 34, fontWeight: "700", textAlign: "center" }}>{EMPTY_TITLE}</Text>
+            <Text style={{ marginTop: 10, color: scheme === "dark" ? "#ABA498" : "#5C574E", fontSize: 15, lineHeight: 24, textAlign: "center" }}>{EMPTY_BODY}</Text>
+            <Pressable accessibilityRole="button" accessibilityLabel={EMPTY_ACTION} onPress={() => setScope("recommended")} style={{ marginTop: 22, height: 44, paddingHorizontal: 22, borderRadius: 22, backgroundColor: scheme === "dark" ? "#EDE8DF" : "#1C1B19", alignItems: "center", justifyContent: "center" }}>
+              <Text style={{ color: scheme === "dark" ? "#171614" : "#F3EFE7", fontSize: 16, fontWeight: "700" }}>{EMPTY_ACTION}</Text>
             </Pressable>
           </View>
         ) : null}
@@ -284,7 +284,9 @@ export function CardFeed({
               return (
                 <View style={{ height, backgroundColor: surfaceColor(tone, scheme) }}>
                   <Pressable accessibilityRole="button" accessibilityLabel={item.title} onPress={() => void open(item, itemIndex)} style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0 }}>
-                    {covers[item.id] ? (
+                    {publishedFace(item.id) ? (
+                      <CoverFace cardId={item.id} surface={tone} scheme={scheme} topInset={topInset} />
+                    ) : covers[item.id] ? (
                       <Image source={{ uri: covers[item.id] }} resizeMode="cover" accessibilityElementsHidden style={{ width: "100%", height: "100%" }} />
                     ) : (
                       <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
@@ -297,7 +299,7 @@ export function CardFeed({
                       <QbotAvatar size={36} />
                     </View>
                     <Text style={{ color: itemInk, fontSize: 16, fontWeight: "700" }}>{item.bot.displayName}</Text>
-                    <Pressable accessibilityRole="button" accessibilityLabel={item.bot.followed ? `已关注 ${item.bot.displayName}` : `关注 ${item.bot.displayName}`} onPress={() => void toggle(item)} style={{ height: 26, paddingHorizontal: 11, borderRadius: 13, borderWidth: 1.5, borderColor: item.bot.followed ? "rgba(28,27,25,0.28)" : itemInk, justifyContent: "center" }}>
+                    <Pressable accessibilityRole="button" accessibilityLabel={item.bot.followed ? `已关注 ${item.bot.displayName}` : `关注 ${item.bot.displayName}`} onPress={() => void toggle(item)} style={{ height: 26, paddingHorizontal: 11, borderRadius: 13, borderWidth: 1.5, borderColor: item.bot.followed ? (itemInk === "#EDE8DF" ? "rgba(237,232,223,0.35)" : "rgba(28,27,25,0.28)") : itemInk, justifyContent: "center" }}>
                       <Text style={{ color: itemInk, fontSize: 13, fontWeight: item.bot.followed ? "400" : "700" }}>{item.bot.followed ? "已关注" : "关注"}</Text>
                     </Pressable>
                     <Text style={{ marginLeft: "auto", color: itemInk, opacity: 0.7, fontSize: 12 }}>{formatPublished(item.publishedAt)}</Text>
