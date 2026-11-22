@@ -1,7 +1,7 @@
 {
   "exampleOnly": true,
   "importable": false,
-  "note": "占位示例。digest、hash 和 bytes 都不是真实 JCS 或文件，不能导入，也不能发布。",
+  "note": "占位示例。digest、hash 和 bytes 都不是真实 JCS 或文件，不能导入，也不能发布。cover-dark.png 只说明路径约定，当前 App 不读取这个文件名。",
   "protocol": "qbot.card-package",
   "protocolMajor": 1,
   "protocolMinor": 0,
@@ -69,9 +69,16 @@
   },
   "files": [
     {
-      "path": "cover.png",
+      "path": "cover-light.png",
       "role": "cover",
       "sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+      "bytes": 1,
+      "contentType": "image/png"
+    },
+    {
+      "path": "cover-dark.png",
+      "role": "cover",
+      "sha256": "4444444444444444444444444444444444444444444444444444444444444444",
       "bytes": 1,
       "contentType": "image/png"
     },
