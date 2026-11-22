@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "qbot.card-package.v1.0",
   "title": "Qbot card package manifest v1.0",
-  "description": "Proposal only. additionalProperties false means this minor rejects unknown fields. protocolMinor other than 0 is rejected by this revision.",
+  "description": "Proposal only. Unknown fields and protocolMinor other than 0 are rejected. Passing this schema is not authentication and is not a claim that the text is true. How contentDigest and manifestDigest are computed is defined in CARD-PACKAGE.md.",
   "type": "object",
   "additionalProperties": false,
   "required": [

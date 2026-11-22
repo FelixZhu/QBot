@@ -36,27 +36,27 @@ ZIP 只有封面和作品。不画关注、推荐、头像或底栏，也不带�
 
 服务端自己重算。客户端送来的值只用于核对，对不上就拒绝。
 
-`contentDigest` 另算，用来判断内容有没有变。它只覆盖这些成员，按固定顺序放进一个对象后再做同样的 JCS SHA-256：
+`contentDigest` 是语义内容摘要，只用于跨版本判断要不要再次公开。它按固定键序做成一个对象，再做同样的 JCS SHA-256。只放入：
 
-- `botRef`
-- `cardKey`
-- `contentVersion`
-- `sample`
-- `card`
-- `claims`（`id`、`text`、`sourceIds`、`bodyAnchor`）
-- `files`（`path`、`role`、`sha256`、`bytes`、`contentType`）
+- `card.title`
+- `claims` 的 `id`、`text`、`sourceIds`、`bodyAnchor`
+- `files` 的 `path`、`role`、`sha256`、`bytes`、`contentType`（正文和资源的哈希）
+- `contentSafe` 与 `referenceCanvas`
+- `sources` 的 `id` 和 `url`
 
-不计入 `contentDigest` 的有：`createdAt`、`sources` 里的取数时刻和新鲜度、`authoringClaim`、`visibility`、`notification`、`idempotencyKey`、`packageId`、`manifestDigest`。这些变了，内容摘要可以不变，整包摘要会变。
+明确不放入：`contentVersion`、`expectedPreviousVersion`、`protocolMajor`、`protocolMinor`、`cardKey`、`botRef`、`packageId`、`sample`、`authoringClaim`、`idempotencyKey`、`createdAt`、`card.authoredAt`、`sources.retrievedAt`、`sources.freshUntil`、`sources.private`、`visibility`、`notification`、`manifestDigest`。版本号、记录身份、取数时刻、创作时刻和调度时刻都不进入语义摘要。
 
-「内容未变」只比较 `contentDigest`。整包是否同一份申报，比较 `manifestDigest`。
+来源的 `url` 在里面。同一个 `id` 换成另一个 URL，语义摘要必须改变。`work/index.html` 或其他资源的字节变了，文件哈希就变，语义摘要也变。原文里若嵌了会变的时间，这算内容变，可以接受。
+
+跨两个 `contentVersion` 时，语义摘要相同就不再次公开。同一 `contentVersion` 的重试不靠它放行，见下一节。
 
 ## 谁可以发
 
 manifest 里如果出现 owner，忽略它。认证决定 owner。`botRef.slug` 只是引用，必须落在这个 owner 已允许的 Bot 上，否则拒绝。
 
-`idempotencyKey` 只是客户端请求标签。真实唯一键是认证得到的 owner、允许的 Bot、`cardKey`、`contentVersion`。数据库用这四元组做唯一约束。同一四元组且 `contentDigest` 相同，重试返回原来的结果。同一四元组但 digest 不同，冲突，不写第二行。相同的 `idempotencyKey` 配上不同的四元组，也是冲突。
+`idempotencyKey` 只是客户端请求标签。真实唯一键是认证得到的 owner、允许的 Bot、`cardKey`、`contentVersion`。数据库用这四元组做唯一约束。同一版本重试用 `manifestDigest` 严格比较：四元组相同且 `manifestDigest` 相同，返回原来的结果；`manifestDigest` 不同就是冲突，即使 `contentDigest` 没变。新的调度或新的来源申报会改变整包摘要，不能被语义摘要相同放过。相同的 `idempotencyKey` 配上不同的四元组，也是冲突。
 
-`authoringClaim` 只是申报，取值 `human` 或 `bot`。导入审计另行核对，不采用自报。`sample` 为 true 时不得正式发布，只能停在 dry-run 或 stage。来源或审计记录 `private` 为 true 时，不能整包公开到 OSS 或 Feed。
+`authoringClaim` 只是申报，取值 `human` 或 `bot`。导入审计另行核对，不采用自报。`sample` 为 true 时，dry-run 和 stage 可以做，commit 和 publish 都拒绝。来源或审计记录 `private` 为 true 时，不能整包公开到 OSS 或 Feed。
 
 `cardKey` 在同一个 Bot 下稳定。`contentVersion` 从 1 递增。第一版 `expectedPreviousVersion` 为 null。更新必须等于服务端当前已提交的版本，否则冲突。
 
@@ -83,8 +83,8 @@ manifest 里如果出现 owner，忽略它。认证决定 owner。`botRef.slug` 
 | --- | --- | --- | --- |
 | POST | `/v1/card-imports/dry-run` | 只检查，不写库，不写对象 | 已认证 owner，且 Bot 在允许列表 |
 | POST | `/v1/card-imports/stage` | 检查通过后写入不可变暂存 | 同上，另需尚未授予的对象写权限 |
-| POST | `/v1/card-imports/{importId}/commit` | 写入版本行，Feed 仍不可见 | 同上，要求 `expectedPreviousVersion` |
-| POST | `/v1/card-imports/{importId}/publish` | 只改可见性，不发通知 | 另需发布权限。`sample` 为 true 时拒绝 |
+| POST | `/v1/card-imports/{importId}/commit` | 写入版本行，不改可见指针 | 同上，要求 `expectedPreviousVersion`。`sample` 为 true 时拒绝 |
+| POST | `/v1/card-imports/{importId}/publish` | 只改可见指针，不发通知 | 另需发布权限。`sample` 为 true 时拒绝 |
 | GET | `/v1/card-imports/{importId}` | 读状态 | 仅该 owner |
 | POST | `/v1/card-imports/{importId}/rollback` | 可见指针回到上一版 | 与 publish 相同的权限 |
 
@@ -108,9 +108,9 @@ manifest 里如果出现 owner，忽略它。认证决定 owner。`botRef.slug` 
 }
 ```
 
-`state` 只在 `rejected`、`validated`、`staged`、`committed`、`published`、`rolled-back` 之中。`validated` 是 dry-run 的结果，没有副作用。`staged` 只有暂存对象。`committed` 有版本行，`visibility` 仍是 `hidden`。`published` 才把可见性改成 `visible`。`notification` 在本方案里保持 `not-authorized`，不因为 publish 而发送。
+`state` 只在 `rejected`、`validated`、`staged`、`committed`、`published`、`rolled-back` 之中。`validated` 是 dry-run 的结果，没有副作用。`staged` 只有暂存对象。`committed` 有版本行，可见指针不动，`visibility` 仍是 `hidden`。`published` 才在一次事务里把可见指针改到这一版。`notification` 在本方案里保持 `not-authorized`，不因为 publish 而发送，通知授权不扩大。
 
-`sample` 为 true 时，publish 返回拒绝，状态停在 `committed` 或 `staged`。过了 `notAfter` 不补发。`contentDigest` 与当前可见版相同，则 publish 不改变可见性。
+`sample` 为 true 时，commit 和 publish 都拒绝，状态最多到 `staged`。时间用 schema 里的字段：`timezone` 固定 `Asia/Shanghai`；可见窗口是 `visibility.notBefore` 和 `visibility.notAfter`；安静时段是 `notification.quietHours.start` 与 `end`，小时只允许 00 到 23；冷却是 `notification.cooldownMinutes`；通知去重字符串是 `notification.dedupeKey`。过了 `notAfter` 不补发。安静时段内到期的通知不补到时段结束后。跨版本的 `contentDigest` 与当前已公开版相同，则 publish 不把这一版再公开一次。同一版本不靠这个比较放行。
 
 ## 方案中的限额
 
@@ -128,13 +128,13 @@ manifest 里如果出现 owner，忽略它。认证决定 owner。`botRef.slug` 
 
 HTML 解析后还要拒绝 `script`、`iframe`、`object`、`embed`、`form`、事件属性和 `javascript:` 地址。CSP 仍是 `default-src 'none'`，样式和图片只许 `'self'`。外链必须事先逐条声明，并且是 https。这些检查不因为 schema 通过而跳过。
 
-本方案的导入不抓取 `source.url`。若以后增加抓取，必须拒绝非 https、内网地址，以及重定向到这些地址。schema 通过不能代替这次检查。
+本方案的导入不抓取 `source.url`。制作者负责核实来源并提供证据。导入的自动检查只核对结构、摘要、锚点、类型和限额，不宣称因此证明内容为真。正式公开前要有人工审查，公开文件还要有隐私审批。schema 通过不等于鉴权，也不等于真实性验证。若以后增加抓取，必须拒绝非 https、内网地址，以及重定向到这些地址。
 
 ## 暂存
 
 暂存对象在校验完成之前不是最终对象。上传中断时中止未完成的 multipart，不在同一个未完成对象上继续追加。重传是整份字节重新上传，传完再按 hash 核对。
 
-hash 已经核对成功的对象不覆盖。同一 hash 再次出现就复用那个对象。hash 不同就使用新的键。Postgres 一次事务把可见指针从上一版改到这一版。事务失败就留下没人引用的已核对对象，已发布的行不删，Feed 不变。回滚只把指针改回上一版。
+hash 已经核对成功的对象不覆盖。同一 hash 再次出现就复用那个对象。hash 不同就使用新的键。commit 只增加不可见的版本行，不改可见指针。publish 才用一次 Postgres 事务把可见指针从上一版改到这一版。这次事务失败就留下没人引用的已核对对象，已发布的行不删，Feed 不变。回滚只在 publish 之后把可见指针改回上一版。
 
 ## 安全区
 
