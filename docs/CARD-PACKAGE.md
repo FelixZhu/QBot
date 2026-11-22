@@ -1,8 +1,14 @@
-# 卡片包协议 v1
+# 卡片包协议 v1.0
 
-这是方案，不是已实现的导入接口，也不是 Skill。暂名仍是「QBot 卡片制作」和「QBot 卡片导入」。`docs/card-package/v1.example.json` 的 hash 和 bytes 是占位，`importable` 为 false，不能导入。`v1.schema.json` 只描述字段形状。
+这是给 Qian 确认的方案。导入接口没有实现，Skill 没有创建。写对象和读私人对象都还没有授权。`QBOT_FEED_OPEN` 不能打开这些路径。
 
-读取方只接受 `protocolMajor` 等于 1。0 和 2 都拒绝，不把未知主版本当成兼容。同一主版本里不认识的可选字段可以忽略。
+`docs/card-package/v1.example.json` 的 digest、hash 和 bytes 是占位，`importable` 为 false，`sample` 为 true。它不能导入，也不能正式发布。`v1.schema.json` 只检查字段形状。形状通过之后，仍要做本文的摘要、HTML、CSP 和 SSRF 检查。
+
+## 版本和未知字段
+
+本修订的读取方只接受 `protocolMajor` 为 1 且 `protocolMinor` 为 0。主版本不是 1，或者次版本不是 0，都拒绝。不把更高的次版本当成向后兼容。
+
+每一层对象都是 `additionalProperties: false`。未知字段拒绝，不忽略。以后若要加字段，另立一次次版本，并写出新的 schema。在那之前，次版本不匹配就是拒绝。
 
 ## 目录
 
@@ -15,44 +21,125 @@ card-package/
     assets/...
 ```
 
-ZIP 只有封面和作品。不画关注、推荐、头像或底栏。默认静态：HTML 不能有脚本、表单、iframe 或远程追踪。CSP 与现有作品页相同：`default-src 'none'`，样式和图片只许 `'self'`。外链必须在 manifest 里逐条声明，并且是 https。未声明的外链拒绝。ZIP 不带可执行脚本。
+ZIP 只有封面和作品。不画关注、推荐、头像或底栏，也不带可执行脚本。
 
 `files` 必须列出 `cover.png`、`work/index.html` 和每一个资源。规范化路径后，未声明、多余、缺失或重复都拒绝。`..`、绝对路径和符号链接拒绝。
 
+## 两个摘要
+
+`manifestDigest` 不能对含有它自己的 JSON 做哈希。
+
+1. 从根对象删掉 `manifestDigest` 这一个成员。其余成员保留，包括 `contentDigest`。
+2. 按 RFC 8785 JCS 生成规范 JSON。
+3. 对这份 UTF-8 字节做 SHA-256。
+4. 算法名记为 `sha256-jcs`。
+
+服务端自己重算。客户端送来的值只用于核对，对不上就拒绝。
+
+`contentDigest` 另算，用来判断内容有没有变。它只覆盖这些成员，按固定顺序放进一个对象后再做同样的 JCS SHA-256：
+
+- `botRef`
+- `cardKey`
+- `contentVersion`
+- `sample`
+- `card`
+- `claims`（`id`、`text`、`sourceIds`、`bodyAnchor`）
+- `files`（`path`、`role`、`sha256`、`bytes`、`contentType`）
+
+不计入 `contentDigest` 的有：`createdAt`、`sources` 里的取数时刻和新鲜度、`authoringClaim`、`visibility`、`notification`、`idempotencyKey`、`packageId`、`manifestDigest`。这些变了，内容摘要可以不变，整包摘要会变。
+
+「内容未变」只比较 `contentDigest`。整包是否同一份申报，比较 `manifestDigest`。
+
 ## 谁可以发
 
-manifest 里如果出现 owner，忽略它。认证决定 owner。`botRef.slug` 只是引用，必须落在这个 owner 已允许的 Bot 上，否则拒绝。不能靠公共 Feed 开关打开导入。写对象和读私人对象都还没有授权。
+manifest 里如果出现 owner，忽略它。认证决定 owner。`botRef.slug` 只是引用，必须落在这个 owner 已允许的 Bot 上，否则拒绝。
 
-`authoringClaim` 只是申报，取值 `human` 或 `bot`。导入审计另行核对身份，不采用自报结果。审计记录或来源标了 `private: true` 时，不能整包公开到 OSS 或 Feed。公开可见的只是通过审计、且来源本身可公开的封面和作品。
+`idempotencyKey` 只是客户端请求标签。真实唯一键是认证得到的 owner、允许的 Bot、`cardKey`、`contentVersion`。数据库用这四元组做唯一约束。同一四元组且 `contentDigest` 相同，重试返回原来的结果。同一四元组但 digest 不同，冲突，不写第二行。相同的 `idempotencyKey` 配上不同的四元组，也是冲突。
 
-## 同一张卡的后续版本
+`authoringClaim` 只是申报，取值 `human` 或 `bot`。导入审计另行核对，不采用自报。`sample` 为 true 时不得正式发布，只能停在 dry-run 或 stage。来源或审计记录 `private` 为 true 时，不能整包公开到 OSS 或 Feed。
 
-`cardKey` 在同一个 Bot 下稳定，不随文案变。`contentVersion` 从 1 递增，和作品文件的版本分开记。第一版 `expectedPreviousVersion` 为 null。更新必须等于服务端当前可见版本，否则冲突。
+`cardKey` 在同一个 Bot 下稳定。`contentVersion` 从 1 递增。第一版 `expectedPreviousVersion` 为 null。更新必须等于服务端当前已提交的版本，否则冲突。
 
-幂等键是 owner、Bot、`cardKey`、`contentVersion`。同一键、同一 manifest digest，重试返回原来的结果。同一键、不同 digest，冲突，不写第二行。数据库用这四元组的唯一约束挡住并发。服务端现在没有这些列，本方案不建表。
+## 锚点
 
-## 结论怎么核对
+`bodyAnchor` 有四项：`path` 固定为 `work/index.html`，`elementId`，`fragment`，`quote`。`fragment` 必须等于 `#` 加上同一个 `elementId`。
 
-`sources` 可以有多条，每条有地址、取数时刻和新鲜度。`claims` 把一句结论指到来源 id，并给 `work/index.html` 里的原文锚点。正文里碰巧出现同一串字，不算这句结论已经得到来源支持。核对要看到锚点和来源对得上。
+核对时解析 HTML，不用整篇搜索代替定位：
 
-## 三步状态
+- 存在且只存在一个 `id` 等于 `elementId` 的元素。
+- 该元素在 `body` 里，不在 `script`、`style` 或 `template` 里。
+- 把它的文本按空白折叠后，`quote` 必须是其中连续的一段。
+- 这句话出现在别的元素里，不算这个锚点成立。
+- `claims.text` 必须与 `quote` 相同。
+- `sourceIds` 里的每个 id 都必须在 `sources` 里。
 
-导入、公开可见、通知是三件事。导入成功只表示包收下了，Feed 不变，也不发通知。
+正文里碰巧有同一串字，不能单独证明结论。
 
-公开可见的 `mode` 是 `manual` 或 `schedule`。时间用 `Asia/Shanghai`，`notBefore` 和 `notAfter` 是带时区的绝对时间。过了 `notAfter` 不补发。内容 digest 没变则不改变可见性，也不推送。
+## 建议接口
 
-通知的 `mode` 默认 `none`。要改成 `schedule` 必须另有通知授权，本方案不授予。去重范围是 owner、Bot、`cardKey`、`contentVersion` 和渠道。`cooldownMinutes` 和 `quietHours` 都按上海时区。安静时段内不补发到时段结束后。
+下面的路径都没有实现。权限也没有授予。
 
-现有系统里，Feed 是否可见由 Postgres 的卡片行决定，作品文件在对象存储。没有现成的通知发送器。通知不能只靠 ZIP 自己实现。
+| 方法 | 路径 | 作用 | 权限 |
+| --- | --- | --- | --- |
+| POST | `/v1/card-imports/dry-run` | 只检查，不写库，不写对象 | 已认证 owner，且 Bot 在允许列表 |
+| POST | `/v1/card-imports/stage` | 检查通过后写入不可变暂存 | 同上，另需尚未授予的对象写权限 |
+| POST | `/v1/card-imports/{importId}/commit` | 写入版本行，Feed 仍不可见 | 同上，要求 `expectedPreviousVersion` |
+| POST | `/v1/card-imports/{importId}/publish` | 只改可见性，不发通知 | 另需发布权限。`sample` 为 true 时拒绝 |
+| GET | `/v1/card-imports/{importId}` | 读状态 | 仅该 owner |
+| POST | `/v1/card-imports/{importId}/rollback` | 可见指针回到上一版 | 与 publish 相同的权限 |
+
+请求带 `Idempotency-Key` 头，值等于 manifest 里的 `idempotencyKey`。它不是唯一键。commit 和 publish 的正文还要带 `expectedPreviousVersion`。
+
+状态响应建议为：
+
+```json
+{
+  "importId": "example-import",
+  "state": "staged",
+  "implemented": false,
+  "ownerBound": true,
+  "botSlug": "example-bot",
+  "cardKey": "example-card-key",
+  "contentVersion": 2,
+  "contentDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "visibility": "hidden",
+  "notification": "not-authorized",
+  "sample": true
+}
+```
+
+`state` 只在 `rejected`、`validated`、`staged`、`committed`、`published`、`rolled-back` 之中。`validated` 是 dry-run 的结果，没有副作用。`staged` 只有暂存对象。`committed` 有版本行，`visibility` 仍是 `hidden`。`published` 才把可见性改成 `visible`。`notification` 在本方案里保持 `not-authorized`，不因为 publish 而发送。
+
+`sample` 为 true 时，publish 返回拒绝，状态停在 `committed` 或 `staged`。过了 `notAfter` 不补发。`contentDigest` 与当前可见版相同，则 publish 不改变可见性。
+
+## 方案中的限额
+
+这些数字是方案值，不是已生效的配置。
+
+| 项 | 方案值 |
+| --- | --- |
+| ZIP 压缩后 | 8 MiB |
+| 解压后合计 | 32 MiB |
+| 单文件解压后 | 8 MiB |
+| 文件个数 | 32 |
+| 压缩比上限 | 100 比 1 |
+| 路径长度 | 128 |
+| HTML 元素个数 | 2000 |
+
+HTML 解析后还要拒绝 `script`、`iframe`、`object`、`embed`、`form`、事件属性和 `javascript:` 地址。CSP 仍是 `default-src 'none'`，样式和图片只许 `'self'`。外链必须事先逐条声明，并且是 https。这些检查不因为 schema 通过而跳过。
+
+本方案的导入不抓取 `source.url`。若以后增加抓取，必须拒绝非 https、内网地址，以及重定向到这些地址。schema 通过不能代替这次检查。
+
+## 暂存
+
+暂存对象在校验完成之前不是最终对象。上传中断时中止未完成的 multipart，不在同一个未完成对象上继续追加。重传是整份字节重新上传，传完再按 hash 核对。
+
+hash 已经核对成功的对象不覆盖。同一 hash 再次出现就复用那个对象。hash 不同就使用新的键。Postgres 一次事务把可见指针从上一版改到这一版。事务失败就留下没人引用的已核对对象，已发布的行不删，Feed 不变。回滚只把指针改回上一版。
 
 ## 安全区
 
-包给出参考画布 `referenceCanvas`（含那一次排版用的 inset）和 `contentSafe`。App 用本机真实 inset 替换参考 inset，再按卡片宽度缩放。不能把参考 inset 的 44 当成每台手机的状态栏高度。缩放后，声明的标题和来源必须落在安全区里，否则这版封面不合格。背景仍铺满卡片，不为了安全区把整张图缩进一块留白。
-
-## 对象存储和数据库
-
-先把文件写到不可变的暂存键。Postgres 一次事务把可见指针从上一版改到这一版。事务失败就留下没人引用的暂存对象，已发布的行不删，Feed 不变。上传中断后，用同一个幂等键重试：暂存不完整就续写，指针没改过就再试一次事务。回滚只把指针改回上一版。
+包给出参考画布和 `contentSafe`。参考 inset 只说明那一次排版，不是每台手机的状态栏高度。App 用本机真实 inset，再按卡片宽度缩放。
 
 ## 还没做
 
-`dry-run`、`stage`、`commit`、`status`、`rollback` 都没有实现。写权限和私人读取也没有授权。
+Skill 没有创建。上面六个路径没有实现。对象写权限、私人读取和通知发送都没有授权。

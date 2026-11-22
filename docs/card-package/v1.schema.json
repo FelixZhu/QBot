@@ -1,7 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "qbot.card-package.v1",
-  "title": "Qbot card package manifest v1",
+  "$id": "qbot.card-package.v1.0",
+  "title": "Qbot card package manifest v1.0",
+  "description": "Proposal only. additionalProperties false means this minor rejects unknown fields. protocolMinor other than 0 is rejected by this revision.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -9,7 +10,9 @@
     "protocolMajor",
     "protocolMinor",
     "packageId",
+    "sample",
     "manifestDigest",
+    "contentDigest",
     "botRef",
     "cardKey",
     "contentVersion",
@@ -33,17 +36,11 @@
     "note": { "type": "string" },
     "protocol": { "const": "qbot.card-package" },
     "protocolMajor": { "const": 1 },
-    "protocolMinor": { "type": "integer", "minimum": 0 },
+    "protocolMinor": { "const": 0 },
     "packageId": { "type": "string", "minLength": 1, "maxLength": 80 },
-    "manifestDigest": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["alg", "value"],
-      "properties": {
-        "alg": { "const": "sha256" },
-        "value": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
-      }
-    },
+    "sample": { "type": "boolean" },
+    "manifestDigest": { "$ref": "#/$defs/digest" },
+    "contentDigest": { "$ref": "#/$defs/digest" },
     "botRef": {
       "type": "object",
       "additionalProperties": false,
@@ -71,12 +68,13 @@
     "sources": {
       "type": "array",
       "minItems": 1,
+      "maxItems": 8,
       "items": {
         "type": "object",
         "additionalProperties": false,
         "required": ["id", "url", "retrievedAt", "freshUntil", "private"],
         "properties": {
-          "id": { "type": "string", "minLength": 1 },
+          "id": { "type": "string", "minLength": 1, "maxLength": 64 },
           "url": { "type": "string", "format": "uri" },
           "retrievedAt": { "type": "string", "format": "date-time" },
           "freshUntil": { "type": "string", "format": "date-time" },
@@ -87,21 +85,29 @@
     "claims": {
       "type": "array",
       "minItems": 1,
+      "maxItems": 16,
       "items": {
         "type": "object",
         "additionalProperties": false,
         "required": ["id", "text", "sourceIds", "bodyAnchor"],
         "properties": {
-          "id": { "type": "string" },
-          "text": { "type": "string", "minLength": 1 },
-          "sourceIds": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+          "id": { "type": "string", "minLength": 1, "maxLength": 64 },
+          "text": { "type": "string", "minLength": 1, "maxLength": 500 },
+          "sourceIds": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 8,
+            "items": { "type": "string" }
+          },
           "bodyAnchor": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["path", "quote"],
+            "required": ["path", "elementId", "fragment", "quote"],
             "properties": {
               "path": { "const": "work/index.html" },
-              "quote": { "type": "string", "minLength": 1 }
+              "elementId": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,64}$" },
+              "fragment": { "type": "string", "pattern": "^#[A-Za-z][A-Za-z0-9_-]{0,64}$" },
+              "quote": { "type": "string", "minLength": 1, "maxLength": 500 }
             }
           }
         }
@@ -145,15 +151,15 @@
       "required": ["mode", "dedupeKey", "cooldownMinutes", "quietHours"],
       "properties": {
         "mode": { "enum": ["none", "schedule"] },
-        "dedupeKey": { "type": "string" },
-        "cooldownMinutes": { "type": "integer", "minimum": 0 },
+        "dedupeKey": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "cooldownMinutes": { "type": "integer", "minimum": 0, "maximum": 10080 },
         "quietHours": {
           "type": "object",
           "additionalProperties": false,
           "required": ["start", "end"],
           "properties": {
-            "start": { "type": "string", "pattern": "^[0-2][0-9]:[0-5][0-9]$" },
-            "end": { "type": "string", "pattern": "^[0-2][0-9]:[0-5][0-9]$" }
+            "start": { "type": "string", "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$" },
+            "end": { "type": "string", "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$" }
           }
         }
       }
@@ -161,17 +167,29 @@
     "files": {
       "type": "array",
       "minItems": 2,
+      "maxItems": 32,
       "items": {
         "type": "object",
         "additionalProperties": false,
         "required": ["path", "role", "sha256", "bytes", "contentType"],
         "properties": {
-          "path": { "type": "string", "minLength": 1 },
+          "path": { "type": "string", "minLength": 1, "maxLength": 128 },
           "role": { "enum": ["cover", "page", "asset"] },
           "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
-          "bytes": { "type": "integer", "minimum": 1 },
-          "contentType": { "type": "string" }
+          "bytes": { "type": "integer", "minimum": 1, "maximum": 8388608 },
+          "contentType": { "type": "string", "minLength": 1, "maxLength": 80 }
         }
+      }
+    }
+  },
+  "$defs": {
+    "digest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["alg", "value"],
+      "properties": {
+        "alg": { "const": "sha256-jcs" },
+        "value": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
       }
     }
   }

@@ -1,22 +1,25 @@
 {
   "exampleOnly": true,
   "importable": false,
-  "note": "占位示例。hash 和 bytes 不是任何真实文件，不能导入。",
+  "note": "占位示例。digest、hash 和 bytes 都不是真实 JCS 或文件，不能导入，也不能发布。",
   "protocol": "qbot.card-package",
   "protocolMajor": 1,
   "protocolMinor": 0,
   "packageId": "example-package",
+  "sample": true,
   "manifestDigest": {
-    "alg": "sha256",
+    "alg": "sha256-jcs",
     "value": "0000000000000000000000000000000000000000000000000000000000000000"
   },
-  "botRef": {
-    "slug": "example-bot"
+  "contentDigest": {
+    "alg": "sha256-jcs",
+    "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
   },
+  "botRef": { "slug": "example-bot" },
   "cardKey": "example-card-key",
   "contentVersion": 2,
   "expectedPreviousVersion": 1,
-  "idempotencyKey": "example-owner-example-bot-example-card-key-2",
+  "idempotencyKey": "client-label-not-the-unique-key",
   "authoringClaim": "human",
   "createdAt": "2026-11-22T18:00:00Z",
   "timezone": "Asia/Shanghai",
@@ -38,7 +41,12 @@
       "id": "claim-1",
       "text": "example conclusion",
       "sourceIds": ["src-1"],
-      "bodyAnchor": { "path": "work/index.html", "quote": "example conclusion" }
+      "bodyAnchor": {
+        "path": "work/index.html",
+        "elementId": "claim1",
+        "fragment": "#claim1",
+        "quote": "example conclusion"
+      }
     }
   ],
   "referenceCanvas": {
