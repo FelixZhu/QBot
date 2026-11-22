@@ -1,0 +1,74 @@
+appId: io.github.felixzhu.qiandrive
+---
+# Local fixture only. Covers are the seed images, not a live bucket.
+- setDarkMode: disabled
+- assertLightMode
+- launchApp:
+    clearState: true
+    stopApp: true
+- extendedWaitUntil:
+    visible: "get this over the line"
+    timeout: 30000
+- assertVisible: "已关注 Qbot"
+- assertVisible: "今日"
+- assertVisible: "对话"
+- assertVisible: "知识库"
+- takeScreenshot:
+    path: today-narrow-light-english
+- swipe:
+    direction: UP
+    duration: 600
+- extendedWaitUntil:
+    visible: "三个入口：今日、对话、知识库"
+    timeout: 10000
+- takeScreenshot:
+    path: today-narrow-light-info
+- swipe:
+    direction: DOWN
+    duration: 600
+- extendedWaitUntil:
+    visible: "get this over the line"
+    timeout: 10000
+- takeScreenshot:
+    path: today-narrow-light-page
+- tapOn: "get this over the line"
+- extendedWaitUntil:
+    visible: ".*没有音频.*"
+    timeout: 20000
+- takeScreenshot:
+    path: today-narrow-light-work
+- tapOn: "返回"
+- extendedWaitUntil:
+    visible: "get this over the line"
+    timeout: 10000
+- takeScreenshot:
+    path: today-narrow-light-restored
+- swipe:
+    direction: LEFT
+    duration: 500
+- extendedWaitUntil:
+    visible: "已关注 Qbot"
+    timeout: 10000
+- takeScreenshot:
+    path: today-narrow-light-recommended
+- tapOn: "已关注 Qbot"
+- extendedWaitUntil:
+    visible: "暂时没有新内容"
+    timeout: 10000
+- assertVisible: "去推荐看看"
+- takeScreenshot:
+    path: today-narrow-light-empty
+- tapOn: "去推荐看看"
+- extendedWaitUntil:
+    visible: "关注 Qbot"
+    timeout: 10000
+- assertVisible: "get this over the line"
+- takeScreenshot:
+    path: today-narrow-light-follow-sync
+- tapOn: "关注 Qbot"
+- tapOn: "关注"
+- extendedWaitUntil:
+    visible: "已关注 Qbot"
+    timeout: 10000
+- takeScreenshot:
+    path: today-narrow-light-refollowed

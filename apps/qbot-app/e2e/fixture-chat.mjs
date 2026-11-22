@@ -101,6 +101,7 @@ function sse(res, pieces, closed) {
 let holdMessagesMs = 0;
 let failMessages = false;
 let fresh = false;
+let feedDown = false;
 
 const server = createServer(async (req, res) => {
   if (req.method === "OPTIONS") {
@@ -124,6 +125,17 @@ const server = createServer(async (req, res) => {
   if (req.method === "POST" && url.pathname === "/e2e/ok") {
     holdMessagesMs = 0;
     failMessages = false;
+    feedDown = false;
+    send(res, 200, { ok: true });
+    return;
+  }
+  if (req.method === "POST" && url.pathname === "/e2e/feed-down") {
+    feedDown = true;
+    send(res, 200, { ok: true });
+    return;
+  }
+  if (req.method === "POST" && url.pathname === "/e2e/feed-up") {
+    feedDown = false;
     send(res, 200, { ok: true });
     return;
   }
@@ -305,6 +317,10 @@ function handleCards(req, res, url) {
     return true;
   }
   if (req.method === "GET" && pathName === "/v1/feed") {
+    if (feedDown) {
+      send(res, 503, { error: { message: "无法连接服务器" } });
+      return true;
+    }
     const scope = url.searchParams.get("scope");
     const cards = scope === "following" && !followed
       ? []

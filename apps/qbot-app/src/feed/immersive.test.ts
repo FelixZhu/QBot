@@ -5,12 +5,12 @@ import type { FeedCard } from "./feedClient.ts";
 import {
   applyFollow,
   clampPage,
-  coverFrame,
   coverSurface,
+  deviceSafeRect,
   EMPTY_ACTION,
   EMPTY_BODY,
   EMPTY_TITLE,
-  overlaysClearCover,
+  fractionClearsOverlays,
   scopeAfterSwipe,
   statusIcons,
   surfaceColor,
@@ -24,21 +24,21 @@ test("the two published covers keep their surfaces and a third card does not bor
   assert.equal(coverSurface(english.id), "orange");
   assert.equal(coverSurface("00000000-0000-4000-8000-000000000099"), "system");
   assert.equal(surfaceColor("orange", "dark"), "#FF6A2B");
-  assert.equal(surfaceColor("paper", "light"), "#F3EFE7");
-  assert.equal(surfaceColor("paper", "dark"), "#171614");
+  assert.equal(surfaceColor("paper", "dark"), "#F3EFE7");
   assert.equal(statusIcons("orange", "dark"), "dark");
-  assert.equal(statusIcons("paper", "light"), "dark");
-  assert.equal(statusIcons("paper", "dark"), "light");
+  assert.equal(statusIcons("paper", "dark"), "dark");
   assert.equal(statusIcons("system", "dark"), "light");
 });
 
-test("the switch and the account row stay outside the cover", () => {
-  const phone = { width: 390, height: 700, topInset: 44 };
-  const frame = coverFrame(phone);
-  assert.equal(overlaysClearCover(phone), true);
-  assert.equal(overlaysClearCover({ width: 0, height: 700, topInset: 0 }), false);
-  assert.ok(frame.top >= 44 + 6 + 36);
-  assert.ok(phone.height - frame.bottom <= phone.height - 8 - 44);
+test("a real status inset moves the safe rect and the published titles stay clear", () => {
+  const narrow = deviceSafeRect({ width: 390, height: 760, topInset: 24, bottomInset: 20 });
+  const wide = deviceSafeRect({ width: 840, height: 700, topInset: 32, bottomInset: 16 });
+  assert.ok(narrow.top > 24);
+  assert.ok(wide.top > 32);
+  assert.notEqual(narrow.top, wide.top);
+  assert.equal(fractionClearsOverlays(0.27, { height: 760, topInset: 24 }), true);
+  assert.equal(fractionClearsOverlays(0.04, { height: 760, topInset: 24 }), false);
+  assert.equal(fractionClearsOverlays(0.97, { height: 760, topInset: 24 }), false);
 });
 
 test("a horizontal swipe changes source once and a vertical move does not", () => {
@@ -71,7 +71,8 @@ test("the today screen does not replace the published works with the sample boar
   assert.equal(source.includes(EMPTY_TITLE), true);
   assert.equal(source.includes(EMPTY_BODY), true);
   assert.equal(source.includes(EMPTY_ACTION), true);
-  assert.equal(source.includes("resizeMode=\"contain\""), true);
+  assert.equal(source.includes("resizeMode=\"cover\""), true);
+  assert.equal(source.includes("resizeMode=\"contain\""), false);
 });
 
 function card(id: string, title: string): FeedCard {

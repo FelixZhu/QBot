@@ -1,0 +1,13 @@
+appId: io.github.felixzhu.qiandrive
+---
+- setDarkMode: disabled
+- launchApp:
+    clearState: true
+    stopApp: true
+- extendedWaitUntil:
+    visible: "无法连接服务器"
+    timeout: 20000
+- assertVisible: "重试"
+- assertNotVisible: "get this over the line"
+- takeScreenshot:
+    path: today-narrow-light-error

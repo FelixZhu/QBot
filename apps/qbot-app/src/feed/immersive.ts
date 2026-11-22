@@ -1,6 +1,9 @@
 import type { FeedCard, FeedScope } from "./feedClient.ts";
 
-/** Bands the app paints over a cover. The cover image stays inside the remaining rect. */
+/**
+ * Bands the app paints over a full-bleed cover. The image fills the card.
+ * These bands are where important text must not sit, not a letterbox around the picture.
+ */
 export const SWITCH_GAP = 6;
 export const SWITCH_HEIGHT = 36;
 export const CONTENT_GAP = 12;
@@ -30,38 +33,72 @@ export function coverSurface(cardId: string): CoverSurface {
 
 export function surfaceColor(surface: CoverSurface, scheme: "light" | "dark"): string {
   if (surface === "orange") return "#FF6A2B";
-  if (surface === "paper") return scheme === "dark" ? "#171614" : "#F3EFE7";
+  if (surface === "paper") return "#F3EFE7";
   return scheme === "dark" ? "#171614" : "#F3EFE7";
 }
 
-/** Dark icons on the cream and orange works. A dark paper page uses light icons. */
+/** The published covers are cream and orange under the status bar, so the icons stay dark. */
 export function statusIcons(surface: CoverSurface, scheme: "light" | "dark"): StatusIcons {
-  if (surface === "orange") return "dark";
-  if (surface === "paper") return scheme === "dark" ? "light" : "dark";
+  if (surface === "orange" || surface === "paper") return "dark";
   return scheme === "dark" ? "light" : "dark";
 }
 
 export function overlayInk(surface: CoverSurface, scheme: "light" | "dark"): string {
-  if (surface === "orange") return "#1C1B19";
-  if (surface === "paper" && scheme === "dark") return "#EDE8DF";
   if (surface === "system" && scheme === "dark") return "#EDE8DF";
   return "#1C1B19";
 }
 
-export function coverFrame(input: { width: number; height: number; topInset: number }): { top: number; right: number; bottom: number; left: number } {
-  const top = Math.max(0, input.topInset) + SWITCH_GAP + SWITCH_HEIGHT + CONTENT_GAP;
-  const bottom = ACCOUNT_GAP + ACCOUNT_HEIGHT + CONTENT_GAP;
-  return { top, right: 0, bottom, left: 0 };
+export type ReferenceCanvas = {
+  width: number;
+  height: number;
+  insetTop: number;
+  insetBottom: number;
+};
+
+export type ContentSafe = { top: number; right: number; bottom: number; left: number };
+
+/** Reference device used to author a cover. Not a status-bar size for every phone. */
+export const REFERENCE_CANVAS: ReferenceCanvas = {
+  width: 390,
+  height: 844,
+  insetTop: 44,
+  insetBottom: 34,
+};
+
+export const REFERENCE_SAFE: ContentSafe = { top: 98, right: 20, bottom: 148, left: 20 };
+
+/**
+ * Map a reference safe rect onto this device. Real insets replace the reference insets.
+ * Scale follows the card width.
+ */
+export function deviceSafeRect(input: {
+  width: number;
+  height: number;
+  topInset: number;
+  bottomInset: number;
+  reference?: ReferenceCanvas;
+  safe?: ContentSafe;
+}): ContentSafe {
+  const reference = input.reference ?? REFERENCE_CANVAS;
+  const safe = input.safe ?? REFERENCE_SAFE;
+  const scale = input.width > 0 && reference.width > 0 ? input.width / reference.width : 1;
+  const top = Math.max(0, input.topInset) + Math.max(0, safe.top - reference.insetTop) * scale;
+  const bottom = Math.max(0, input.bottomInset) + Math.max(0, safe.bottom - reference.insetBottom) * scale;
+  return {
+    top,
+    bottom,
+    left: safe.left * scale,
+    right: safe.right * scale,
+  };
 }
 
-/** True when the switch and the account row sit outside the cover rect. */
-export function overlaysClearCover(input: { width: number; height: number; topInset: number }): boolean {
-  if (input.height <= 0 || input.width <= 0) return false;
-  const frame = coverFrame(input);
+/** A point at this fraction of the cover height, drawn full-bleed, misses the overlay bands. */
+export function fractionClearsOverlays(fraction: number, input: { height: number; topInset: number }): boolean {
+  if (!(input.height > 0) || !Number.isFinite(fraction)) return false;
+  const y = fraction * input.height;
   const switchBottom = Math.max(0, input.topInset) + SWITCH_GAP + SWITCH_HEIGHT;
-  const coverBottom = input.height - frame.bottom;
   const accountTop = input.height - ACCOUNT_GAP - ACCOUNT_HEIGHT;
-  return frame.top >= switchBottom && coverBottom <= accountTop && coverBottom > frame.top;
+  return y >= switchBottom && y <= accountTop;
 }
 
 export function horizontalStep(dx: number, dy: number): -1 | 0 | 1 {

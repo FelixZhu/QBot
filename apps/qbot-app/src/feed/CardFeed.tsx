@@ -19,7 +19,6 @@ import {
   ACCOUNT_HEIGHT,
   applyFollow,
   clampPage,
-  coverFrame,
   coverSurface,
   EMPTY_ACTION,
   EMPTY_BODY,
@@ -205,10 +204,9 @@ export function CardFeed({
   };
 
   const view = presentFeed({ phase, count: cards.length, cached, message });
-  const frame = coverFrame({ width: column || width, height, topInset });
   const overlayScheme = view.kind === "empty" ? "light" : scheme;
   const ink = overlayInk(view.kind === "empty" ? "paper" : surface, overlayScheme);
-  const quiet = overlayScheme === "dark" && surface !== "orange" ? "rgba(237,232,223,0.6)" : "rgba(28,27,25,0.6)";
+  const quiet = ink === "#EDE8DF" ? "rgba(237,232,223,0.6)" : "rgba(28,27,25,0.6)";
   const ground = view.kind === "empty" || view.kind === "ready" || view.kind === "cached"
     ? surfaceColor(view.kind === "empty" ? "paper" : surface, scheme)
     : scheme === "dark" ? colors.canvas : "#F3EFE7";
@@ -285,9 +283,9 @@ export function CardFeed({
               const itemInk = overlayInk(tone, scheme);
               return (
                 <View style={{ height, backgroundColor: surfaceColor(tone, scheme) }}>
-                  <Pressable accessibilityRole="button" accessibilityLabel={item.title} onPress={() => void open(item, itemIndex)} style={{ position: "absolute", top: frame.top, right: frame.right, bottom: frame.bottom, left: frame.left }}>
+                  <Pressable accessibilityRole="button" accessibilityLabel={item.title} onPress={() => void open(item, itemIndex)} style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0 }}>
                     {covers[item.id] ? (
-                      <Image source={{ uri: covers[item.id] }} resizeMode="contain" accessibilityElementsHidden style={{ width: "100%", height: "100%" }} />
+                      <Image source={{ uri: covers[item.id] }} resizeMode="cover" accessibilityElementsHidden style={{ width: "100%", height: "100%" }} />
                     ) : (
                       <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
                         {busy === item.id ? <ActivityIndicator color={itemInk} /> : <Text style={{ color: itemInk }}>封面没有载入</Text>}
@@ -299,7 +297,7 @@ export function CardFeed({
                       <QbotAvatar size={36} />
                     </View>
                     <Text style={{ color: itemInk, fontSize: 16, fontWeight: "700" }}>{item.bot.displayName}</Text>
-                    <Pressable accessibilityRole="button" accessibilityLabel={item.bot.followed ? "已关注" : "关注"} onPress={() => void toggle(item)} style={{ height: 26, paddingHorizontal: 11, borderRadius: 13, borderWidth: 1.5, borderColor: item.bot.followed ? (itemInk === "#EDE8DF" ? "rgba(237,232,223,0.28)" : "rgba(28,27,25,0.28)") : itemInk, justifyContent: "center" }}>
+                    <Pressable accessibilityRole="button" accessibilityLabel={item.bot.followed ? `已关注 ${item.bot.displayName}` : `关注 ${item.bot.displayName}`} onPress={() => void toggle(item)} style={{ height: 26, paddingHorizontal: 11, borderRadius: 13, borderWidth: 1.5, borderColor: item.bot.followed ? "rgba(28,27,25,0.28)" : itemInk, justifyContent: "center" }}>
                       <Text style={{ color: itemInk, fontSize: 13, fontWeight: item.bot.followed ? "400" : "700" }}>{item.bot.followed ? "已关注" : "关注"}</Text>
                     </Pressable>
                     <Text style={{ marginLeft: "auto", color: itemInk, opacity: 0.7, fontSize: 12 }}>{formatPublished(item.publishedAt)}</Text>
