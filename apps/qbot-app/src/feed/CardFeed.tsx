@@ -28,6 +28,7 @@ import {
   EMPTY_TITLE,
   overlayInk,
   scopeAfterSwipe,
+  selectCoverPrefetchIds,
   statusIcons,
   surfaceColor,
   SWITCH_GAP,
@@ -71,6 +72,9 @@ export function CardFeed({
   const [message, setMessage] = useState("");
   const [cached, setCached] = useState(false);
   const [covers, setCovers] = useState<Record<string, string>>({});
+  const coversRef = useRef<Set<string>>(new Set());
+  const inFlightRef = useRef<Set<string>>(new Set());
+  const coverEpochRef = useRef(0);
   const [work, setWork] = useState<Work | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const column = feedColumnWidth(width);
@@ -117,26 +121,42 @@ export function CardFeed({
 
   useEffect(() => {
     if (!active) return;
+    coverEpochRef.current += 1;
+    coversRef.current.clear();
+    inFlightRef.current.clear();
     setCovers({});
     void load(scope);
   }, [active, load, scope]);
 
   useEffect(() => {
     if (!origin || cards.length === 0) return;
-    let alive = true;
+    const toFetch = selectCoverPrefetchIds({
+      cards,
+      index,
+      loaded: coversRef.current,
+      inFlight: inFlightRef.current,
+      hasLocalFace: (cardId) => publishedFace(cardId) !== null,
+    });
+    if (toFetch.length === 0) return;
+    const epoch = coverEpochRef.current;
     const client = createFeedClient({ origin });
-    for (const card of cards) {
-      if (covers[card.id]) continue;
-      void client.capability(card.id).then((capability) => {
-        if (!alive) return;
+    const byId = new Map(cards.map((card) => [card.id, card]));
+    for (const cardId of toFetch) {
+      const card = byId.get(cardId);
+      if (!card) continue;
+      inFlightRef.current.add(cardId);
+      void client.capability(cardId).then((capability) => {
+        if (coverEpochRef.current !== epoch) return;
+        coversRef.current.add(cardId);
         setCovers((current) => ({
           ...current,
-          [card.id]: artifactUrl(origin, capability.artifactId, capability.version, capability.token, card.coverPath),
+          [cardId]: artifactUrl(origin, capability.artifactId, capability.version, capability.token, card.coverPath),
         }));
-      }).catch(() => {});
+      }).catch(() => {}).finally(() => {
+        if (coverEpochRef.current === epoch) inFlightRef.current.delete(cardId);
+      });
     }
-    return () => { alive = false; };
-  }, [cards, covers, origin]);
+  }, [cards, index, origin]);
 
   const close = useCallback(() => {
     const restore = work?.index ?? page.current;

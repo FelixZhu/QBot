@@ -10,7 +10,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { createDshEngine, openaiBase, type ConversationEngine } from "../src/runtime/dsh.ts";
 import { assessDatabase, assessmentProblems } from "../src/check-db.ts";
-import { startChatServer } from "../src/server.ts";
+import { startChatServer, type ChatStore } from "../src/server.ts";
 import { createStore } from "../src/store.ts";
 import { startFixture, readSse, type FixtureHit } from "./fixture-upstream.ts";
 
@@ -57,6 +57,80 @@ test("personal mode is off unless the private flag is exactly 1", async () => {
   } finally {
     await open.close();
     await pool.end();
+  }
+});
+
+test("streamTurn aborts the runtime on upstream timeout and settles as failed", async () => {
+  const config = loadConfig({
+    DATABASE_URL: "postgres://qbot:qbot@127.0.0.1:5432/qbot",
+    QBOT_OWNER_ID: OWNER,
+    QBOT_ACCESS_TOKEN: TOKEN,
+    OPENROUTER_API_KEY: "fixture-openrouter-key-not-a-secret",
+    HOST: "127.0.0.1",
+    PORT: "0",
+    QBOT_FIXTURE_UPSTREAM: "1",
+    QBOT_FIXTURE_UPSTREAM_URL: "http://127.0.0.1:9/v1/chat/completions",
+  });
+  let finishedStatus: string | null = null;
+  let signalAborted = false;
+  const store: ChatStore = {
+    async health() { return true; },
+    async ensureOwner() {},
+    async ensureAgent() { return { id: "00000000-0000-4000-8000-0000000000a1", model: config.model }; },
+    async getAgent() { return { id: "00000000-0000-4000-8000-0000000000a1", model: config.model }; },
+    async failStaleRuns() {},
+    async listConversations() { return []; },
+    async createConversation() { throw new Error("unused"); },
+    async listMessages() { return []; },
+    async beginTurn() {
+      return {
+        assistantId: "00000000-0000-4000-8000-0000000000b1",
+        runId: "00000000-0000-4000-8000-0000000000b2",
+        persona: SERVER_PERSONA,
+        model: config.model,
+        dshSessionId: null,
+        history: [],
+      };
+    },
+    async finishTurn(_ownerId: string, _assistantId: string, _runId: string, status: "complete" | "failed" | "cancelled") {
+      finishedStatus = status;
+    },
+    async setDshSession() {},
+  };
+  const runtime: ConversationEngine = {
+    engine: "dsh",
+    id: "fixture",
+    run(turn) {
+      const iter = (async function* () {
+        await new Promise<void>((_, reject) => {
+          const onAbort = () => {
+            signalAborted = true;
+            const err = new Error("The operation was aborted.");
+            err.name = "AbortError";
+            reject(err);
+          };
+          if (turn.signal.aborted) onAbort();
+          else turn.signal.addEventListener("abort", onAbort, { once: true });
+        });
+        yield "";
+      })();
+      return Object.assign(iter, { sessionId: () => null });
+    },
+    async close() {},
+  };
+  const started = await startChatServer({ config, store, runtime, upstreamTimeoutMs: 50 });
+  try {
+    const res = await fetch(`http://127.0.0.1:${started.port}/v1/conversations/00000000-0000-4000-8000-0000000000c9/messages`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${TOKEN}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ text: "ping" }),
+    });
+    assert.equal(res.status, 502);
+    assert.match(await res.text(), /模型上游超时/);
+    assert.equal(signalAborted, true);
+    assert.equal(finishedStatus, "failed");
+  } finally {
+    await started.close();
   }
 });
 

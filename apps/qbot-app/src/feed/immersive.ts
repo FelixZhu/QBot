@@ -156,3 +156,32 @@ export function clampPage(index: number, count: number): number {
   const page = Number.isFinite(index) ? Math.trunc(index) : 0;
   return Math.max(0, Math.min(count - 1, page));
 }
+
+/**
+ * Pick card ids that need a remote cover capability minted right now.
+ * Skips cards with a local face, already-loaded covers, in-flight requests,
+ * and cards outside the active paging window.
+ */
+export function selectCoverPrefetchIds(input: {
+  cards: readonly Pick<FeedCard, "id">[];
+  index: number;
+  loaded: ReadonlySet<string>;
+  inFlight: ReadonlySet<string>;
+  hasLocalFace: (cardId: string) => boolean;
+  radius?: number;
+}): string[] {
+  const { cards, loaded, inFlight, hasLocalFace } = input;
+  if (cards.length === 0) return [];
+  const radius = Math.max(0, Math.trunc(input.radius ?? 2));
+  const center = clampPage(input.index, cards.length);
+  const start = Math.max(0, center - radius);
+  const end = Math.min(cards.length - 1, center + radius);
+  const ids: string[] = [];
+  for (let i = start; i <= end; i += 1) {
+    const card = cards[i];
+    if (!card) continue;
+    if (hasLocalFace(card.id) || loaded.has(card.id) || inFlight.has(card.id)) continue;
+    ids.push(card.id);
+  }
+  return ids;
+}

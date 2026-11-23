@@ -240,12 +240,14 @@ async function oneBot(pool: pg.Pool, ownerId: string, column: "id" | "slug", val
   }>(
     `SELECT id, slug, COALESCE(display_name, slug) AS display_name, visibility, bio, owner_id,
             EXISTS (SELECT 1 FROM follows f WHERE f.owner_id = $1 AND f.agent_id = agents.id) AS followed
-     FROM agents WHERE ${column} = $2`,
+     FROM agents
+     WHERE ${column} = $2 AND visibility = 'public'
+     ORDER BY (owner_id = $1) DESC, created_at ASC
+     LIMIT 1`,
     [ownerId, value],
   );
   const row = result.rows[0];
   if (!row) return null;
-  if (row.visibility !== "public") return null;
   return {
     id: row.id,
     slug: row.slug,
