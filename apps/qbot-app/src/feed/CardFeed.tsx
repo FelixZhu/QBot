@@ -11,6 +11,8 @@ import {
   createFeedClient,
   feedColumnWidth,
   formatPublished,
+  isValidProvenance,
+  pickCoverPath,
   presentFeed,
   type FeedCard,
   type FeedScope,
@@ -144,6 +146,13 @@ export function CardFeed({
   }, [active, load, scope, tokenReady]);
 
   useEffect(() => {
+    coverEpochRef.current += 1;
+    coversRef.current.clear();
+    inFlightRef.current.clear();
+    setCovers({});
+  }, [scheme]);
+
+  useEffect(() => {
     if (!origin || cards.length === 0) return;
     const toFetch = selectCoverPrefetchIds({
       cards,
@@ -160,18 +169,19 @@ export function CardFeed({
       const card = byId.get(cardId);
       if (!card) continue;
       inFlightRef.current.add(cardId);
+      const coverPath = pickCoverPath(card, scheme);
       void client.capability(cardId).then((capability) => {
         if (coverEpochRef.current !== epoch) return;
         coversRef.current.add(cardId);
         setCovers((current) => ({
           ...current,
-          [cardId]: artifactUrl(origin, capability.artifactId, capability.version, capability.token, card.coverPath),
+          [cardId]: artifactUrl(origin, capability.artifactId, capability.version, capability.token, coverPath),
         }));
       }).catch(() => {}).finally(() => {
         if (coverEpochRef.current === epoch) inFlightRef.current.delete(cardId);
       });
     }
-  }, [authToken, cards, index, origin]);
+  }, [authToken, cards, index, origin, scheme]);
 
   const close = useCallback(() => {
     const restore = work?.index ?? page.current;
@@ -404,7 +414,7 @@ async function readCache(scope: FeedScope): Promise<FeedCard[]> {
     const raw = await AsyncStorage.getItem(`${CACHE}.${scope}`);
     if (!raw) return [];
     const parsed = JSON.parse(raw) as { cards?: FeedCard[] };
-    return Array.isArray(parsed.cards) ? parsed.cards.filter((card) => card.provenance === "manual" && card.title && card.id) : [];
+    return Array.isArray(parsed.cards) ? parsed.cards.filter((card) => isValidProvenance(card.provenance) && card.title && card.id) : [];
   } catch {
     return [];
   }

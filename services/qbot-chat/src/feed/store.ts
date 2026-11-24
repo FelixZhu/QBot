@@ -1,6 +1,8 @@
-import { createHash, randomBytes } from "node:crypto";
+import { createHash, randomBytes, randomUUID } from "node:crypto";
 import type pg from "pg";
 import { LIMITS } from "../limits.ts";
+import { transaction } from "../store.ts";
+import type { CardProvenance, CardVisibility } from "./bundle.ts";
 import { decodeCursor, encodeCursor } from "./paths.ts";
 
 export type FeedScope = "following" | "recommended";
@@ -9,12 +11,14 @@ export type FeedCard = {
   id: string;
   title: string;
   publishedAt: string;
-  visibility: "public" | "followers";
-  provenance: "manual";
+  visibility: CardVisibility;
+  provenance: CardProvenance;
   artifactId: string;
   artifactVersion: number;
   manifestSha256: string;
   coverPath: string;
+  coverLightPath: string | null;
+  coverDarkPath: string | null;
   bot: { id: string; slug: string; displayName: string; followed: boolean };
 };
 
@@ -27,6 +31,20 @@ export type FeedFile = {
 };
 
 export type CardDetail = FeedCard & { files: FeedFile[] };
+
+export type PublishCardInput = {
+  ownerId: string;
+  botSlug: string;
+  cardId?: string;
+  artifactId: string;
+  version?: number;
+  title: string;
+  visibility: CardVisibility;
+  provenance: CardProvenance;
+  authoredAt: string;
+  manifestSha256: string;
+  files: { path: string; sha256: string; byteLength: number; contentType: string; role: FeedFile["role"] }[];
+};
 
 export type BotProfile = {
   id: string;
@@ -58,12 +76,14 @@ type CardRow = {
   id: string;
   title: string;
   published_at: Date;
-  visibility: "public" | "followers";
-  provenance: "manual";
+  visibility: CardVisibility;
+  provenance: CardProvenance;
   artifact_id: string;
   version: number;
   manifest_sha256: string;
   cover_path: string;
+  cover_light_path: string | null;
+  cover_dark_path: string | null;
   agent_id: string;
   agent_visibility: "public" | "private" | null;
   slug: string;
@@ -75,6 +95,8 @@ const CARD_SELECT = `
   SELECT c.id, c.title, c.published_at, c.visibility, c.provenance,
          a.id AS artifact_id, a.version, a.manifest_sha256,
          cover.rel_path AS cover_path,
+         cover_light.rel_path AS cover_light_path,
+         cover_dark.rel_path AS cover_dark_path,
          g.id AS agent_id, g.visibility AS agent_visibility, g.slug,
          COALESCE(g.display_name, g.slug) AS display_name,
          EXISTS (SELECT 1 FROM follows f WHERE f.owner_id = $1 AND f.agent_id = g.id) AS followed
@@ -84,9 +106,21 @@ const CARD_SELECT = `
   JOIN LATERAL (
     SELECT rel_path FROM artifact_files
     WHERE artifact_id = a.id AND role = 'cover'
-    ORDER BY rel_path
+    ORDER BY (rel_path ~ '^cover\\.') DESC, rel_path
     LIMIT 1
   ) cover ON true
+  LEFT JOIN LATERAL (
+    SELECT rel_path FROM artifact_files
+    WHERE artifact_id = a.id AND role = 'cover' AND rel_path ~ '^cover-light\\.'
+    ORDER BY rel_path
+    LIMIT 1
+  ) cover_light ON true
+  LEFT JOIN LATERAL (
+    SELECT rel_path FROM artifact_files
+    WHERE artifact_id = a.id AND role = 'cover' AND rel_path ~ '^cover-dark\\.'
+    ORDER BY rel_path
+    LIMIT 1
+  ) cover_dark ON true
 `;
 
 export type FeedStore = {
@@ -96,6 +130,7 @@ export type FeedStore = {
   follow(ownerId: string, agentId: string): Promise<boolean>;
   unfollow(ownerId: string, agentId: string): Promise<boolean>;
   card(ownerId: string, cardId: string, mode: AccessMode): Promise<CardDetail | null>;
+  publishCard(input: PublishCardInput): Promise<CardDetail | null>;
   mint(ownerId: string, cardId: string, mode: AccessMode): Promise<MintedCapability | null>;
   resolve(token: string, artifactId: string, version: number, relPath: string): Promise<"expired" | "denied" | ResolvedFile>;
 };
@@ -150,6 +185,39 @@ export function createFeedStore(pool: pg.Pool): FeedStore {
       if (!row || !canRead(row, mode)) return null;
       const files = await filesFor(pool, row.artifact_id);
       return { ...toCard(row), files };
+    },
+    async publishCard(input) {
+      const cardId = input.cardId ?? randomUUID();
+      const version = input.version ?? 1;
+      const inserted = await transaction(pool, async (query) => {
+        const agent = await query<{ id: string }>(
+          `SELECT id FROM agents WHERE owner_id = $1 AND slug = $2`,
+          [input.ownerId, input.botSlug],
+        );
+        const agentId = agent.rows[0]?.id;
+        if (!agentId) return false;
+        await query(
+          `INSERT INTO cards (id, agent_id, visibility, title, published_at, authored_at, provenance)
+           VALUES ($1, $2, $3, $4, now(), $5::timestamptz, $6)`,
+          [cardId, agentId, input.visibility, input.title, input.authoredAt, input.provenance],
+        );
+        await query(
+          `INSERT INTO artifacts (id, card_id, version, manifest_sha256)
+           VALUES ($1, $2, $3, $4)`,
+          [input.artifactId, cardId, version, input.manifestSha256],
+        );
+        for (const file of input.files) {
+          await query(
+            `INSERT INTO artifact_files (artifact_id, rel_path, sha256, byte_length, content_type, role)
+             VALUES ($1, $2, $3, $4, $5, $6)`,
+            [input.artifactId, file.path, file.sha256, file.byteLength, file.contentType, file.role],
+          );
+        }
+        await query(`UPDATE cards SET artifact_id = $2 WHERE id = $1`, [cardId, input.artifactId]);
+        return true;
+      });
+      if (!inserted) return null;
+      return this.card(input.ownerId, cardId, "bearer");
     },
     async mint(ownerId, cardId, mode) {
       const detail = await this.card(ownerId, cardId, mode);
@@ -209,6 +277,8 @@ function toCard(row: CardRow): FeedCard {
     artifactVersion: Number(row.version),
     manifestSha256: row.manifest_sha256,
     coverPath: row.cover_path,
+    coverLightPath: row.cover_light_path,
+    coverDarkPath: row.cover_dark_path,
     bot: { id: row.agent_id, slug: row.slug, displayName: row.display_name, followed: row.followed },
   };
 }

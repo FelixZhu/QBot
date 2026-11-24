@@ -1,10 +1,14 @@
 # QBot
 
-Qian 自己用的体验原型。目标是接近能用的应用质感，快，核心流程能走通。界面改网页；只有原生能力才改外壳，并提高 `versionCode`。
+Qian 自己用的个人 AI 助手原型。当前主架构已演进为 **React Native 原生端（[`apps/qbot-app`](apps/qbot-app)）+ 自建 Node/PostgreSQL 后端（[`services/qbot-chat`](services/qbot-chat)）**：
 
-源码仓库是 [FelixZhu/QBot](https://github.com/FelixZhu/QBot)。站点是 [https://felixzhu.github.io/QBot/](https://felixzhu.github.io/QBot/)。安卓壳是 WebView，打开这个地址。钉死构建的默认来源也是这个网站。`FelixZhu/qian-drive` 已由 Qian 手动删除，当前构建不再向它取文件。
+- **今日（首页）**：原生卡片流（`CardFeed`），从 `services/qbot-chat` 读取卡片与封面，点开进入隔离 WebView 作品页（支持 `POST /v1/cards` 动态发卡与 `cover-light.png` / `cover-dark.png` 深浅色双封面）。
+- **对话**：原生对话界面（`LiveChat` + `@assistant-ui/react-native`），接入 `services/qbot-chat` SSE 流与会话持久化；支持本机 Keystore/Keychain 加密保存个人访问口令（关闭 `QBOT_PERSONAL_OPEN` / `QBOT_FEED_OPEN` 后遇 `401` 按需输入）。
+- **知识库**：仍通过 `WebPane` 内嵌托管在 GitHub Pages（[https://felixzhu.github.io/QBot/](https://felixzhu.github.io/QBot/)）的旧静态库页面。
 
-协作和验收以本文为准。结构和模块边界以 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) 为准。颜色和字号看 [`docs/DESIGN.md`](docs/DESIGN.md)，那些尺寸是实现参考，不是像素级合同。
+源码仓库是 [FelixZhu/QBot](https://github.com/FelixZhu/QBot)。`FelixZhu/qian-drive` 已由 Qian 手动删除，当前构建不再向它取文件。
+
+协作和验收以本文为准。模块边界与旧静态站说明见 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) 和 [`docs/CARDS.md`](docs/CARDS.md)。颜色和字号看 [`docs/DESIGN.md`](docs/DESIGN.md)，那些尺寸是实现参考，不是像素级合同。
 
 ## 怎么做
 

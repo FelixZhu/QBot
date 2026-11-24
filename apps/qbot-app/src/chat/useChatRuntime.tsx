@@ -46,6 +46,13 @@ const HistoryResource = resource(function useBoundHistory(
         return null;
       }
     },
+    isBusy: () => {
+      try {
+        return aui.thread().getState().isRunning;
+      } catch {
+        return false;
+      }
+    },
     client,
     onSync,
     importNow: (id, messages) => {
