@@ -14,6 +14,7 @@ import {
   fractionClearsOverlays,
   classifyFeedGesture,
   scopeAfterSwipe,
+  selectCoverPrefetchIds,
   verticalStep,
   showsAttribution,
   statusIcons,
@@ -84,9 +85,37 @@ test("unfollowing hides the card on 关注 and leaves it on 推荐", () => {
   assert.equal(clampPage(1, 0), 0);
 });
 
+test("cover prefetch only picks nearby remote covers not loaded or in flight", () => {
+  const list = [info, english, card("r1", "R1"), card("r2", "R2"), card("r3", "R3"), card("r4", "R4")];
+  const local = new Set([info.id, english.id]);
+  assert.deepEqual(
+    selectCoverPrefetchIds({
+      cards: list,
+      index: 0,
+      loaded: new Set(),
+      inFlight: new Set(),
+      hasLocalFace: (id) => local.has(id),
+      radius: 2,
+    }),
+    ["r1"],
+  );
+  assert.deepEqual(
+    selectCoverPrefetchIds({
+      cards: list,
+      index: 3,
+      loaded: new Set(["r1"]),
+      inFlight: new Set(["r2"]),
+      hasLocalFace: (id) => local.has(id),
+      radius: 2,
+    }),
+    ["r3", "r4"],
+  );
+});
+
 test("the today screen does not replace the published works with the sample board", () => {
+  const cardFeed = readFileSync(new URL("./CardFeed.tsx", import.meta.url), "utf8");
   const source = [
-    readFileSync(new URL("./CardFeed.tsx", import.meta.url), "utf8"),
+    cardFeed,
     readFileSync(new URL("./CoverFace.tsx", import.meta.url), "utf8"),
     readFileSync(new URL("./immersive.ts", import.meta.url), "utf8"),
   ].join("\n");
@@ -101,6 +130,7 @@ test("the today screen does not replace the published works with the sample boar
   assert.equal(source.includes(EMPTY_ACTION), true);
   assert.equal(source.includes("resizeMode=\"cover\""), true);
   assert.equal(source.includes("resizeMode=\"contain\""), false);
+  assert.equal(cardFeed.includes("[cards, covers, origin]"), false);
 });
 
 function card(id: string, title: string): FeedCard {

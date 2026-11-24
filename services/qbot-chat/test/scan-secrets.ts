@@ -17,7 +17,7 @@ test("tracked source has no keys and no unexpected addresses", () => {
     if (file.startsWith("skills/") || file.endsWith(".png")) continue;
     const text = readFileSync(path.join(root, file), "utf8");
     if (secret.test(text)) problems.push(`${file} matched a secret pattern`);
-    if (!file.startsWith("services/qbot-chat/") && !file.startsWith("apps/qbot-app/src/") && file !== ".github/workflows/chat-server.yml") continue;
+    if (!file.startsWith("services/qbot-chat/") && !file.startsWith("apps/qbot-app/src/") && file !== ".github/workflows/app-and-chat.yml") continue;
     for (const match of text.match(ip) ?? []) {
       if (!allowedIps.has(match)) problems.push(`${file} has address ${match}`);
     }

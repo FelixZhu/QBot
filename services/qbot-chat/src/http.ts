@@ -1,10 +1,11 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import type pg from "pg";
-import { tokenDigest, tokensMatch, readBearer } from "./auth.ts";
+import { tokensMatch, readBearer } from "./auth.ts";
 import type { Config } from "./config.ts";
 import { errorBody, HttpError, publicErrorMessage } from "./errors.ts";
 import { createObjectStore, type ObjectStore } from "./feed/objects.ts";
 import { tryFeed } from "./feed/routes.ts";
+import { createArtifactCache, createRateLimiter, sendJson, type ArtifactCache, type RateLimiter } from "./http-utils.ts";
 import { LIMITS } from "./limits.ts";
 import type { ConversationEngine } from "./runtime/dsh.ts";
 import type { ChatStore } from "./store.ts";
@@ -18,17 +19,20 @@ export type ChatServerDeps = {
   runtime: ConversationEngine;
   pool?: pg.Pool;
   objects?: ObjectStore;
+  artifactCache?: ArtifactCache;
+  upstreamTimeoutMs?: number;
 };
 
 export function createChatServer(deps: ChatServerDeps) {
-  const hits = new Map<string, number[]>();
-  const feedHits = new Map<string, number[]>();
+  const limiter = createRateLimiter();
+  const feedLimiter = createRateLimiter();
   const full: ChatServerDeps = {
     ...deps,
     objects: deps.objects ?? createObjectStore({ objectRoot: deps.config.objectRoot, oss: deps.config.oss, publicOss: deps.config.publicOss }),
+    artifactCache: deps.artifactCache ?? createArtifactCache(),
   };
   return createServer((req, res) => {
-    void handle(full, req, res, hits, feedHits).catch((error: unknown) => {
+    void handle(full, req, res, limiter, feedLimiter).catch((error: unknown) => {
       if (res.headersSent || res.writableEnded) return;
       if (error instanceof HttpError) {
         sendJson(res, error.status, errorBody(error.code, error.message));
@@ -40,7 +44,7 @@ export function createChatServer(deps: ChatServerDeps) {
   });
 }
 
-async function handle(deps: ChatServerDeps, req: IncomingMessage, res: ServerResponse, hits: Map<string, number[]>, feedHits: Map<string, number[]>): Promise<void> {
+async function handle(deps: ChatServerDeps, req: IncomingMessage, res: ServerResponse, limiter: RateLimiter, feedLimiter: RateLimiter): Promise<void> {
   const url = new URL(req.url ?? "/", "http://127.0.0.1");
   const path = url.pathname;
   if (req.method === "GET" && path === "/health") {
@@ -52,18 +56,18 @@ async function handle(deps: ChatServerDeps, req: IncomingMessage, res: ServerRes
     }
     return;
   }
-  if (await tryFeed(deps, req, res, feedHits)) return;
+  if (await tryFeed(deps, req, res, feedLimiter)) return;
   if (!deps.config.personalOpen) {
     const token = readBearer(req.headers.authorization);
     if (!token || !tokensMatch(token, deps.config.accessToken)) {
       sendJson(res, 401, errorBody("unauthorized", "需要有效的访问令牌"));
       return;
     }
-    if (!allow(hits, token)) {
+    if (!limiter.allow(token)) {
       sendJson(res, 429, errorBody("rate_limited", "请求太频繁"));
       return;
     }
-  } else if (!allow(hits, "personal")) {
+  } else if (!limiter.allow("personal")) {
     sendJson(res, 429, errorBody("rate_limited", "请求太频繁"));
     return;
   }
@@ -116,7 +120,7 @@ async function handle(deps: ChatServerDeps, req: IncomingMessage, res: ServerRes
 async function streamTurn(deps: ChatServerDeps, res: ServerResponse, conversationId: string, text: string): Promise<void> {
   const begun = await deps.store.beginTurn(deps.config.ownerId, conversationId, text);
   const clientAbort = new AbortController();
-  const timeout = AbortSignal.timeout(LIMITS.upstreamMs);
+  const timeout = AbortSignal.timeout(deps.upstreamTimeoutMs ?? LIMITS.upstreamMs);
   const signal = AbortSignal.any([clientAbort.signal, timeout]);
   res.on("close", () => {
     if (!res.writableFinished) clientAbort.abort();
@@ -124,7 +128,7 @@ async function streamTurn(deps: ChatServerDeps, res: ServerResponse, conversatio
   const running = deps.runtime.run({
     sessionId: begun.dshSessionId,
     text,
-    signal: clientAbort.signal,
+    signal,
     onSession: (id) => deps.store.setDshSession(deps.config.ownerId, conversationId, id),
   });
   const iterator = running[Symbol.asyncIterator]();
@@ -152,8 +156,8 @@ async function streamTurn(deps: ChatServerDeps, res: ServerResponse, conversatio
   try {
     first = await iterator.next();
   } catch (error) {
-    await settle(clientAbort.signal.aborted ? "cancelled" : "failed", "").catch(() => {});
-    if (clientAbort.signal.aborted || res.writableEnded) return;
+    await settle(clientAbort.signal.aborted && !timeout.aborted ? "cancelled" : "failed", "").catch(() => {});
+    if ((clientAbort.signal.aborted && !timeout.aborted) || res.writableEnded) return;
     const message = timeout.aborted ? "模型上游超时" : publicErrorMessage(error);
     sendJson(res, 502, errorBody("upstream", message));
     return;
@@ -180,25 +184,12 @@ async function streamTurn(deps: ChatServerDeps, res: ServerResponse, conversatio
       if (!textOut) throw new Error("模型没有返回文字");
       await settle("complete", textOut);
     } catch (error) {
-      const status = clientAbort.signal.aborted ? "cancelled" : "failed";
+      const status = clientAbort.signal.aborted && !timeout.aborted ? "cancelled" : "failed";
       await settle(status, textOut);
       if (status === "cancelled") return;
-      throw new Error(publicErrorMessage(error));
+      throw new Error(timeout.aborted ? "模型上游超时" : publicErrorMessage(error));
     }
   });
-}
-
-function allow(hits: Map<string, number[]>, token: string): boolean {
-  const now = Date.now();
-  const key = tokenDigest(token).toString("hex");
-  const stamps = (hits.get(key) ?? []).filter((stamp) => now - stamp < 60_000);
-  if (stamps.length >= LIMITS.ratePerMinute) {
-    hits.set(key, stamps);
-    return false;
-  }
-  stamps.push(now);
-  hits.set(key, stamps);
-  return true;
 }
 
 async function readJson(req: IncomingMessage): Promise<Record<string, unknown>> {
@@ -244,18 +235,6 @@ function rejectUnknown(body: Record<string, unknown>, allowed: string[]): void {
   for (const key of Object.keys(body)) {
     if (!allowed.includes(key)) throw new HttpError(400, "bad_request", `不能提交 ${key.slice(0, 40)}`);
   }
-}
-
-function sendJson(res: ServerResponse, status: number, body: unknown): void {
-  const payload = JSON.stringify(body);
-  res.writeHead(status, {
-    "Content-Type": "application/json; charset=utf-8",
-    "Content-Length": Buffer.byteLength(payload),
-    "Cache-Control": "no-store",
-    "X-Content-Type-Options": "nosniff",
-    "Referrer-Policy": "no-referrer",
-  });
-  res.end(payload);
 }
 
 function pgCode(error: unknown): string {

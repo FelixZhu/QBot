@@ -4,6 +4,7 @@ import type pg from "pg";
 import { readBearer, tokensMatch } from "../auth.ts";
 import type { Config } from "../config.ts";
 import { errorBody, HttpError } from "../errors.ts";
+import { etagMatches, sendJson, type ArtifactCache, type RateLimiter } from "../http-utils.ts";
 import { LIMITS } from "../limits.ts";
 import type { ObjectStore } from "./objects.ts";
 import { ARTIFACT_CSP, bundlePath, contentTypeFor, isUuid } from "./paths.ts";
@@ -22,18 +23,19 @@ export type FeedDeps = {
   config: Config;
   pool?: pg.Pool;
   objects?: ObjectStore;
+  artifactCache?: ArtifactCache;
 };
 
-export async function tryFeed(deps: FeedDeps, req: IncomingMessage, res: ServerResponse, hits: Map<string, number[]>): Promise<boolean> {
+export async function tryFeed(deps: FeedDeps, req: IncomingMessage, res: ServerResponse, limiter: RateLimiter): Promise<boolean> {
   const url = new URL(req.url ?? "/", "http://127.0.0.1");
   const path = url.pathname;
   if (!isFeedPath(path)) return false;
   if (req.method === "GET" && ARTIFACT.test(path)) {
-    if (!allow(hits, "artifact")) {
+    if (!limiter.allow("artifact")) {
       sendJson(res, 429, errorBody("rate_limited", "请求太频繁"));
       return true;
     }
-    await serveArtifact(deps, res, path);
+    await serveArtifact(deps, req, res, path);
     return true;
   }
   const bearer = readBearer(req.headers.authorization);
@@ -42,7 +44,7 @@ export async function tryFeed(deps: FeedDeps, req: IncomingMessage, res: ServerR
     sendJson(res, 401, errorBody("unauthorized", "需要有效的访问令牌"));
     return true;
   }
-  if (!allow(hits, bearerOk && bearer ? bearer : "feed")) {
+  if (!limiter.allow(bearerOk && bearer ? bearer : "feed")) {
     sendJson(res, 429, errorBody("rate_limited", "请求太频繁"));
     return true;
   }
@@ -130,7 +132,7 @@ async function dispatch(deps: FeedDeps, req: IncomingMessage, res: ServerRespons
   throw new HttpError(404, "not_found", "没有这个接口");
 }
 
-async function serveArtifact(deps: FeedDeps, res: ServerResponse, path: string): Promise<void> {
+async function serveArtifact(deps: FeedDeps, req: IncomingMessage, res: ServerResponse, path: string): Promise<void> {
   const match = ARTIFACT.exec(path);
   const artifactId = match?.[1] ?? "";
   const version = Number(match?.[2] ?? "");
@@ -145,25 +147,39 @@ async function serveArtifact(deps: FeedDeps, res: ServerResponse, path: string):
   if (resolved === "expired") throw new HttpError(401, "expired", "链接已过期");
   if (resolved === "denied") throw new HttpError(401, "unauthorized", "链接无效");
   if (resolved.contentType !== expected) throw new HttpError(404, "not_found", "没有这个文件");
-  const objects = deps.objects;
-  const bytes = objects ? await objects.read(artifactId, version, relPath) : null;
-  if (!bytes) throw new HttpError(404, "not_found", "内容不在这台服务器上");
-  const sha256 = createHash("sha256").update(bytes).digest("hex");
-  if (sha256 !== resolved.sha256 || bytes.length !== resolved.byteLength) {
-    console.error("object bytes do not match the catalog");
-    throw new HttpError(404, "not_found", "内容不在这台服务器上");
-  }
-  res.writeHead(200, {
-    "Content-Type": expected,
-    "Content-Length": bytes.length,
+  const etag = `"${resolved.sha256}"`;
+  const headers = {
     "Content-Security-Policy": ARTIFACT_CSP,
     "X-Content-Type-Options": "nosniff",
     "Referrer-Policy": "no-referrer",
     "Cache-Control": "private, max-age=60",
-    ETag: `"${sha256}"`,
+    ETag: etag,
     "Content-Disposition": "inline",
     "X-Frame-Options": "DENY",
     "Cross-Origin-Resource-Policy": "same-origin",
+  };
+  if (etagMatches(req.headers["if-none-match"], etag)) {
+    res.writeHead(304, headers);
+    res.end();
+    return;
+  }
+  const cacheKey = `${artifactId}/v${version}/${relPath}@${resolved.sha256}`;
+  let bytes = deps.artifactCache?.get(cacheKey) ?? null;
+  if (!bytes) {
+    const objects = deps.objects;
+    bytes = objects ? await objects.read(artifactId, version, relPath) : null;
+    if (!bytes) throw new HttpError(404, "not_found", "内容不在这台服务器上");
+    const sha256 = createHash("sha256").update(bytes).digest("hex");
+    if (sha256 !== resolved.sha256 || bytes.length !== resolved.byteLength) {
+      console.error("object bytes do not match the catalog");
+      throw new HttpError(404, "not_found", "内容不在这台服务器上");
+    }
+    deps.artifactCache?.set(cacheKey, bytes);
+  }
+  res.writeHead(200, {
+    "Content-Type": expected,
+    "Content-Length": bytes.length,
+    ...headers,
   });
   res.end(bytes);
 }
@@ -198,29 +214,4 @@ async function readEmpty(req: IncomingMessage): Promise<void> {
   }
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new HttpError(400, "bad_request", "请求必须是 JSON 对象");
   if (Object.keys(parsed).length > 0) throw new HttpError(400, "bad_request", "不能提交额外字段");
-}
-
-function allow(hits: Map<string, number[]>, token: string): boolean {
-  const now = Date.now();
-  const key = createHash("sha256").update(token).digest("hex");
-  const stamps = (hits.get(key) ?? []).filter((stamp) => now - stamp < 60_000);
-  if (stamps.length >= LIMITS.ratePerMinute) {
-    hits.set(key, stamps);
-    return false;
-  }
-  stamps.push(now);
-  hits.set(key, stamps);
-  return true;
-}
-
-function sendJson(res: ServerResponse, status: number, body: unknown): void {
-  const payload = JSON.stringify(body);
-  res.writeHead(status, {
-    "Content-Type": "application/json; charset=utf-8",
-    "Content-Length": Buffer.byteLength(payload),
-    "Cache-Control": "no-store",
-    "X-Content-Type-Options": "nosniff",
-    "Referrer-Policy": "no-referrer",
-  });
-  res.end(payload);
 }

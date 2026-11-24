@@ -191,7 +191,14 @@ test("seed, feeds, follow, and bundle access against temporary postgres", { time
       const css = await fetch(new URL("brief.css", `${base}${pagePath}`));
       assert.equal(css.status, 200);
       assert.equal(css.headers.get("content-type"), "text/css; charset=utf-8");
+      const cssEtag = css.headers.get("etag");
+      assert.ok(cssEtag);
       assert.match(await css.text(), /\.hero/);
+      const notModified = await fetch(new URL("brief.css", `${base}${pagePath}`), {
+        headers: { "If-None-Match": cssEtag },
+      });
+      assert.equal(notModified.status, 304);
+      assert.equal(await notModified.text(), "");
       const svg = await fetch(new URL("mark.svg", `${base}${pagePath}`));
       assert.equal(svg.status, 200);
       assert.match(await svg.text(), /<svg/);

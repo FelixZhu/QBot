@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Animated,
   BackHandler,
@@ -52,18 +52,21 @@ function Shell() {
   const origin = configuredOrigin();
   const [thread, setThread] = useState(false);
   const boot = useChatBoot();
-  const connectionView: ConnectionView = boot.phase === "ready"
-    ? {
-      phase: "ready",
-      origin: configuredOrigin() ?? "",
-      token: "",
-      session: boot.session ?? { ownerId: "", agentId: "", model: "", upstream: "openrouter" },
-      conversationId: boot.initialThreadId ?? "",
-      client: createServerClient({ origin: configuredOrigin() ?? "" }),
-    }
-    : boot.phase === "error"
-      ? { phase: "error", message: boot.message ?? "无法连接服务器" }
-      : { phase: "checking" };
+  const serverClient = useMemo(() => createServerClient({ origin: origin ?? "" }), [origin]);
+  const connectionView = useMemo<ConnectionView>(() => (
+    boot.phase === "ready"
+      ? {
+        phase: "ready",
+        origin: origin ?? "",
+        token: "",
+        session: boot.session ?? { ownerId: "", agentId: "", model: "", upstream: "openrouter" },
+        conversationId: boot.initialThreadId ?? "",
+        client: serverClient,
+      }
+      : boot.phase === "error"
+        ? { phase: "error", message: boot.message ?? "无法连接服务器" }
+        : { phase: "checking" }
+  ), [boot.initialThreadId, boot.message, boot.phase, boot.session, origin, serverClient]);
   const [keyboard, setKeyboard] = useState(false);
   const [webReady, setWebReady] = useState(false);
   const [libraryReady, setLibraryReady] = useState(false);
