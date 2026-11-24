@@ -1,6 +1,14 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { artifactUrl, createFeedClient, feedColumnWidth, formatPublished, presentFeed } from "./feedClient.ts";
+import {
+  artifactUrl,
+  createFeedClient,
+  feedColumnWidth,
+  formatPublished,
+  isValidProvenance,
+  pickCoverPath,
+  presentFeed,
+} from "./feedClient.ts";
 
 test("the feed states stay empty when the server fails and a wide column stays put", () => {
   assert.deepEqual(presentFeed({ phase: "loading", count: 0, cached: false }), { kind: "loading" });
@@ -14,6 +22,13 @@ test("the feed states stay empty when the server fails and a wide column stays p
   assert.equal(feedColumnWidth(1200), 480);
   assert.equal(formatPublished("2026-11-21T08:44:00.000Z"), "11-21 16:44");
   assert.equal(formatPublished("2026-11-21T08:48:00.000Z"), "11-21 16:48");
+  assert.equal(isValidProvenance("manual"), true);
+  assert.equal(isValidProvenance("agent"), true);
+  assert.equal(isValidProvenance("scheduled"), true);
+  assert.equal(isValidProvenance("unknown"), false);
+  assert.equal(pickCoverPath({ coverPath: "cover.png", coverLightPath: "cover-light.png", coverDarkPath: "cover-dark.png" }, "dark"), "cover-dark.png");
+  assert.equal(pickCoverPath({ coverPath: "cover.png", coverLightPath: "cover-light.png", coverDarkPath: "cover-dark.png" }, "light"), "cover-light.png");
+  assert.equal(pickCoverPath({ coverPath: "cover.png", coverLightPath: null, coverDarkPath: null }, "dark"), "cover.png");
 });
 
 test("a relative asset keeps the bundle token in the path", () => {

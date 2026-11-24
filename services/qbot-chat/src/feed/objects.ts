@@ -1,5 +1,5 @@
 import { createHmac } from "node:crypto";
-import { readFile, stat } from "node:fs/promises";
+import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { isIP } from "node:net";
 import path from "node:path";
 import { LIMITS } from "../limits.ts";
@@ -9,6 +9,7 @@ export const DEFAULT_KEY_PREFIX = "qbot/cards/";
 
 export type ObjectStore = {
   read(artifactId: string, version: number, relPath: string): Promise<Buffer | null>;
+  write?(artifactId: string, version: number, relPath: string, bytes: Buffer, contentType: string): Promise<boolean>;
 };
 
 export type OssConfig = {
@@ -58,21 +59,23 @@ export function objectKey(prefix: string, artifactId: string, version: number, r
 
 /** Aliyun OSS signature v1. The secret stays in the HMAC and is not part of the URL. */
 export function authorizeOss(input: {
-  method: "GET";
+  method: "GET" | "PUT";
   bucket: string;
   key: string;
   endpointHost: string;
   accessKeyId: string;
   accessKeySecret: string;
   date: string;
+  contentType?: string;
 }): { url: string; headers: Record<string, string> } {
-  const contentType = "";
+  const contentType = input.contentType ?? "";
   const resource = `/${input.bucket}/${input.key}`;
   const stringToSign = `${input.method}\n\n${contentType}\n${input.date}\n${resource}`;
   const signature = createHmac("sha1", input.accessKeySecret).update(stringToSign).digest("base64");
   const headers: Record<string, string> = {
     Date: input.date,
     Authorization: `OSS ${input.accessKeyId}:${signature}`,
+    ...(contentType ? { "Content-Type": contentType } : {}),
   };
   const encoded = input.key.split("/").map((part) => encodeURIComponent(part)).join("/");
   return { url: `https://${input.bucket}.${input.endpointHost}/${encoded}`, headers };
@@ -94,6 +97,17 @@ export function createLocalObjectStore(root: string, prefix = DEFAULT_KEY_PREFIX
       } catch {
         return null;
       }
+    },
+    async write(artifactId, version, relPath, bytes) {
+      if (bytes.length === 0 || bytes.length > LIMITS.artifactBytes) return false;
+      const key = objectKey(prefix, artifactId, version, relPath);
+      if (!key) return false;
+      const full = path.resolve(base, key);
+      const directory = path.resolve(base, prefix, artifactId, `v${version}`) + path.sep;
+      if (!full.startsWith(directory)) return false;
+      await mkdir(path.dirname(full), { recursive: true });
+      await writeFile(full, bytes, { flag: "wx" });
+      return true;
     },
   };
 }
@@ -134,6 +148,40 @@ export function createOssObjectStore(config: OssConfig, fetchImpl: typeof fetch 
       const bytes = Buffer.from(await response.arrayBuffer());
       if (bytes.length === 0 || bytes.length > LIMITS.artifactBytes) return null;
       return bytes;
+    },
+    async write(artifactId, version, relPath, bytes, contentType) {
+      if (bytes.length === 0 || bytes.length > LIMITS.artifactBytes) return false;
+      const key = objectKey(config.keyPrefix, artifactId, version, relPath);
+      if (!key) return false;
+      const signed = authorizeOss({
+        method: "PUT",
+        bucket: config.bucket,
+        key,
+        endpointHost: config.endpointHost,
+        accessKeyId: config.accessKeyId,
+        accessKeySecret: config.accessKeySecret,
+        date: new Date().toUTCString(),
+        contentType,
+      });
+      let response: Response;
+      try {
+        response = await fetchImpl(signed.url, {
+          method: "PUT",
+          headers: { ...signed.headers, "Content-Length": String(bytes.length) },
+          body: new Uint8Array(bytes),
+          redirect: "manual",
+          signal: AbortSignal.timeout(15_000),
+        });
+      } catch {
+        console.error("object write failed");
+        return false;
+      }
+      await response.arrayBuffer().catch(() => {});
+      if (response.status !== 200 && response.status !== 201) {
+        console.error(`object write status=${response.status}`);
+        return false;
+      }
+      return true;
     },
   };
 }

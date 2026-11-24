@@ -238,6 +238,50 @@ test("seed, feeds, follow, and bundle access against temporary postgres", { time
       assert.deepEqual(await counts(pool), before);
       assert.equal((await fetch(`${base}/v1/cards`, { method: "POST" })).status, 404);
 
+      const dynPng = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+      const dynHtml = Buffer.from("<!doctype html><main>动态新卡片</main>", "utf8");
+      const published = await fetch(`${base}/v1/cards`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${TOKEN}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: "动态发布卡片",
+          provenance: "agent",
+          files: [
+            { path: "cover-light.png", contentBase64: dynPng.toString("base64") },
+            { path: "cover-dark.png", contentBase64: dynPng.toString("base64") },
+            { path: "index.html", contentBase64: dynHtml.toString("base64") },
+          ],
+        }),
+      });
+      assert.equal(published.status, 201, await published.clone().text());
+      const dynCard = await published.json() as {
+        id: string;
+        artifactId: string;
+        provenance: string;
+        coverLightPath: string | null;
+        coverDarkPath: string | null;
+      };
+      assert.equal(dynCard.provenance, "agent");
+      assert.equal(dynCard.coverLightPath, "cover-light.png");
+      assert.equal(dynCard.coverDarkPath, "cover-dark.png");
+      const afterPublish = await readFeed(base, "following", null);
+      assert.equal(afterPublish.cards[0]?.id, dynCard.id);
+      const dynCap = await (await json(base, `/v1/cards/${dynCard.id}/capability`, { method: "POST", body: "{}" })).json() as { token: string };
+      const dynPage = await fetch(`${base}/v1/artifacts/${dynCard.artifactId}/v/1/${dynCap.token}/files/index.html`);
+      assert.equal(dynPage.status, 200);
+      assert.match(await dynPage.text(), /动态新卡片/);
+      const dynDarkCover = await fetch(`${base}/v1/artifacts/${dynCard.artifactId}/v/1/${dynCap.token}/files/cover-dark.png`);
+      assert.equal(dynDarkCover.status, 200);
+      assert.equal(dynDarkCover.headers.get("content-type"), "image/png");
+      assert.equal((await fetch(`${base}/v1/cards/${dynCard.id}`, { method: "DELETE" })).status, 404);
+      const deleted = await fetch(`${base}/v1/cards/${dynCard.id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${TOKEN}` },
+      });
+      assert.equal(deleted.status, 204);
+      assert.equal((await fetch(`${base}/v1/cards/${dynCard.id}`, { headers: { Authorization: `Bearer ${TOKEN}` } })).status, 404);
+      assert.deepEqual(await applyMigrations({ runtimeUrl, directory }), []);
+
       const stranger = await startChatServer({
         config: config(runtimeUrl, { feedOpen: true, objectRoot, ownerId: OTHER }),
         store: createStore(pool),

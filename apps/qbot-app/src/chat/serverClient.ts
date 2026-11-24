@@ -24,7 +24,10 @@ export type ServerClient = {
   origin: string;
   session(): Promise<ServerSession>;
   listConversations(): Promise<ServerConversation[]>;
+  getConversation?(conversationId: string): Promise<ServerConversation>;
   createConversation(): Promise<ServerConversation>;
+  renameConversation?(conversationId: string, title: string): Promise<ServerConversation>;
+  deleteConversation?(conversationId: string): Promise<void>;
   listMessages(conversationId: string): Promise<ServerMessage[]>;
 };
 
@@ -65,8 +68,20 @@ export function createServerClient(options: { origin: string; token?: string; fe
       const body = await call("/v1/conversations") as { conversations?: ServerConversation[] };
       return Array.isArray(body.conversations) ? body.conversations : [];
     },
+    async getConversation(conversationId) {
+      return await call(`/v1/conversations/${conversationId}`) as ServerConversation;
+    },
     async createConversation() {
       return await call("/v1/conversations", { method: "POST", body: "{}" }) as ServerConversation;
+    },
+    async renameConversation(conversationId, title) {
+      return await call(`/v1/conversations/${conversationId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ title }),
+      }) as ServerConversation;
+    },
+    async deleteConversation(conversationId) {
+      await call(`/v1/conversations/${conversationId}`, { method: "DELETE" });
     },
     async listMessages(conversationId) {
       const body = await call(`/v1/conversations/${conversationId}/messages`) as { messages?: ServerMessage[] };

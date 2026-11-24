@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { test } from "node:test";
 import type { FeedCard } from "./feedClient.ts";
 import {
@@ -150,6 +150,31 @@ test("the today screen does not replace the published works with the sample boar
   assert.equal(source.includes("resizeMode=\"cover\""), true);
   assert.equal(source.includes("resizeMode=\"contain\""), false);
   assert.equal(cardFeed.includes("[cards, covers, origin]"), false);
+
+  const appSrc = readFileSync(new URL("../../App.tsx", import.meta.url), "utf8");
+  const tabSrc = readFileSync(new URL("../TabBarIcon.tsx", import.meta.url), "utf8");
+  const feedDir = new URL("./", import.meta.url);
+  const feedSrc = readdirSync(feedDir)
+    .filter((name) => name.endsWith(".tsx"))
+    .sort()
+    .map((name) => readFileSync(new URL(name, feedDir), "utf8"))
+    .join("\n");
+  assert.match(appSrc, /CardFeed/);
+  assert.equal(appSrc.includes("LessonFeed"), false);
+  assert.equal(appSrc.includes("FeedPane"), false);
+  assert.match(appSrc, /colors\.accent/);
+  assert.match(appSrc, /RAIL_WIDTH/);
+  assert.equal(appSrc.includes("#F5A623"), false);
+  assert.match(appSrc, /TAB_HEIGHT = 56/);
+  assert.match(appSrc, /今日/);
+  assert.equal(appSrc.includes("发现"), false);
+  assert.equal(appSrc.includes("主动服务"), false);
+  assert.match(tabSrc, /width: 24, height: 24/);
+  assert.equal(feedSrc.includes("expo-video"), false);
+  assert.equal(feedSrc.includes(".woff"), false);
+  assert.equal(feedSrc.includes(".ttf"), false);
+  assert.equal(feedSrc.includes("http://"), false);
+  assert.equal(feedSrc.includes("https://"), false);
 });
 
 function card(id: string, title: string): FeedCard {

@@ -1,4 +1,5 @@
-import { Pressable, Text, View } from "react-native";
+import { useEffect, useState } from "react";
+import { BackHandler, Platform, Pressable, Text, View } from "react-native";
 import { useThreadListNew } from "@assistant-ui/core/react";
 import { ChatThreadSurface } from "../chat-ui";
 import { ChatMark } from "../chat-ui/ChatMarks";
@@ -14,6 +15,7 @@ export function LiveChat({
   onBack,
   view,
   onOpenLibrary,
+  onManageToken,
   active = true,
 }: {
   scheme: Scheme;
@@ -21,6 +23,7 @@ export function LiveChat({
   onBack: () => void;
   view: ConnectionView;
   onOpenLibrary?: () => void;
+  onManageToken?: () => void;
   active?: boolean;
 }) {
   const chrome = chatChrome(scheme);
@@ -28,7 +31,7 @@ export function LiveChat({
   return (
     <View style={{ flex: 1, backgroundColor: chrome.canvas }}>
       <View style={{ flex: 1, width: "100%", maxWidth: READ_MAX, alignSelf: "center" }}>
-        <ChatHeader scheme={scheme} showBack={showBack} onBack={onBack} view={view} syncLine={syncLine} />
+        <ChatHeader scheme={scheme} showBack={showBack} onBack={onBack} view={view} syncLine={syncLine} onManageToken={onManageToken} />
         <ChatThreadSurface
           scheme={scheme}
           listHeader={view.phase === "ready" && view.session.upstream === "fixture" ? (
@@ -50,15 +53,26 @@ function ChatHeader({
   onBack,
   view,
   syncLine,
+  onManageToken,
 }: {
   scheme: Scheme;
   showBack: boolean;
   onBack: () => void;
   view: ConnectionView;
   syncLine: string | null;
+  onManageToken?: () => void;
 }) {
   const chrome = chatChrome(scheme);
   const { switchToNewThread } = useThreadListNew();
+  const [more, setMore] = useState(false);
+  useEffect(() => {
+    if (!more || Platform.OS !== "android") return;
+    const sub = BackHandler.addEventListener("hardwareBackPress", () => {
+      setMore(false);
+      return true;
+    });
+    return () => sub.remove();
+  }, [more]);
   const start = () => {
     if (view.phase !== "ready") return;
     switchToNewThread();
@@ -105,9 +119,39 @@ function ChatHeader({
         >
           <ChatMark name="pencil" color={chrome.text} size={20} />
         </Pressable>
+        {onManageToken ? (
+          <Pressable
+            onPress={() => setMore((open) => !open)}
+            accessibilityRole="button"
+            accessibilityLabel="更多"
+            hitSlop={6}
+            style={({ pressed }) => ({
+              width: 44,
+              height: 44,
+              borderRadius: 10,
+              alignItems: "center",
+              justifyContent: "center",
+              opacity: pressed ? 0.65 : 1,
+            })}
+          >
+            <ChatMark name="more" color={chrome.text} size={20} />
+          </Pressable>
+        ) : null}
       </View>
       {syncLine ? (
         <Text style={{ textAlign: "center", color: chrome.muted, fontSize: 12, lineHeight: 16, paddingBottom: 6 }}>{syncLine}</Text>
+      ) : null}
+      {more && onManageToken ? (
+        <View style={{ marginHorizontal: 12, marginBottom: 10, borderRadius: 14, backgroundColor: chrome.composer, borderWidth: 1, borderColor: chrome.line, padding: 14, gap: 10 }}>
+          <Pressable
+            onPress={() => { setMore(false); onManageToken(); }}
+            accessibilityRole="button"
+            accessibilityLabel="访问口令"
+            style={{ minHeight: 36, justifyContent: "center" }}
+          >
+            <Text style={{ color: chrome.text, fontSize: 15, lineHeight: 22, fontWeight: "700" }}>访问口令</Text>
+          </Pressable>
+        </View>
       ) : null}
     </View>
   );

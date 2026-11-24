@@ -80,7 +80,10 @@ test("streamTurn aborts the runtime on upstream timeout and settles as failed", 
     async getAgent() { return { id: "00000000-0000-4000-8000-0000000000a1", model: config.model }; },
     async failStaleRuns() {},
     async listConversations() { return []; },
+    async getConversation() { return null; },
     async createConversation() { throw new Error("unused"); },
+    async renameConversation() { return null; },
+    async deleteConversation() { return false; },
     async listMessages() { return []; },
     async beginTurn() {
       return {
@@ -270,6 +273,21 @@ test("authenticated SSE persists a server-owned run and reloads it", { timeout: 
     const visible = await api(base, "/v1/conversations");
     const titles = ((await visible.json()) as { conversations: { title: string }[] }).conversations.map((item) => item.title);
     assert.equal(titles.includes("别人的会话"), false);
+
+    const fetched = await api(base, `/v1/conversations/${conversation.id}`);
+    assert.equal(fetched.status, 200);
+    assert.equal(((await fetched.json()) as { id: string }).id, conversation.id);
+    const renamed = await api(base, `/v1/conversations/${conversation.id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ title: "重命名后的会话" }),
+    });
+    assert.equal(renamed.status, 200);
+    assert.equal(((await renamed.json()) as { title: string }).title, "重命名后的会话");
+
+    const disposable = await (await api(base, "/v1/conversations", { method: "POST", body: JSON.stringify({ title: "待删除" }) })).json() as { id: string };
+    const removed = await api(base, `/v1/conversations/${disposable.id}`, { method: "DELETE" });
+    assert.equal(removed.status, 204);
+    assert.equal((await api(base, `/v1/conversations/${disposable.id}`)).status, 404);
 
     fixture.mode.current = "status";
     const failed = await api(base, `/v1/conversations/${conversation.id}/messages`, {

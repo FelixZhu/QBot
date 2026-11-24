@@ -15,8 +15,12 @@ import {
 import { StatusBar } from "expo-status-bar";
 import { setBackgroundColorAsync } from "expo-system-ui";
 import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { ChatEmpty, ConversationList } from "./src/ChatPane";
+import { clearClientCaches, clearSavedToken, isUnauthorizedMessage, loadSavedToken, verifyAndSaveToken } from "./src/chat/accessToken";
+import { deviceSecretStorage } from "./src/chat/deviceSecret";
 import { LiveChat } from "./src/chat/LiveChat";
+import { TokenModal } from "./src/chat/TokenModal";
 import { ChatRuntime, useChatBoot } from "./src/chat/useChatRuntime";
 import { configuredOrigin } from "./src/chat/serverEndpoint";
 import { createServerClient } from "./src/chat/serverClient";
@@ -26,8 +30,8 @@ import { TabBarIcon } from "./src/TabBarIcon";
 import { RAIL_WIDTH, chatChrome, isSplit, listPaneWidth, palette, resolveScheme } from "./src/theme";
 import { CardFeed } from "./src/feed/CardFeed";
 import type { StatusIcons } from "./src/feed/immersive";
+import { LibraryPane } from "./src/LibraryPane";
 import { pullUpdate } from "./src/updates";
-import { WebPane, type WebPaneHandle } from "./src/WebPane";
 import * as Updates from "expo-updates";
 
 type Tab = "chat" | "feed" | "kb";
@@ -48,21 +52,25 @@ function Shell() {
   const scheme = resolveScheme(useColorScheme());
   const colors = palette[scheme];
   const dark = scheme === "dark";
-  const webRef = useRef<WebPaneHandle>(null);
   const feedBack = useRef<() => boolean>(() => false);
+  const kbBack = useRef<() => boolean>(() => false);
   const lastExit = useRef(0);
   const [tab, setTab] = useState<Tab>("feed");
   const [todayUnread] = useState(false);
+  const [token, setToken] = useState("");
+  const [tokenReady, setTokenReady] = useState(false);
+  const [tokenModalOpen, setTokenModalOpen] = useState(false);
+  const [authVersion, setAuthVersion] = useState(0);
   const origin = configuredOrigin();
   const [thread, setThread] = useState(false);
-  const boot = useChatBoot();
-  const serverClient = useMemo(() => createServerClient({ origin: origin ?? "" }), [origin]);
+  const boot = useChatBoot({ token, tokenReady, retryKey: authVersion });
+  const serverClient = useMemo(() => createServerClient({ origin: origin ?? "", token: token || undefined }), [origin, token]);
   const connectionView = useMemo<ConnectionView>(() => (
     boot.phase === "ready"
       ? {
         phase: "ready",
         origin: origin ?? "",
-        token: "",
+        token,
         session: boot.session ?? { ownerId: "", agentId: "", model: "", upstream: "openrouter" },
         conversationId: boot.initialThreadId ?? "",
         client: serverClient,
@@ -70,10 +78,8 @@ function Shell() {
       : boot.phase === "error"
         ? { phase: "error", message: boot.message ?? "无法连接服务器" }
         : { phase: "checking" }
-  ), [boot.initialThreadId, boot.message, boot.phase, boot.session, origin, serverClient]);
+  ), [boot.initialThreadId, boot.message, boot.phase, boot.session, origin, serverClient, token]);
   const [keyboard, setKeyboard] = useState(false);
-  const [webReady, setWebReady] = useState(false);
-  const [libraryReady, setLibraryReady] = useState(false);
   const [coverTabs, setCoverTabs] = useState(false);
   const [feedStatus, setFeedStatus] = useState<StatusIcons | null>(null);
   const tabOpacity = useRef(new Animated.Value(1)).current;
@@ -84,6 +90,16 @@ function Shell() {
   const showList = tab === "chat" && (split || !live);
   const showThread = tab === "chat" && (split || live);
   const screenChrome = chatChrome(scheme);
+
+  useEffect(() => {
+    let alive = true;
+    void loadSavedToken(deviceSecretStorage).then((saved) => {
+      if (!alive) return;
+      setToken(saved);
+      setTokenReady(true);
+    });
+    return () => { alive = false; };
+  }, []);
 
   useEffect(() => {
     const background = inThread ? screenChrome.canvas : colors.canvas;
@@ -104,11 +120,6 @@ function Shell() {
   }, []);
 
   useEffect(() => {
-    const timer = setTimeout(() => setWebReady(true), 400);
-    return () => clearTimeout(timer);
-  }, []);
-
-  useEffect(() => {
     const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
     const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
     const show = Keyboard.addListener(showEvent, () => setKeyboard(true));
@@ -118,10 +129,6 @@ function Shell() {
       hide.remove();
     };
   }, []);
-
-  useEffect(() => {
-    webRef.current?.setTheme(dark);
-  }, [dark]);
 
   useEffect(() => {
     Animated.timing(tabOpacity, { toValue: coverTabs ? 0 : 1, duration: 240, useNativeDriver: true }).start();
@@ -138,14 +145,6 @@ function Shell() {
     if (Platform.OS === "android") ToastAndroid.show("再滑一次退出", ToastAndroid.SHORT);
   }, []);
 
-  const onBackResult = useCallback((handled: boolean) => {
-    if (handled) {
-      lastExit.current = 0;
-      return;
-    }
-    exitOrHint();
-  }, [exitOrHint]);
-
   useEffect(() => {
     if (Platform.OS !== "android") return;
     const sub = BackHandler.addEventListener("hardwareBackPress", () => {
@@ -154,10 +153,7 @@ function Shell() {
         return true;
       }
       if (tab === "feed" && feedBack.current()) return true;
-      if (tab === "kb") {
-        webRef.current?.back();
-        return true;
-      }
+      if (tab === "kb" && kbBack.current()) return true;
       exitOrHint();
       return true;
     });
@@ -165,22 +161,26 @@ function Shell() {
   }, [tab, thread, split, exitOrHint]);
 
   const openKb = () => {
-    console.log(`QBOT_TIMING kb-tap ${libraryReady ? "warm" : "cold"}`);
-    setWebReady(true);
     setTab("kb");
-    webRef.current?.show("kb");
   };
 
-  const selectTab = (id: Tab) => {
-    if (id === "chat") {
-      webRef.current?.park();
-      setTab("chat");
-    } else if (id === "feed") {
-      setTab("feed");
-    } else {
-      openKb();
-    }
-  };
+  const handleSaveToken = useCallback(async (rawToken: string) => {
+    if (!origin) throw new Error("这一版没有带上服务器地址");
+    const verified = await verifyAndSaveToken({ origin, rawToken, secrets: deviceSecretStorage });
+    await clearClientCaches(AsyncStorage);
+    setToken(verified);
+    setAuthVersion((v) => v + 1);
+    setTokenModalOpen(false);
+  }, [origin]);
+
+  const handleClearToken = useCallback(async () => {
+    await clearSavedToken(deviceSecretStorage);
+    await clearClientCaches(AsyncStorage);
+    setToken("");
+    setThread(false);
+    setAuthVersion((v) => v + 1);
+    setTokenModalOpen(false);
+  }, []);
 
   const listStatusNote = boot.phase === "error"
     ? (boot.message ?? "无法连接服务器")
@@ -215,7 +215,7 @@ function Shell() {
                 accessibilityRole="tab"
                 accessibilityState={{ selected: current }}
                 accessibilityLabel={label}
-                onPress={() => selectTab(id)}
+                onPress={() => setTab(id)}
                 style={({ pressed }) => ({
                   width: 56,
                   height: 56,
@@ -249,13 +249,16 @@ function Shell() {
             <CardFeed
               active={tab === "feed"}
               origin={origin}
+              token={token}
+              tokenReady={tokenReady}
               topInset={insets.top}
               onBackReady={(back) => { feedBack.current = back; }}
               onCover={setCoverTabs}
               onStatusStyle={setFeedStatus}
+              onRequestAuth={() => setTokenModalOpen(true)}
             />
           </View>
-          <ChatRuntime boot={boot}>
+          <ChatRuntime boot={boot} token={token}>
             {showList ? (
               <View style={split ? { width: listWidth, borderRightWidth: 1, borderRightColor: colors.line, paddingBottom: insets.bottom } : { flex: 1 }}>
                 {boot.phase === "ready" ? (
@@ -268,6 +271,16 @@ function Shell() {
                   <View style={{ flex: 1, backgroundColor: colors.bg, padding: 16 }}>
                     <Text style={{ fontSize: 20, lineHeight: 28, fontWeight: "700", color: colors.text }}>对话</Text>
                     <Text style={{ marginTop: 12, color: colors.muted, fontSize: 14, lineHeight: 20 }}>{boot.phase === "error" ? boot.message : "正在打开"}</Text>
+                    {boot.phase === "error" && isUnauthorizedMessage(boot.message) ? (
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel="输入访问口令"
+                        onPress={() => setTokenModalOpen(true)}
+                        style={{ marginTop: 14, alignSelf: "flex-start", height: 44, paddingHorizontal: 20, borderRadius: 22, backgroundColor: colors.btnPrimaryBg, alignItems: "center", justifyContent: "center" }}
+                      >
+                        <Text style={{ color: colors.btnPrimaryFg, fontSize: 14, fontWeight: "700" }}>输入访问口令</Text>
+                      </Pressable>
+                    ) : null}
                   </View>
                 )}
               </View>
@@ -283,6 +296,7 @@ function Shell() {
                   onBack={() => setThread(false)}
                   view={connectionView}
                   onOpenLibrary={openKb}
+                  onManageToken={() => setTokenModalOpen(true)}
                   active={showThread}
                 />
               </View>
@@ -292,19 +306,29 @@ function Shell() {
               </View>
             ) : null}
           </ChatRuntime>
-          {webReady ? (
-            <WebPane
-              ref={webRef}
-              visible={tab === "kb"}
-              tab="kb"
-              dark={dark}
-              backgroundColor={colors.canvas}
-              onBackResult={onBackResult}
-              onReady={() => setLibraryReady(true)}
+          <View
+            pointerEvents={tab === "kb" ? "auto" : "none"}
+            style={tab === "kb" ? { flex: 1 } : { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, opacity: 0, zIndex: -1 }}
+          >
+            <LibraryPane
+              active={tab === "kb"}
+              colors={colors}
+              scheme={scheme}
+              split={split}
+              listWidth={listWidth}
+              onBackReady={(back) => { kbBack.current = back; }}
               onExternal={(url) => { Linking.openURL(url).catch(() => {}); }}
             />
-          ) : null}
+          </View>
         </View>
+        <TokenModal
+          visible={tokenModalOpen}
+          colors={colors}
+          hasToken={token.length > 0}
+          onClose={() => setTokenModalOpen(false)}
+          onSubmit={handleSaveToken}
+          onClear={handleClearToken}
+        />
         {showBottomTabs && !coverTabs ? (
           <Animated.View
             pointerEvents={coverTabs ? "none" : "auto"}
@@ -325,7 +349,7 @@ function Shell() {
                     accessibilityRole="tab"
                     accessibilityState={{ selected: current }}
                     accessibilityLabel={label}
-                    onPress={() => selectTab(id)}
+                    onPress={() => setTab(id)}
                     style={{ flex: 1, alignItems: "center", justifyContent: "flex-start", paddingTop: 8 }}
                   >
                     <View>

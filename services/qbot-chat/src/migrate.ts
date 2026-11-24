@@ -6,9 +6,9 @@ import { createPool } from "./db.ts";
 
 const LOCK = 84218421;
 
-export async function applyMigrations(options: { runtimeUrl: string; migrateUrl: string; directory: string }): Promise<string[]> {
+export async function applyMigrations(options: { runtimeUrl: string; migrateUrl?: string | null; directory: string }): Promise<string[]> {
   const runtime = createPool(options.runtimeUrl);
-  const migrate = createPool(options.migrateUrl);
+  let migrate: ReturnType<typeof createPool> | null = null;
   const client = await runtime.connect();
   try {
     await client.query("SELECT pg_advisory_lock($1)", [LOCK]);
@@ -25,7 +25,13 @@ export async function applyMigrations(options: { runtimeUrl: string; migrateUrl:
       if (seen.rowCount === 1) continue;
       const sql = await readFile(path.join(options.directory, file), "utf8");
       const role = migrationRole(sql, file);
-      const conn = role === "superuser" ? await migrate.connect() : client;
+      if (role === "superuser") {
+        if (!options.migrateUrl) {
+          throw new Error(`DATABASE_MIGRATE_URL is required to apply superuser migration ${file}`);
+        }
+        migrate ??= createPool(options.migrateUrl);
+      }
+      const conn = role === "superuser" ? await migrate!.connect() : client;
       try {
         await conn.query("BEGIN");
         try {
@@ -46,7 +52,7 @@ export async function applyMigrations(options: { runtimeUrl: string; migrateUrl:
     await client.query("SELECT pg_advisory_unlock($1)", [LOCK]).catch(() => {});
     client.release();
     await runtime.end();
-    await migrate.end();
+    if (migrate) await migrate.end();
   }
 }
 
@@ -60,7 +66,6 @@ export function migrationRole(sql: string, file: string): "superuser" | "runtime
 async function main(): Promise<void> {
   assertNode24();
   const config = loadConfig(process.env);
-  if (!config.migrateUrl) throw new Error("DATABASE_MIGRATE_URL is required to create the vector extension as a superuser");
   const directory = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "migrations");
   const applied = await applyMigrations({
     runtimeUrl: config.databaseUrl,

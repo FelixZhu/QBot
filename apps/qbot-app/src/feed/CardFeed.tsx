@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, FlatList, Image, Pressable, ScrollView, Text, useColorScheme, View } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { QbotAvatar } from "../QbotAvatar";
+import { isUnauthorizedMessage } from "../chat/accessToken";
 import { isSplit, listPaneWidth, palette, resolveScheme } from "../theme";
 import { CardWork } from "./CardWork";
 import { CoverFace, publishedFace } from "./CoverFace";
@@ -9,6 +10,8 @@ import {
   artifactUrl,
   createFeedClient,
   formatPublished,
+  isValidProvenance,
+  pickCoverPath,
   presentFeed,
   type FeedCard,
   type FeedScope,
@@ -44,26 +47,32 @@ type UndoToast = { botId: string; botName: string };
 export function CardFeed({
   active,
   origin,
+  token,
+  tokenReady = true,
   topInset,
   onBackReady,
   onCover,
   onFollowChange,
   onStatusStyle,
+  onRequestAuth,
 }: {
   active: boolean;
   origin: string | null;
+  token?: string;
+  tokenReady?: boolean;
   topInset: number;
   onBackReady: (back: () => boolean) => void;
   onCover: (covered: boolean) => void;
   onFollowChange?: (bot: { id: string; slug: string; followed: boolean }) => void;
   onStatusStyle?: (style: StatusIcons) => void;
+  onRequestAuth?: () => void;
 }) {
   const scheme = resolveScheme(useColorScheme());
   const colors = palette[scheme];
   const listRef = useRef<FlatList<FeedCard>>(null);
   const touchRef = useRef({ x: 0, y: 0 });
   const page = useRef(0);
-  const loadedScopeRef = useRef<FeedScope | null>(null);
+  const loadedKeyRef = useRef<string | null>(null);
   const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [width, setWidth] = useState(0);
   const [height, setHeight] = useState(0);
@@ -83,6 +92,8 @@ export function CardFeed({
   const [undoToast, setUndoToast] = useState<UndoToast | null>(null);
   const split = isSplit(width);
   const dirWidth = Math.min(320, Math.max(260, listPaneWidth(width) - 40));
+  const authToken = token || undefined;
+  const loadKey = `${scope}:${authToken ?? ""}`;
   page.current = index;
 
   useEffect(() => () => {
@@ -97,7 +108,7 @@ export function CardFeed({
       setCached(false);
       return;
     }
-    const client = createFeedClient({ origin });
+    const client = createFeedClient({ origin, token: authToken });
     if (!cursor) {
       setPhase("loading");
       setCards([]);
@@ -111,7 +122,7 @@ export function CardFeed({
       setPhase("ready");
       setCached(false);
       setMessage("");
-      loadedScopeRef.current = nextScope;
+      loadedKeyRef.current = `${nextScope}:${authToken ?? ""}`;
       if (!cursor) {
         await AsyncStorage.setItem(`${CACHE}.${nextScope}`, JSON.stringify({ cards: loaded.cards, savedAt: new Date().toISOString() }));
       }
@@ -121,25 +132,38 @@ export function CardFeed({
         setMessage(text);
         return;
       }
+      if (isUnauthorizedMessage(text)) {
+        setCards([]);
+        setCached(false);
+        setPhase("error");
+        setMessage(text);
+        return;
+      }
       const saved = await readCache(nextScope);
       setCards(saved);
       setCached(saved.length > 0);
       setPhase("error");
       setMessage(text);
     }
-  }, [origin]);
+  }, [authToken, origin]);
 
-  // Preserve current scope & card index across Tab switches.
-  // Only reload when switching scope or on initial cold load.
+  // Preserve current scope & card index across Tab switches; reload when scope or token changes.
   useEffect(() => {
-    if (!active) return;
-    if (loadedScopeRef.current === scope && cards.length > 0) return;
+    if (!active || !tokenReady) return;
+    if (loadedKeyRef.current === loadKey && cards.length > 0) return;
     coverEpochRef.current += 1;
     coversRef.current.clear();
     inFlightRef.current.clear();
     setCovers({});
     void load(scope);
-  }, [active, cards.length, load, scope]);
+  }, [active, cards.length, load, loadKey, scope, tokenReady]);
+
+  useEffect(() => {
+    coverEpochRef.current += 1;
+    coversRef.current.clear();
+    inFlightRef.current.clear();
+    setCovers({});
+  }, [scheme]);
 
   useEffect(() => {
     if (!origin || cards.length === 0) return;
@@ -152,24 +176,25 @@ export function CardFeed({
     });
     if (toFetch.length === 0) return;
     const epoch = coverEpochRef.current;
-    const client = createFeedClient({ origin });
+    const client = createFeedClient({ origin, token: authToken });
     const byId = new Map(cards.map((card) => [card.id, card]));
     for (const cardId of toFetch) {
       const card = byId.get(cardId);
       if (!card) continue;
       inFlightRef.current.add(cardId);
+      const coverPath = pickCoverPath(card, scheme);
       void client.capability(cardId).then((capability) => {
         if (coverEpochRef.current !== epoch) return;
         coversRef.current.add(cardId);
         setCovers((current) => ({
           ...current,
-          [cardId]: artifactUrl(origin, capability.artifactId, capability.version, capability.token, card.coverPath),
+          [cardId]: artifactUrl(origin, capability.artifactId, capability.version, capability.token, coverPath),
         }));
       }).catch(() => {}).finally(() => {
         if (coverEpochRef.current === epoch) inFlightRef.current.delete(cardId);
       });
     }
-  }, [cards, index, origin]);
+  }, [authToken, cards, index, origin, scheme]);
 
   const close = useCallback(() => {
     const restore = work?.index ?? page.current;
@@ -210,7 +235,7 @@ export function CardFeed({
     if (!origin) return;
     setBusy(card.id);
     try {
-      const capability = await createFeedClient({ origin }).capability(card.id);
+      const capability = await createFeedClient({ origin, token: authToken }).capability(card.id);
       const pagePath = capability.files.find((file) => file.path === "index.html")?.path ?? "index.html";
       setWork({ title: card.title, url: artifactUrl(origin, capability.artifactId, capability.version, capability.token, pagePath), index: at });
       onCover(true);
@@ -227,7 +252,7 @@ export function CardFeed({
     if (!origin) return;
     setBusy(botId);
     try {
-      const bot = await createFeedClient({ origin }).setFollow(botId, nextFollowed);
+      const bot = await createFeedClient({ origin, token: authToken }).setFollow(botId, nextFollowed);
       setCards((current) => {
         const nextCards = applyFollow(current, bot.id, bot.followed, scope);
         setIndex((value) => clampPage(value, nextCards.length));
@@ -251,7 +276,7 @@ export function CardFeed({
 
   const switchScope = (nextScope: FeedScope) => {
     if (nextScope === scope) return;
-    loadedScopeRef.current = null;
+    loadedKeyRef.current = null;
     setScope(nextScope);
   };
 
@@ -361,6 +386,11 @@ export function CardFeed({
           <Pressable accessibilityRole="button" accessibilityLabel="重试" onPress={() => void load(scope)} style={{ marginTop: 18, minHeight: 44, paddingHorizontal: 20, borderRadius: 999, backgroundColor: colors.btnPrimaryBg, justifyContent: "center" }}>
             <Text style={{ color: colors.btnPrimaryFg, fontSize: 15, fontWeight: "700" }}>重试</Text>
           </Pressable>
+          {isUnauthorizedMessage(view.message) && onRequestAuth ? (
+            <Pressable accessibilityRole="button" accessibilityLabel="输入访问口令" onPress={onRequestAuth} style={{ marginTop: 12, height: 44, paddingHorizontal: 22, borderRadius: 22, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.raised, alignItems: "center", justifyContent: "center" }}>
+              <Text style={{ color: colors.text, fontSize: 15, fontWeight: "700" }}>输入访问口令</Text>
+            </Pressable>
+          ) : null}
         </View>
       ) : null}
       {view.kind === "loading" ? (
@@ -569,7 +599,7 @@ async function readCache(scope: FeedScope): Promise<FeedCard[]> {
     const raw = await AsyncStorage.getItem(`${CACHE}.${scope}`);
     if (!raw) return [];
     const parsed = JSON.parse(raw) as { cards?: FeedCard[] };
-    return Array.isArray(parsed.cards) ? parsed.cards.filter((card) => card.provenance === "manual" && card.title && card.id) : [];
+    return Array.isArray(parsed.cards) ? parsed.cards.filter((card) => isValidProvenance(card.provenance) && card.title && card.id) : [];
   } catch {
     return [];
   }
