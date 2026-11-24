@@ -117,13 +117,15 @@ npm run seed-keys
 
 `package-lock.json` is unchanged, so do not run `npm ci`. Restart the existing process. `npm run upload-seed` refuses. The seven objects are already in the bucket. Do not upload them again and do not change a bucket ACL. Do not set `QBOT_OBJECT_ROOT` on the host.
 
-Signed reads still need `QBOT_OSS_ENDPOINT`, `QBOT_OSS_BUCKET`, `QBOT_OSS_ACCESS_KEY_ID`, and `QBOT_OSS_ACCESS_KEY_SECRET`. Leave those unset when the objects are already anonymously readable. For that host, set only:
+Signed reads/writes use `QBOT_OSS_ENDPOINT` and `QBOT_OSS_BUCKET`, authenticated either by an ECS instance RAM role (`QBOT_OSS_ECS_RAM_ROLE` + `QBOT_OSS_ECS_METADATA_ORIGIN`, preferred so no static key is stored on disk) or by a prefix-scoped static RAM key (`QBOT_OSS_ACCESS_KEY_ID` + `QBOT_OSS_ACCESS_KEY_SECRET`). For read-only public card serving without any write credential, set only:
 
 ```
 QBOT_FEED_OPEN=1
 QBOT_OSS_PUBLIC=1
 QBOT_OSS_PUBLIC_ORIGIN=https://<the https host that already answers anonymous GET for qbot/cards/>
 ```
+
+To keep anonymous public reads on `QBOT_OSS_PUBLIC_ORIGIN` while enabling authorized writes (`POST /v1/cards`), combine `QBOT_OSS_PUBLIC=1` + `QBOT_OSS_PUBLIC_ORIGIN` with a complete ECS RAM role (or static RAM key) + `QBOT_OSS_ENDPOINT` + `QBOT_OSS_BUCKET`. Both read and write paths remain locked under `qbot/cards/`, send no `x-oss-object-acl`, and do not change bucket ACLs.
 
 `QBOT_OSS_PUBLIC` must be exactly `1`. The origin is https, with no user, path, query, or IP address. Do not commit that origin. This mode reads only `qbot/cards/<artifact id>/v<version>/<file>` and only after the card is public on a public bot and the file is in that artifact version. It sends no `Authorization` header and does not follow a redirect. A missing flag, a partial key, or any other prefix leaves object reads closed. The phone still loads `/v1/artifacts/.../files/...` with the short-lived token so the response can set the MIME type and CSP. The raw object response forces a download, so the WebView must not open it directly. The token does not make those objects private. `QBOT_PERSONAL_OPEN` is unchanged and does not open the feed.
 

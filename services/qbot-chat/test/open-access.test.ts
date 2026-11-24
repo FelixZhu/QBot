@@ -6,7 +6,7 @@ import path from "node:path";
 import { test } from "node:test";
 import type pg from "pg";
 import { loadConfig } from "../src/config.ts";
-import { createLocalObjectStore, type ObjectStore } from "../src/feed/objects.ts";
+import { createLocalObjectStore, createObjectStore, type ObjectStore } from "../src/feed/objects.ts";
 import { startChatServer, type ChatStore } from "../src/server.ts";
 import type { ConversationEngine } from "../src/runtime/dsh.ts";
 
@@ -385,7 +385,68 @@ test("POST /v1/cards open-mode isolation, DELETE bearer enforcement, and readonl
     await readonlyServer.close();
   }
 
-  // 3. QBOT_FEED_OPEN=0 -> unauthenticated POST and DELETE rejected with 401
+  // 3. QBOT_FEED_OPEN=1 + coexisting QBOT_OSS_PUBLIC=1 (public read) + ECS RAM role STS (authorized write)
+  const stsPuts: { url: string; sts: string | null; acl: string | null }[] = [];
+  const hybridConfig = baseEnv({
+    QBOT_FEED_OPEN: "1",
+    QBOT_OSS_PUBLIC: "1",
+    QBOT_OSS_PUBLIC_ORIGIN: "https://cards.example.invalid",
+    QBOT_OSS_ENDPOINT: "https://oss.example.invalid",
+    QBOT_OSS_BUCKET: "cards",
+    QBOT_OSS_ECS_RAM_ROLE: "qbot-cards-writer",
+    QBOT_OSS_ECS_METADATA_ORIGIN: "http://127.0.0.1:18080",
+  });
+  const hybridObjects = createObjectStore(
+    { objectRoot: hybridConfig.objectRoot, publicOss: hybridConfig.publicOss, oss: hybridConfig.oss },
+    async (input, init) => {
+      const url = String(input);
+      const headers = new Headers(init?.headers);
+      if (url === "http://127.0.0.1:18080/latest/api/token") {
+        return new Response("imds-token", { status: 200 });
+      }
+      if (url === "http://127.0.0.1:18080/latest/meta-data/ram/security-credentials/qbot-cards-writer") {
+        return new Response(JSON.stringify({
+          Code: "Success",
+          AccessKeyId: "STS.hybrid-id",
+          AccessKeySecret: "hybrid-secret",
+          SecurityToken: "hybrid-sts-token",
+          Expiration: new Date(Date.now() + 60 * 60_000).toISOString(),
+        }), { status: 200 });
+      }
+      if (init?.method === "PUT") {
+        stsPuts.push({
+          url,
+          sts: headers.get("x-oss-security-token"),
+          acl: headers.get("x-oss-object-acl"),
+        });
+        return new Response(null, { status: 200 });
+      }
+      return new Response(HTML, { status: 200 });
+    },
+  );
+  const hybridServer = await startChatServer({
+    config: hybridConfig,
+    store: createMemoryChatStore(),
+    runtime: stubRuntime(),
+    pool: fake.pool,
+    objects: hybridObjects,
+  });
+  try {
+    const res = await fetch(`http://127.0.0.1:${hybridServer.port}/v1/cards`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: cardBody({ title: "ECS STS 公开写入卡" }),
+    });
+    assert.equal(res.status, 201);
+    const created = await res.json() as { artifactId: string };
+    assert.equal(stsPuts.length, 2);
+    assert.equal(stsPuts.every((put) => put.url.startsWith(`https://cards.oss.example.invalid/qbot/cards/${created.artifactId}/v1/`)), true);
+    assert.equal(stsPuts.every((put) => put.sts === "hybrid-sts-token" && put.acl === null), true);
+  } finally {
+    await hybridServer.close();
+  }
+
+  // 4. QBOT_FEED_OPEN=0 -> unauthenticated POST and DELETE rejected with 401
   const closedFeedServer = await startChatServer({
     config: baseEnv({ QBOT_PERSONAL_OPEN: "1", QBOT_OBJECT_ROOT: root }),
     store: createMemoryChatStore(),

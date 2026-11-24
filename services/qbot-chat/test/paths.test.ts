@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHmac } from "node:crypto";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -6,11 +7,15 @@ import { test } from "node:test";
 import { loadConfig } from "../src/config.ts";
 import {
   authorizeOss,
+  createEcsRamRoleCredentialProvider,
   createLocalObjectStore,
+  createObjectStore,
   createOssObjectStore,
   createPublicOssObjectStore,
   normalizePrefix,
   objectKey,
+  parseEcsMetadataOrigin,
+  parseEcsRamRole,
   parseOssEndpoint,
   validateOssBucket,
 } from "../src/feed/objects.ts";
@@ -180,16 +185,14 @@ test("OSS prefix, bucket, endpoint, and signed store lock all reads and writes u
   assert.throws(() => createOssObjectStore({
     bucket: "cards",
     endpointHost: "oss.example.invalid",
-    accessKeyId: "test-ak",
-    accessKeySecret: "test-sk",
     keyPrefix: "qbot/private/",
+    auth: { kind: "static", accessKeyId: "test-ak", accessKeySecret: "test-sk" },
   }), /qbot\/cards\//);
   assert.throws(() => createOssObjectStore({
     bucket: "cards",
     endpointHost: "127.0.0.1",
-    accessKeyId: "test-ak",
-    accessKeySecret: "test-sk",
     keyPrefix: "qbot/cards/",
+    auth: { kind: "static", accessKeyId: "test-ak", accessKeySecret: "test-sk" },
   }), /QBOT_OSS_ENDPOINT/);
 
   const calls: { method: string; url: string; headers: Headers; redirect?: RequestRedirect }[] = [];
@@ -204,6 +207,7 @@ test("OSS prefix, bucket, endpoint, and signed store lock all reads and writes u
     return new Response(Buffer.from("oss-card-bytes"), { status: 200 });
   };
   const cfg = loadConfig(ossEnv).oss!;
+  assert.equal(cfg.auth.kind, "static");
   const ossStore = createOssObjectStore(cfg, fetchImpl);
   assert.equal(await ossStore.write!(artifact, 1, "index.html", Buffer.from("<main>ok</main>"), "text/html; charset=utf-8"), true);
   assert.equal((await ossStore.read(artifact, 1, "index.html"))?.toString(), "oss-card-bytes");
@@ -211,8 +215,9 @@ test("OSS prefix, bucket, endpoint, and signed store lock all reads and writes u
   assert.equal(calls[0]?.method, "PUT");
   assert.equal(calls[0]?.url, `https://cards.oss.example.invalid/qbot/cards/${artifact}/v1/index.html`);
   assert.equal(calls[0]?.headers.get("x-oss-object-acl"), null);
+  assert.equal(calls[0]?.headers.get("x-oss-security-token"), null);
   assert.equal(calls[0]?.redirect, "manual");
-  assert.equal(calls[0]?.url.includes(cfg.accessKeySecret), false);
+  assert.equal(calls[0]?.url.includes("test-secret-value"), false);
   assert.equal(calls[1]?.method, "GET");
   assert.equal(calls[1]?.url, `https://cards.oss.example.invalid/qbot/cards/${artifact}/v1/index.html`);
   assert.equal(calls[1]?.redirect, "manual");
@@ -224,4 +229,194 @@ test("OSS prefix, bucket, endpoint, and signed store lock all reads and writes u
   assert.equal(await ossStore.write!(artifact, 1, "index.html", Buffer.from("x"), "text/html\r\nx-oss-object-acl: public-read"), false);
   assert.equal(await ossStore.read(artifact, 1, "../secret.txt"), null);
   assert.equal(calls.length, 2);
+});
+
+test("ECS RAM role STS signing, auto-refresh, 403 retry, and public-read + authorized-write coexistence", async () => {
+  const artifact = "00000000-0000-4000-8000-0000000000d1";
+  const key = `qbot/cards/${artifact}/v1/index.html`;
+  const stsDate = "Sat, 21 Nov 2026 08:44:00 GMT";
+  const stsSigned = authorizeOss({
+    method: "PUT",
+    bucket: "cards",
+    key,
+    endpointHost: "oss.example.invalid",
+    accessKeyId: "STS.fixture-id",
+    accessKeySecret: "fixture-sts-secret",
+    securityToken: "fixture-sts-token",
+    date: stsDate,
+    contentType: "text/html; charset=utf-8",
+  });
+  const expectedSig = createHmac("sha1", "fixture-sts-secret")
+    .update(`PUT\n\ntext/html; charset=utf-8\n${stsDate}\nx-oss-security-token:fixture-sts-token\n/cards/${key}`)
+    .digest("base64");
+  assert.equal(stsSigned.headers.Authorization, `OSS STS.fixture-id:${expectedSig}`);
+  assert.equal(stsSigned.headers["x-oss-security-token"], "fixture-sts-token");
+  assert.equal(stsSigned.headers["x-oss-object-acl"], undefined);
+  assert.equal(stsSigned.url.includes("fixture-sts-secret"), false);
+  assert.equal(stsSigned.url.includes("fixture-sts-token"), false);
+
+  assert.equal(parseEcsRamRole("qbot-cards-writer"), "qbot-cards-writer");
+  for (const badRole of ["", ".", "..", "a/b", "role name", "role?x=1"]) {
+    assert.throws(() => parseEcsRamRole(badRole), /QBOT_OSS_ECS_RAM_ROLE/, badRole);
+  }
+  assert.equal(parseEcsMetadataOrigin("http://127.0.0.1:18080"), "http://127.0.0.1:18080");
+  assert.equal(parseEcsMetadataOrigin("http://localhost:18080/"), "http://localhost:18080");
+  for (const badMeta of ["https://127.0.0.1", "http://10.0.2.2", "http://example.invalid", "http://127.0.0.1/latest"]) {
+    assert.throws(() => parseEcsMetadataOrigin(badMeta), /QBOT_OSS_ECS_METADATA_ORIGIN/, badMeta);
+  }
+
+  // Config validation: ECS RAM role standalone & coexisting with QBOT_OSS_PUBLIC=1
+  const roleEnv = {
+    ...base,
+    QBOT_OSS_ENDPOINT: "https://oss.example.invalid",
+    QBOT_OSS_BUCKET: "cards",
+    QBOT_OSS_ECS_RAM_ROLE: "qbot-cards-writer",
+    QBOT_OSS_ECS_METADATA_ORIGIN: "http://127.0.0.1:18080",
+  };
+  const roleOnly = loadConfig(roleEnv);
+  assert.equal(roleOnly.publicOss, null);
+  assert.deepEqual(roleOnly.oss?.auth, {
+    kind: "ecs-ram-role",
+    roleName: "qbot-cards-writer",
+    metadataOrigin: "http://127.0.0.1:18080",
+  });
+  assert.throws(() => loadConfig({ ...roleEnv, QBOT_OSS_ACCESS_KEY_ID: "static-id" }), /cannot combine/);
+  assert.throws(() => loadConfig({ ...base, QBOT_OSS_BUCKET: "cards", QBOT_OSS_ENDPOINT: "oss.example.invalid", QBOT_OSS_ECS_RAM_ROLE: "qbot-cards-writer" }), /together/);
+
+  const hybridCfg = loadConfig({
+    ...roleEnv,
+    QBOT_OSS_PUBLIC: "1",
+    QBOT_OSS_PUBLIC_ORIGIN: "https://cards-cdn.example.invalid",
+  });
+  assert.equal(hybridCfg.publicOss?.origin, "https://cards-cdn.example.invalid");
+  assert.equal(hybridCfg.oss?.auth.kind, "ecs-ram-role");
+  const hybridStaticCfg = loadConfig({
+    ...base,
+    QBOT_OSS_PUBLIC: "1",
+    QBOT_OSS_PUBLIC_ORIGIN: "https://cards-cdn.example.invalid",
+    QBOT_OSS_ENDPOINT: "https://oss.example.invalid",
+    QBOT_OSS_BUCKET: "cards",
+    QBOT_OSS_ACCESS_KEY_ID: "static-prefix-id",
+    QBOT_OSS_ACCESS_KEY_SECRET: "static-prefix-secret",
+  });
+  assert.equal(hybridStaticCfg.publicOss?.origin, "https://cards-cdn.example.invalid");
+  assert.equal(hybridStaticCfg.oss?.auth.kind, "static");
+  assert.throws(() => loadConfig({
+    ...roleEnv,
+    QBOT_OSS_PUBLIC: "1",
+    QBOT_OSS_PUBLIC_ORIGIN: "https://cards-cdn.example.invalid",
+    QBOT_OSS_KEY_PREFIX: "qbot/cards/sub/",
+  }), /qbot\/cards/);
+
+  // Provider caching, early refresh, concurrency dedup, and IMDSv1 fallback
+  let nowMs = Date.parse("2026-11-24T00:00:00.000Z");
+  let tokenFetches = 0;
+  let credFetches = 0;
+  const imdsFetch: typeof fetch = async (input, init) => {
+    const url = String(input);
+    const headers = new Headers(init?.headers);
+    if (url.endsWith("/latest/api/token")) {
+      tokenFetches += 1;
+      return new Response(`imds-tok-${tokenFetches}`, { status: 200 });
+    }
+    if (url.endsWith("/latest/meta-data/ram/security-credentials/qbot-cards-writer")) {
+      assert.equal(headers.get("x-aliyun-ecs-metadata-token"), `imds-tok-${tokenFetches}`);
+      credFetches += 1;
+      return new Response(JSON.stringify({
+        Code: "Success",
+        AccessKeyId: `STS.id-${credFetches}`,
+        AccessKeySecret: `secret-${credFetches}`,
+        SecurityToken: `token-${credFetches}`,
+        Expiration: new Date(nowMs + 10 * 60_000).toISOString(),
+      }), { status: 200 });
+    }
+    return new Response(null, { status: 404 });
+  };
+  const provider = createEcsRamRoleCredentialProvider(
+    { roleName: "qbot-cards-writer", metadataOrigin: "http://127.0.0.1:18080" },
+    { fetchImpl: imdsFetch, now: () => nowMs, refreshMarginMs: 2 * 60_000 },
+  );
+  const [c1, c2] = await Promise.all([provider.get(), provider.get()]);
+  assert.equal(c1?.accessKeyId, "STS.id-1");
+  assert.equal(c2?.accessKeyId, "STS.id-1");
+  assert.equal(credFetches, 1);
+  nowMs += 5 * 60_000;
+  assert.equal((await provider.get())?.accessKeyId, "STS.id-1");
+  assert.equal(credFetches, 1);
+  nowMs += 4 * 60_000;
+  assert.equal((await provider.get())?.accessKeyId, "STS.id-2");
+  assert.equal(credFetches, 2);
+
+  // IMDSv1 fallback when /latest/api/token returns 404
+  let v1Calls = 0;
+  const v1Provider = createEcsRamRoleCredentialProvider(
+    { roleName: "qbot-cards-writer", metadataOrigin: "http://127.0.0.1:18080" },
+    {
+      fetchImpl: async (input) => {
+        const url = String(input);
+        if (url.endsWith("/latest/api/token")) return new Response(null, { status: 404 });
+        v1Calls += 1;
+        return new Response(JSON.stringify({
+          Code: "Success",
+          AccessKeyId: "STS.v1",
+          AccessKeySecret: "secret-v1",
+          SecurityToken: "token-v1",
+          Expiration: new Date(nowMs + 10 * 60_000).toISOString(),
+        }), { status: 200 });
+      },
+      now: () => nowMs,
+    },
+  );
+  assert.equal((await v1Provider.get())?.accessKeyId, "STS.v1");
+  assert.equal(v1Calls, 1);
+
+  // Hybrid store: anonymous GET via QBOT_OSS_PUBLIC_ORIGIN + ECS STS PUT with 403 refresh retry
+  let stsRound = 0;
+  const hybridLog: { method: string; url: string; auth: string | null; sts: string | null; acl: string | null }[] = [];
+  const hybridStore = createObjectStore(
+    { objectRoot: null, publicOss: hybridCfg.publicOss, oss: hybridCfg.oss },
+    async (input, init) => {
+      const url = String(input);
+      const headers = new Headers(init?.headers);
+      if (url.startsWith("http://127.0.0.1:18080/latest/api/token")) {
+        return new Response("imds-v2-tok", { status: 200 });
+      }
+      if (url.startsWith("http://127.0.0.1:18080/latest/meta-data/ram/security-credentials/")) {
+        stsRound += 1;
+        return new Response(JSON.stringify({
+          Code: "Success",
+          AccessKeyId: `STS.round-${stsRound}`,
+          AccessKeySecret: `sec-${stsRound}`,
+          SecurityToken: `tok-${stsRound}`,
+          Expiration: new Date(Date.now() + 60 * 60_000).toISOString(),
+        }), { status: 200 });
+      }
+      hybridLog.push({
+        method: init?.method ?? "GET",
+        url,
+        auth: headers.get("authorization"),
+        sts: headers.get("x-oss-security-token"),
+        acl: headers.get("x-oss-object-acl"),
+      });
+      if (init?.method === "PUT") {
+        // First PUT gets 403 to prove STS refresh retry; second PUT succeeds
+        if (headers.get("x-oss-security-token") === "tok-1") return new Response(null, { status: 403 });
+        return new Response(null, { status: 200 });
+      }
+      return new Response(Buffer.from("public-read-body"), { status: 200 });
+    },
+  );
+  assert.equal(await hybridStore.write!(artifact, 1, "index.html", Buffer.from("<main>hi</main>"), "text/html; charset=utf-8"), true);
+  assert.equal((await hybridStore.read(artifact, 1, "index.html"))?.toString(), "public-read-body");
+  assert.equal(hybridLog.length, 3);
+  assert.equal(hybridLog[0]?.method, "PUT");
+  assert.equal(hybridLog[0]?.sts, "tok-1");
+  assert.equal(hybridLog[0]?.acl, null);
+  assert.equal(hybridLog[1]?.method, "PUT");
+  assert.equal(hybridLog[1]?.sts, "tok-2");
+  assert.equal(hybridLog[1]?.url, `https://cards.oss.example.invalid/qbot/cards/${artifact}/v1/index.html`);
+  assert.equal(hybridLog[2]?.method, "GET");
+  assert.equal(hybridLog[2]?.url, `https://cards-cdn.example.invalid/qbot/cards/${artifact}/v1/index.html`);
+  assert.equal(hybridLog[2]?.auth, null);
+  assert.equal(hybridLog[2]?.sts, null);
 });
