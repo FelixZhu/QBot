@@ -84,8 +84,8 @@ async function dispatch(deps: FeedDeps, req: IncomingMessage, res: ServerRespons
     }
     return;
   }
-  if (req.method === "POST" && path === "/v1/cards" && mode === "bearer") {
-    await publishCardRoute(deps, req, res, ownerId);
+  if (req.method === "POST" && path === "/v1/cards") {
+    await publishCardRoute(deps, req, res, ownerId, mode);
     return;
   }
   const slug = BOT_SLUG.exec(path);
@@ -146,7 +146,7 @@ async function dispatch(deps: FeedDeps, req: IncomingMessage, res: ServerRespons
   throw new HttpError(404, "not_found", "没有这个接口");
 }
 
-async function publishCardRoute(deps: FeedDeps, req: IncomingMessage, res: ServerResponse, ownerId: string): Promise<void> {
+async function publishCardRoute(deps: FeedDeps, req: IncomingMessage, res: ServerResponse, ownerId: string, mode: AccessMode): Promise<void> {
   const objects = deps.objects;
   if (!objects?.write) {
     throw new HttpError(503, "storage_readonly", "当前对象存储不支持写入，请配置 QBOT_OBJECT_ROOT 或 OSS 写入凭证");
@@ -161,17 +161,27 @@ async function publishCardRoute(deps: FeedDeps, req: IncomingMessage, res: Serve
   if (!title || title.length > 120 || title.includes("\u0000")) {
     throw new HttpError(400, "bad_request", "标题不合法");
   }
+  if (body.botSlug !== undefined && typeof body.botSlug !== "string") {
+    throw new HttpError(400, "bad_request", "botSlug 不合法");
+  }
   const botSlug = typeof body.botSlug === "string" ? body.botSlug.trim() : "qbot";
   if (!/^[a-z0-9-]{1,40}$/.test(botSlug)) {
     throw new HttpError(400, "bad_request", "botSlug 不合法");
   }
-  const visibility = (body.visibility ?? "public") as CardVisibility;
-  if (visibility !== "public" && visibility !== "followers") {
+  const rawVisibility = body.visibility === undefined ? "public" : body.visibility;
+  if (mode === "open" && rawVisibility !== "public") {
+    throw new HttpError(404, "not_found", "没有这个接口");
+  }
+  if (rawVisibility !== "public" && rawVisibility !== "followers") {
     throw new HttpError(400, "bad_request", "visibility 不合法");
   }
+  const visibility: CardVisibility = rawVisibility;
   const provenance = (body.provenance ?? "manual") as CardProvenance;
   if (provenance !== "manual" && provenance !== "agent" && provenance !== "scheduled") {
     throw new HttpError(400, "bad_request", "provenance 不合法");
+  }
+  if (body.authoredAt !== undefined && typeof body.authoredAt !== "string") {
+    throw new HttpError(400, "bad_request", "authoredAt 不合法");
   }
   const authoredAtRaw = typeof body.authoredAt === "string" ? body.authoredAt : new Date().toISOString();
   const authoredTime = Date.parse(authoredAtRaw);
@@ -202,7 +212,7 @@ async function publishCardRoute(deps: FeedDeps, req: IncomingMessage, res: Serve
   }
 
   const feed = store(deps);
-  if (!(await feed.hasAgent(ownerId, botSlug))) {
+  if (!(await feed.hasAgent(ownerId, botSlug, mode))) {
     throw new HttpError(404, "not_found", "没有这个 bot");
   }
 
@@ -223,6 +233,7 @@ async function publishCardRoute(deps: FeedDeps, req: IncomingMessage, res: Serve
     authoredAt,
     manifestSha256: validated.manifestSha256,
     files: validated.files,
+    mode,
   });
   if (!created) throw new HttpError(404, "not_found", "没有这个 bot");
   sendJson(res, 201, created);

@@ -104,7 +104,7 @@ The phone build reads `EXPO_PUBLIC_QBOT_ORIGIN` at publish time. Leave it unset 
 
 ## Cards
 
-`QBOT_FEED_OPEN` stays off. Feed, follow, and card routes keep requiring `QBOT_ACCESS_TOKEN`. If that flag is later set, a request without a bearer can list, mint, and read only a public card on a public bot. Follow acts for the configured owner and only on a public bot. A private bot and a followers-only card stay unreachable. The flag does not skip the bearer on chat. These routes set no CORS header, and follow accepts only JSON.
+`QBOT_FEED_OPEN` stays off. Feed, follow, and card routes keep requiring `QBOT_ACCESS_TOKEN`. If that flag is later set, a request without a bearer can list, mint, read, and publish (`POST /v1/cards`) only a `public` card on a `public` bot, and follow or unfollow only a `public` bot for the configured owner. `DELETE /v1/cards/:id` always requires the bearer token (without it, `QBOT_FEED_OPEN=1` returns `404`). A private bot and a followers-only card stay unreachable without the bearer. When `QBOT_OSS_PUBLIC=1` is active (read-only), `POST /v1/cards` safely returns `503 storage_readonly`. Signed OSS mode locks `QBOT_OSS_KEY_PREFIX` under `qbot/cards/`. The flag does not skip the bearer on chat. These routes set no CORS header, and follow accepts only JSON.
 
 `authored_at` on the two cards is when the text was recorded, `2026-11-21T09:21:18Z`. `published_at` is the clock of the first successful seed and is not rewritten later. The seed does not delete conversations. A second run does not publish them again, and it does not follow Qbot again after an unfollow.
 
@@ -117,13 +117,15 @@ npm run seed-keys
 
 `package-lock.json` is unchanged, so do not run `npm ci`. Restart the existing process. `npm run upload-seed` refuses. The seven objects are already in the bucket. Do not upload them again and do not change a bucket ACL. Do not set `QBOT_OBJECT_ROOT` on the host.
 
-Signed reads still need `QBOT_OSS_ENDPOINT`, `QBOT_OSS_BUCKET`, `QBOT_OSS_ACCESS_KEY_ID`, and `QBOT_OSS_ACCESS_KEY_SECRET`. Leave those unset when the objects are already anonymously readable. For that host, set only:
+Signed reads/writes use `QBOT_OSS_ENDPOINT` and `QBOT_OSS_BUCKET`, authenticated either by an ECS instance RAM role (`QBOT_OSS_ECS_RAM_ROLE` + `QBOT_OSS_ECS_METADATA_ORIGIN`, preferred so no static key is stored on disk) or by a prefix-scoped static RAM key (`QBOT_OSS_ACCESS_KEY_ID` + `QBOT_OSS_ACCESS_KEY_SECRET`). For read-only public card serving without any write credential, set only:
 
 ```
 QBOT_FEED_OPEN=1
 QBOT_OSS_PUBLIC=1
 QBOT_OSS_PUBLIC_ORIGIN=https://<the https host that already answers anonymous GET for qbot/cards/>
 ```
+
+To keep anonymous public reads on `QBOT_OSS_PUBLIC_ORIGIN` while enabling authorized writes (`POST /v1/cards`), combine `QBOT_OSS_PUBLIC=1` + `QBOT_OSS_PUBLIC_ORIGIN` with a complete ECS RAM role (or static RAM key) + `QBOT_OSS_ENDPOINT` + `QBOT_OSS_BUCKET`. Both read and write paths remain locked under `qbot/cards/`, send no `x-oss-object-acl`, and do not change bucket ACLs.
 
 `QBOT_OSS_PUBLIC` must be exactly `1`. The origin is https, with no user, path, query, or IP address. Do not commit that origin. This mode reads only `qbot/cards/<artifact id>/v<version>/<file>` and only after the card is public on a public bot and the file is in that artifact version. It sends no `Authorization` header and does not follow a redirect. A missing flag, a partial key, or any other prefix leaves object reads closed. The phone still loads `/v1/artifacts/.../files/...` with the short-lived token so the response can set the MIME type and CSP. The raw object response forces a download, so the WebView must not open it directly. The token does not make those objects private. `QBOT_PERSONAL_OPEN` is unchanged and does not open the feed.
 

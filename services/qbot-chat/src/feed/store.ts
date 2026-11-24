@@ -44,6 +44,7 @@ export type PublishCardInput = {
   authoredAt: string;
   manifestSha256: string;
   files: { path: string; sha256: string; byteLength: number; contentType: string; role: FeedFile["role"] }[];
+  mode?: AccessMode;
 };
 
 export type BotProfile = {
@@ -127,7 +128,7 @@ export type FeedStore = {
   list(ownerId: string, scope: FeedScope, limit: number, cursor: string | null, mode: AccessMode): Promise<{ cards: FeedCard[]; next: string | null }>;
   bot(ownerId: string, agentId: string): Promise<BotProfile | null>;
   botBySlug(ownerId: string, slug: string): Promise<BotProfile | null>;
-  hasAgent(ownerId: string, slug: string): Promise<boolean>;
+  hasAgent(ownerId: string, slug: string, mode?: AccessMode): Promise<boolean>;
   follow(ownerId: string, agentId: string): Promise<boolean>;
   unfollow(ownerId: string, agentId: string): Promise<boolean>;
   card(ownerId: string, cardId: string, mode: AccessMode): Promise<CardDetail | null>;
@@ -167,8 +168,11 @@ export function createFeedStore(pool: pg.Pool): FeedStore {
     async botBySlug(ownerId, slug) {
       return oneBot(pool, ownerId, "slug", slug);
     },
-    async hasAgent(ownerId, slug) {
-      const result = await pool.query("SELECT 1 FROM agents WHERE owner_id = $1 AND slug = $2", [ownerId, slug]);
+    async hasAgent(ownerId, slug, mode = "bearer") {
+      const sql = mode === "open"
+        ? "SELECT 1 FROM agents WHERE owner_id = $1 AND slug = $2 AND visibility = 'public'"
+        : "SELECT 1 FROM agents WHERE owner_id = $1 AND slug = $2";
+      const result = await pool.query(sql, [ownerId, slug]);
       return result.rowCount === 1;
     },
     async follow(ownerId, agentId) {
@@ -194,11 +198,15 @@ export function createFeedStore(pool: pg.Pool): FeedStore {
       return { ...toCard(row), files };
     },
     async publishCard(input) {
+      const mode = input.mode ?? "bearer";
+      if (mode === "open" && input.visibility !== "public") return null;
       const cardId = input.cardId ?? randomUUID();
       const version = input.version ?? 1;
       const inserted = await transaction(pool, async (query) => {
         const agent = await query<{ id: string }>(
-          `SELECT id FROM agents WHERE owner_id = $1 AND slug = $2`,
+          mode === "open"
+            ? `SELECT id FROM agents WHERE owner_id = $1 AND slug = $2 AND visibility = 'public'`
+            : `SELECT id FROM agents WHERE owner_id = $1 AND slug = $2`,
           [input.ownerId, input.botSlug],
         );
         const agentId = agent.rows[0]?.id;
@@ -224,7 +232,7 @@ export function createFeedStore(pool: pg.Pool): FeedStore {
         return true;
       });
       if (!inserted) return null;
-      return this.card(input.ownerId, cardId, "bearer");
+      return this.card(input.ownerId, cardId, mode);
     },
     async deleteCard(ownerId, cardId) {
       return transaction(pool, async (query) => {
