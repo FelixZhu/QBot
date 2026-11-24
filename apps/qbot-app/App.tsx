@@ -31,8 +31,8 @@ import { chatChrome, isSplit, listPaneWidth, palette, resolveScheme } from "./sr
 import { createFeedClient } from "./src/feed/feedClient";
 import { CardFeed } from "./src/feed/CardFeed";
 import type { StatusIcons } from "./src/feed/immersive";
+import { LibraryPane } from "./src/LibraryPane";
 import { pullUpdate } from "./src/updates";
-import { WebPane, type WebPaneHandle } from "./src/WebPane";
 import * as Updates from "expo-updates";
 
 type Tab = "chat" | "feed" | "kb";
@@ -47,8 +47,8 @@ function Shell() {
   const scheme = resolveScheme(useColorScheme());
   const colors = palette[scheme];
   const dark = scheme === "dark";
-  const webRef = useRef<WebPaneHandle>(null);
   const feedBack = useRef<() => boolean>(() => false);
+  const kbBack = useRef<() => boolean>(() => false);
   const lastExit = useRef(0);
   const [tab, setTab] = useState<Tab>("feed");
   const [todayUnread] = useState(false);
@@ -76,8 +76,6 @@ function Shell() {
         : { phase: "checking" }
   ), [boot.initialThreadId, boot.message, boot.phase, boot.session, origin, serverClient, token]);
   const [keyboard, setKeyboard] = useState(false);
-  const [webReady, setWebReady] = useState(false);
-  const [libraryReady, setLibraryReady] = useState(false);
   const [coverTabs, setCoverTabs] = useState(false);
   const [feedStatus, setFeedStatus] = useState<StatusIcons | null>(null);
   const tabOpacity = useRef(new Animated.Value(1)).current;
@@ -134,11 +132,6 @@ function Shell() {
   }, []);
 
   useEffect(() => {
-    const timer = setTimeout(() => setWebReady(true), 400);
-    return () => clearTimeout(timer);
-  }, []);
-
-  useEffect(() => {
     const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
     const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
     const show = Keyboard.addListener(showEvent, () => setKeyboard(true));
@@ -148,10 +141,6 @@ function Shell() {
       hide.remove();
     };
   }, []);
-
-  useEffect(() => {
-    webRef.current?.setTheme(dark);
-  }, [dark]);
 
   useEffect(() => {
     Animated.timing(tabOpacity, { toValue: coverTabs ? 0 : 1, duration: 300, useNativeDriver: true }).start();
@@ -168,14 +157,6 @@ function Shell() {
     if (Platform.OS === "android") ToastAndroid.show("再滑一次退出", ToastAndroid.SHORT);
   }, []);
 
-  const onBackResult = useCallback((handled: boolean) => {
-    if (handled) {
-      lastExit.current = 0;
-      return;
-    }
-    exitOrHint();
-  }, [exitOrHint]);
-
   useEffect(() => {
     if (Platform.OS !== "android") return;
     const sub = BackHandler.addEventListener("hardwareBackPress", () => {
@@ -184,10 +165,7 @@ function Shell() {
         return true;
       }
       if (tab === "feed" && feedBack.current()) return true;
-      if (tab === "kb") {
-        webRef.current?.back();
-        return true;
-      }
+      if (tab === "kb" && kbBack.current()) return true;
       exitOrHint();
       return true;
     });
@@ -195,10 +173,7 @@ function Shell() {
   }, [tab, thread, exitOrHint]);
 
   const openKb = () => {
-    console.log(`QBOT_TIMING kb-tap ${libraryReady ? "warm" : "cold"}`);
-    setWebReady(true);
     setTab("kb");
-    webRef.current?.show("kb");
   };
 
   const handleSaveToken = useCallback(async (rawToken: string) => {
@@ -289,18 +264,20 @@ function Shell() {
           </View>
         ) : null}
         </ChatRuntime>
-        {webReady ? (
-          <WebPane
-            ref={webRef}
-            visible={tab === "kb"}
-            tab="kb"
-            dark={dark}
-            backgroundColor={colors.canvas}
-            onBackResult={onBackResult}
-            onReady={() => setLibraryReady(true)}
+        <View
+          pointerEvents={tab === "kb" ? "auto" : "none"}
+          style={tab === "kb" ? { flex: 1 } : { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, opacity: 0, zIndex: -1 }}
+        >
+          <LibraryPane
+            active={tab === "kb"}
+            colors={colors}
+            scheme={scheme}
+            split={split}
+            listWidth={listWidth}
+            onBackReady={(back) => { kbBack.current = back; }}
             onExternal={(url) => { Linking.openURL(url).catch(() => {}); }}
           />
-        ) : null}
+        </View>
       </View>
       <TokenModal
         visible={tokenModalOpen}
@@ -337,10 +314,8 @@ function Shell() {
                   accessibilityState={{ selected: current }}
                   accessibilityLabel={label}
                   onPress={() => {
-                    if (id === "chat") {
-                      webRef.current?.park();
-                      setTab("chat");
-                    } else if (id === "feed") setTab("feed");
+                    if (id === "chat") setTab("chat");
+                    else if (id === "feed") setTab("feed");
                     else openKb();
                   }}
                   style={{ flex: 1, alignItems: "center", justifyContent: "flex-start", paddingTop: 8 }}

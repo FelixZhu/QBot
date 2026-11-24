@@ -4,7 +4,7 @@ Qian 自己用的个人 AI 助手原型。当前主架构已演进为 **React Na
 
 - **今日（首页）**：原生卡片流（`CardFeed`），从 `services/qbot-chat` 读取卡片与封面，点开进入隔离 WebView 作品页（支持 `POST /v1/cards` 动态发卡与 `cover-light.png` / `cover-dark.png` 深浅色双封面）。
 - **对话**：原生对话界面（`LiveChat` + `@assistant-ui/react-native`），接入 `services/qbot-chat` SSE 流与会话持久化；支持本机 Keystore/Keychain 加密保存个人访问口令（关闭 `QBOT_PERSONAL_OPEN` / `QBOT_FEED_OPEN` 后遇 `401` 按需输入）。
-- **知识库**：仍通过 `WebPane` 内嵌托管在 GitHub Pages（[https://felixzhu.github.io/QBot/](https://felixzhu.github.io/QBot/)）的旧静态库页面。
+- **知识库**：原生列表与搜索（`LibraryPane`），按需拉取 [index.json](https://felixzhu.github.io/QBot/index.json)，支持目录/分类筛选、Markdown/文本原生预览与安全打开外部文件，不再启动后台常驻 WebView。
 
 源码仓库是 [FelixZhu/QBot](https://github.com/FelixZhu/QBot)。`FelixZhu/qian-drive` 已由 Qian 手动删除，当前构建不再向它取文件。
 

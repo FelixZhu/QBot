@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { filterDemos, localReply } from "./demos.ts";
-import { ASK_BACK, hostEmbedCss, showWebTab, themeBoot, themeUpdate } from "./embed.ts";
 import { gutterColor, isSplit, listPaneWidth, phoneFrame, resolveScheme } from "./theme.ts";
 
 test("system theme defaults to light unless the scheme is dark", () => {
@@ -36,11 +35,6 @@ test("wide panes share one 38% width, clamped to 320–400", () => {
   assert.equal(gutterColor("#0B0B0F"), "#20202c");
   assert.notEqual(gutterColor("#0B0B0F"), gutterColor("#FFFFFF"));
   assert.equal(gutterColor("nope"), "#262626");
-  const css = hostEmbedCss();
-  assert.match(css, /clamp\(320px,38%,400px\)/);
-  assert.match(css, /min-width:600px/);
-  assert.match(css, /\.kb-pane\{/);
-  assert.match(showWebTab("kb"), /clamp\(320px,38%,400px\)/);
   const app = readFileSync(new URL("../App.tsx", import.meta.url), "utf8");
   const chat = readFileSync(new URL("./ChatPane.tsx", import.meta.url), "utf8");
   assert.match(app, /listPaneWidth\(width\)/);
@@ -59,21 +53,4 @@ test("demo replies stay local and labeled", () => {
   assert.match(localReply("study", "差别"), /概念示例/);
   assert.equal(filterDemos("english").length, 1);
   assert.equal(filterDemos("").length, 3);
-});
-
-test("host theme boot paints light explicitly", () => {
-  const light = themeBoot(false);
-  assert.match(light, /__QBOT_HOST_DARK = false/);
-  assert.match(light, /color-scheme/);
-  assert.match(light, /prefers-color-scheme/);
-  assert.match(themeUpdate(true), /__QBOT_HOST_DARK = true/);
-  assert.match(themeUpdate(true), /QbotShellTheme\.apply/);
-});
-
-test("embedded web tab hides the page tab bar and does not keep a foreign tab switch", () => {
-  const feed = showWebTab("feed");
-  assert.match(feed, /#qbsNav\{display:none/);
-  assert.match(feed, /qbotTab\("feed"\)/);
-  assert.match(feed, /before !== after/);
-  assert.match(ASK_BACK, /type: "back"/);
 });
