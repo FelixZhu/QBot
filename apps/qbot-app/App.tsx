@@ -16,7 +16,10 @@ import { StatusBar } from "expo-status-bar";
 import { setBackgroundColorAsync } from "expo-system-ui";
 import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context";
 import { ChatEmpty, ConversationList } from "./src/ChatPane";
+import { clearSavedToken, isUnauthorizedMessage, loadSavedToken, verifyAndSaveToken } from "./src/chat/accessToken";
+import { deviceSecretStorage } from "./src/chat/deviceSecret";
 import { LiveChat } from "./src/chat/LiveChat";
+import { TokenModal } from "./src/chat/TokenModal";
 import { liveBadge } from "./src/chat/connectionCopy";
 import { ChatRuntime, useChatBoot } from "./src/chat/useChatRuntime";
 import { configuredOrigin } from "./src/chat/serverEndpoint";
@@ -49,16 +52,20 @@ function Shell() {
   const [tab, setTab] = useState<Tab>("feed");
   const [todayUnread] = useState(false);
   const [follow, setFollow] = useState<"loading" | "on" | "off" | "error">("loading");
+  const [token, setToken] = useState("");
+  const [tokenReady, setTokenReady] = useState(false);
+  const [tokenModalOpen, setTokenModalOpen] = useState(false);
+  const [authVersion, setAuthVersion] = useState(0);
   const origin = configuredOrigin();
   const [thread, setThread] = useState(false);
-  const boot = useChatBoot();
-  const serverClient = useMemo(() => createServerClient({ origin: origin ?? "" }), [origin]);
+  const boot = useChatBoot({ token, tokenReady, retryKey: authVersion });
+  const serverClient = useMemo(() => createServerClient({ origin: origin ?? "", token: token || undefined }), [origin, token]);
   const connectionView = useMemo<ConnectionView>(() => (
     boot.phase === "ready"
       ? {
         phase: "ready",
         origin: origin ?? "",
-        token: "",
+        token,
         session: boot.session ?? { ownerId: "", agentId: "", model: "", upstream: "openrouter" },
         conversationId: boot.initialThreadId ?? "",
         client: serverClient,
@@ -66,7 +73,7 @@ function Shell() {
       : boot.phase === "error"
         ? { phase: "error", message: boot.message ?? "无法连接服务器" }
         : { phase: "checking" }
-  ), [boot.initialThreadId, boot.message, boot.phase, boot.session, origin, serverClient]);
+  ), [boot.initialThreadId, boot.message, boot.phase, boot.session, origin, serverClient, token]);
   const [keyboard, setKeyboard] = useState(false);
   const [webReady, setWebReady] = useState(false);
   const [libraryReady, setLibraryReady] = useState(false);
@@ -81,16 +88,27 @@ function Shell() {
   const screenChrome = chatChrome(scheme);
 
   useEffect(() => {
+    let alive = true;
+    void loadSavedToken(deviceSecretStorage).then((saved) => {
+      if (!alive) return;
+      setToken(saved);
+      setTokenReady(true);
+    });
+    return () => { alive = false; };
+  }, []);
+
+  useEffect(() => {
+    if (!tokenReady) return;
     if (!origin) {
       setFollow("error");
       return;
     }
     let alive = true;
-    createFeedClient({ origin }).botBySlug("qbot").then((bot) => {
+    createFeedClient({ origin, token: token || undefined }).botBySlug("qbot").then((bot) => {
       if (alive) setFollow(bot.followed ? "on" : "off");
     }).catch(() => { if (alive) setFollow("error"); });
     return () => { alive = false; };
-  }, [origin]);
+  }, [authVersion, origin, token, tokenReady]);
 
   useEffect(() => {
     if (follow === "off") setThread(false);
@@ -182,6 +200,22 @@ function Shell() {
     webRef.current?.show("kb");
   };
 
+  const handleSaveToken = useCallback(async (rawToken: string) => {
+    if (!origin) throw new Error("这一版没有带上服务器地址");
+    const verified = await verifyAndSaveToken({ origin, rawToken, secrets: deviceSecretStorage });
+    setToken(verified);
+    setAuthVersion((v) => v + 1);
+    setTokenModalOpen(false);
+  }, [origin]);
+
+  const handleClearToken = useCallback(async () => {
+    await clearSavedToken(deviceSecretStorage);
+    setToken("");
+    setThread(false);
+    setAuthVersion((v) => v + 1);
+    setTokenModalOpen(false);
+  }, []);
+
   return (
     <View style={{ flex: 1, backgroundColor: inThread ? screenChrome.canvas : colors.canvas, paddingTop: tab === "feed" ? 0 : insets.top }}>
       <StatusBar style={tab === "feed" && feedStatus ? feedStatus : colors.status} />
@@ -193,14 +227,17 @@ function Shell() {
           <CardFeed
             active={tab === "feed"}
             origin={origin}
+            token={token}
+            tokenReady={tokenReady}
             topInset={insets.top}
             onBackReady={(back) => { feedBack.current = back; }}
             onCover={setCoverTabs}
             onFollowChange={(bot) => { if (bot.slug === "qbot") setFollow(bot.followed ? "on" : "off"); }}
             onStatusStyle={setFeedStatus}
+            onRequestAuth={() => setTokenModalOpen(true)}
           />
         </View>
-        <ChatRuntime boot={boot}>
+        <ChatRuntime boot={boot} token={token}>
         {showList ? (
           <View style={split ? { width: listWidth, borderRightWidth: 1, borderRightColor: colors.line, paddingBottom: thread && !showTabs ? insets.bottom : 0 } : { flex: 1 }}>
             {boot.phase === "ready" ? (
@@ -214,6 +251,16 @@ function Shell() {
               <View style={{ flex: 1, backgroundColor: colors.bg, padding: 16 }}>
                 <Text style={{ fontSize: 20, lineHeight: 26, fontWeight: "700", color: colors.text }}>对话</Text>
                 <Text style={{ marginTop: 12, color: colors.muted, fontSize: 14 }}>{boot.phase === "error" ? boot.message : "正在打开"}</Text>
+                {boot.phase === "error" && isUnauthorizedMessage(boot.message) ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="输入访问口令"
+                    onPress={() => setTokenModalOpen(true)}
+                    style={{ marginTop: 14, alignSelf: "flex-start", height: 40, paddingHorizontal: 18, borderRadius: 20, backgroundColor: colors.accentInk, alignItems: "center", justifyContent: "center" }}
+                  >
+                    <Text style={{ color: colors.bg, fontSize: 14, fontWeight: "700" }}>输入访问口令</Text>
+                  </Pressable>
+                ) : null}
               </View>
             )}
           </View>
@@ -229,6 +276,7 @@ function Shell() {
               onBack={() => setThread(false)}
               view={connectionView}
               onOpenLibrary={openKb}
+              onManageToken={() => setTokenModalOpen(true)}
               active={showThread}
             />
           </View>
@@ -251,6 +299,14 @@ function Shell() {
           />
         ) : null}
       </View>
+      <TokenModal
+        visible={tokenModalOpen}
+        colors={colors}
+        hasToken={token.length > 0}
+        onClose={() => setTokenModalOpen(false)}
+        onSubmit={handleSaveToken}
+        onClear={handleClearToken}
+      />
       {showTabs && !coverTabs ? (
         <Animated.View
           pointerEvents={coverTabs ? "none" : "auto"}
