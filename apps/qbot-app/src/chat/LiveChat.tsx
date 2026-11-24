@@ -1,5 +1,4 @@
-import { useEffect, useState } from "react";
-import { BackHandler, Platform, Pressable, Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 import { useThreadListNew } from "@assistant-ui/core/react";
 import { ChatThreadSurface } from "../chat-ui";
 import { ChatMark } from "../chat-ui/ChatMarks";
@@ -60,51 +59,55 @@ function ChatHeader({
 }) {
   const chrome = chatChrome(scheme);
   const { switchToNewThread } = useThreadListNew();
-  const [more, setMore] = useState(false);
-  const [problem, setProblem] = useState<string | null>(null);
-  useEffect(() => {
-    if (!more || Platform.OS !== "android") return;
-    const sub = BackHandler.addEventListener("hardwareBackPress", () => {
-      setMore(false);
-      return true;
-    });
-    return () => sub.remove();
-  }, [more]);
   const start = () => {
     if (view.phase !== "ready") return;
-    setProblem(null);
     switchToNewThread();
   };
   return (
-    <View style={{ paddingHorizontal: 8, paddingBottom: problem ? 8 : 0 }}>
-      <View style={{ height: 48, flexDirection: "row", alignItems: "center" }}>
+    <View style={{ borderBottomWidth: 1, borderBottomColor: chrome.line }}>
+      <View style={{ height: 52, paddingHorizontal: 6, flexDirection: "row", alignItems: "center" }}>
         {showBack ? (
-          <Pressable onPress={onBack} accessibilityRole="button" accessibilityLabel="返回会话列表" hitSlop={8} style={{ width: 40, height: 40, alignItems: "center", justifyContent: "center" }}>
-            <ChatMark name="menu" color={chrome.text} size={20} />
+          <Pressable
+            onPress={onBack}
+            accessibilityRole="button"
+            accessibilityLabel="返回会话列表"
+            hitSlop={6}
+            style={({ pressed }) => ({
+              width: 44,
+              height: 44,
+              borderRadius: 10,
+              alignItems: "center",
+              justifyContent: "center",
+              opacity: pressed ? 0.65 : 1,
+            })}
+          >
+            <ChatMark name="back" color={chrome.text} size={22} />
           </Pressable>
-        ) : <View style={{ width: 40 }} />}
+        ) : <View style={{ width: 44 }} />}
         <View style={{ flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 }}>
-          <QbotAvatar size={32} />
+          <QbotAvatar size={28} />
           <Text style={{ fontSize: 17, lineHeight: 24, fontWeight: "700", color: chrome.text }}>QBot</Text>
         </View>
-        <Pressable onPress={start} disabled={view.phase !== "ready"} accessibilityRole="button" accessibilityLabel="新建对话" hitSlop={8} style={{ width: 40, height: 40, alignItems: "center", justifyContent: "center", opacity: view.phase === "ready" ? 1 : 0.4 }}>
+        <Pressable
+          onPress={start}
+          disabled={view.phase !== "ready"}
+          accessibilityRole="button"
+          accessibilityLabel="新建对话"
+          hitSlop={6}
+          style={({ pressed }) => ({
+            width: 44,
+            height: 44,
+            borderRadius: 10,
+            alignItems: "center",
+            justifyContent: "center",
+            opacity: view.phase !== "ready" ? 0.35 : pressed ? 0.65 : 1,
+          })}
+        >
           <ChatMark name="pencil" color={chrome.text} size={20} />
-        </Pressable>
-        <Pressable onPress={() => setMore((open) => !open)} accessibilityRole="button" accessibilityLabel="更多" hitSlop={8} style={{ width: 40, height: 40, alignItems: "center", justifyContent: "center" }}>
-          <ChatMark name="more" color={chrome.text} size={20} />
         </Pressable>
       </View>
       {syncLine ? (
-        <Text style={{ textAlign: "center", color: chrome.muted, fontSize: 12, lineHeight: 16, marginBottom: 4 }}>{syncLine}</Text>
-      ) : null}
-      {problem ? <Text style={{ color: chrome.inkText, fontSize: 13, lineHeight: 18, paddingHorizontal: 8 }}>{problem}</Text> : null}
-      {more ? (
-        <View style={{ marginHorizontal: 8, marginBottom: 8, borderRadius: 16, backgroundColor: chrome.composer, borderWidth: 1, borderColor: chrome.line, padding: 14, gap: 12 }}>
-          <Text style={{ color: chrome.muted, fontSize: 13, lineHeight: 18 }}>{liveNote(view)}</Text>
-          <Pressable onPress={() => { setMore(false); start(); }} accessibilityRole="button" accessibilityLabel="新建对话">
-            <Text style={{ color: chrome.text, fontSize: 15, lineHeight: 22 }}>新建对话</Text>
-          </Pressable>
-        </View>
+        <Text style={{ textAlign: "center", color: chrome.muted, fontSize: 12, lineHeight: 16, paddingBottom: 6 }}>{syncLine}</Text>
       ) : null}
     </View>
   );

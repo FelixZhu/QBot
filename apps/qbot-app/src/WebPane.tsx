@@ -2,7 +2,7 @@ import { forwardRef, useImperativeHandle, useRef, useState } from "react";
 import { Platform, StyleSheet, Text, View } from "react-native";
 import { WebView as RNWebView } from "react-native-webview";
 import type { ComponentType, Ref } from "react";
-import { ASK_BACK, kbDemoFilter, parkWeb, showWebTab, themeBoot, themeUpdate } from "./embed";
+import { ASK_BACK, kbDemoFilter, kbPolishScript, parkWeb, showWebTab, themeBoot, themeUpdate } from "./embed";
 
 type WebViewHandle = { injectJavaScript(js: string): void; reload(): void };
 type Ev = { nativeEvent: { data?: string; description?: string; url?: string; statusCode?: number; targetUrl?: string; downloadUrl?: string } };
@@ -94,7 +94,7 @@ export const WebPane = forwardRef<WebPaneHandle, {
         overScrollMode="never"
         forceDarkOn={dark}
         originWhitelist={["*"]}
-        injectedJavaScriptBeforeContentLoaded={`${kbDemoFilter()}\n${themeBoot(dark)}`}
+        injectedJavaScriptBeforeContentLoaded={`${kbDemoFilter()}\n${themeBoot(dark)}\n${kbPolishScript()}`}
         onLoadStart={() => {
           if (started.current) return;
           started.current = Date.now();
@@ -133,7 +133,7 @@ export const WebPane = forwardRef<WebPaneHandle, {
         {...(Platform.OS === "android" ? { onRenderProcessGone: () => { webRef.current?.reload(); return true; } } : {})}
       />
       {visible && !ready ? (
-        <Text pointerEvents="none" style={{ position: "absolute", top: 16, alignSelf: "center", color: "#8A8781", fontSize: 13, lineHeight: 18 }}>正在打开</Text>
+        <Text pointerEvents="none" style={{ position: "absolute", top: 16, alignSelf: "center", color: dark ? "#9A9386" : "#736D62", fontSize: 13, lineHeight: 18 }}>正在打开</Text>
       ) : null}
     </View>
   );

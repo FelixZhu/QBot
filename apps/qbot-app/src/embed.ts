@@ -1,16 +1,24 @@
 /**
- * Scripts injected into the existing site. The live page still owns Feed and
- * the knowledge base. The host owns the tab bar, the back stack between tabs,
- * and the resolved light/dark value.
+ * Scripts injected into the existing site. The live page still owns the
+ * knowledge base. The host owns the tab bar / rail, the back stack between tabs,
+ * the resolved light/dark value, and v2.0 visual polish for the embedded KB.
  */
 
 import { LIST_PANE_MAX, LIST_PANE_MIN, LIST_PANE_RATIO, SPLIT_WIDTH } from "./theme.ts";
 
-/** Same 38% / 320–400 rule as the native list, applied to the knowledge-base directory. */
+/** Same 38% / 320–400 rule as the native list, plus v2.0 KB visual alignment. */
 export function hostEmbedCss(): string {
   const percent = `${Math.round(LIST_PANE_RATIO * 100)}%`;
   return "#qbsNav{display:none!important}#qbs{grid-template-rows:minmax(0,1fr)!important;grid-template-columns:minmax(0,1fr)!important;grid-template-areas:\"main\" !important}"
-    + `@media (min-width:${SPLIT_WIDTH}px){.kb-pane{width:clamp(${LIST_PANE_MIN}px,${percent},${LIST_PANE_MAX}px)!important;flex:none!important;border-right:1px solid var(--line)!important}}`;
+    + ".kb-topbar{display:flex!important;align-items:center;justify-content:space-between;min-height:52px;padding:0 16px;background:var(--surface)}"
+    + ".kb-topbar .kb-title{font-size:20px!important;line-height:28px!important;font-weight:700!important;padding:0!important}"
+    + ".kb-topbar .kb-sync{font-size:12px;line-height:16px;color:var(--text-3);font-weight:400}"
+    + ".kb button.kb-vault,.kb-vault{background:var(--surface-raised)!important;color:var(--text-1)!important;border:1px solid var(--line)!important;min-height:52px!important;margin:16px 16px 12px!important;width:calc(100% - 32px)!important;border-radius:12px!important}"
+    + ".kb-vault .kb-ic{background:var(--fill)!important;color:var(--text-3)!important}"
+    + ".kb-vault .kb-n{font-size:14px!important;line-height:20px!important;color:var(--text-1)!important}"
+    + ".kb-vault .kb-m{color:var(--text-3)!important;opacity:1!important}"
+    + `.kb-search{margin-top:4px!important}`
+    + `@media (min-width:${SPLIT_WIDTH}px){.kb-pane{width:clamp(${LIST_PANE_MIN}px,${percent},${LIST_PANE_MAX}px)!important;flex:none!important;border-right:1px solid var(--line)!important}.kb-topbar{background:var(--bg)!important}}`;
 }
 
 /** Hide demo library rows before the page script reads index.json. Real rows stay. */
@@ -40,6 +48,48 @@ export function kbDemoFilter(): string {
       }).catch(function () { return res; });
     });
   };
+})();
+true;`;
+}
+
+/** v2.0 KB polish: strip technical folder prefixes (e.g. "xhs · 小红书" -> "小红书") and de-emphasize unconfigured vault. */
+export function kbPolishScript(): string {
+  return `(function () {
+  if (window.__qbotKbPolish) return;
+  window.__qbotKbPolish = true;
+  var PREFIX = /^(xhs|reports|videos|bilibili|xiaoyuzhou|docs)\\s*·\\s*/i;
+  function polish() {
+    var root = document.getElementById("tab-kb");
+    if (!root) return;
+    var bar = root.querySelector(".kb-topbar");
+    if (bar && !bar.querySelector(".kb-sync")) {
+      var sync = document.createElement("span");
+      sync.className = "kb-sync";
+      sync.textContent = "已同步";
+      bar.appendChild(sync);
+    }
+    var labels = root.querySelectorAll(".kb-row .kb-n, .kb-ti .kb-lbl, .kb-row .kb-m");
+    for (var i = 0; i < labels.length; i++) {
+      var node = labels[i];
+      if (!node || !node.textContent) continue;
+      var next = node.textContent.replace(PREFIX, "");
+      if (next !== node.textContent) node.textContent = next;
+    }
+    if (window.innerWidth < ${SPLIT_WIDTH}) {
+      var scroll = root.querySelector(".kb-main .kb-scroll");
+      var vault = root.querySelector(".kb-main .kb-vault");
+      if (scroll && vault && vault.parentElement === scroll && scroll.lastElementChild !== vault) {
+        scroll.appendChild(vault);
+      }
+    }
+  }
+  document.addEventListener("DOMContentLoaded", function () {
+    polish();
+    var target = document.getElementById("tab-kb") || document.body;
+    if (target && window.MutationObserver) {
+      new MutationObserver(polish).observe(target, { childList: true, subtree: true });
+    }
+  });
 })();
 true;`;
 }

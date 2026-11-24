@@ -17,14 +17,13 @@ import { setBackgroundColorAsync } from "expo-system-ui";
 import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context";
 import { ChatEmpty, ConversationList } from "./src/ChatPane";
 import { LiveChat } from "./src/chat/LiveChat";
-import { liveBadge } from "./src/chat/connectionCopy";
 import { ChatRuntime, useChatBoot } from "./src/chat/useChatRuntime";
 import { configuredOrigin } from "./src/chat/serverEndpoint";
 import { createServerClient } from "./src/chat/serverClient";
 import type { ConnectionView } from "./src/chat/serverSession";
+import { QbotAvatar } from "./src/QbotAvatar";
 import { TabBarIcon } from "./src/TabBarIcon";
-import { chatChrome, isSplit, listPaneWidth, palette, resolveScheme } from "./src/theme";
-import { createFeedClient } from "./src/feed/feedClient";
+import { RAIL_WIDTH, chatChrome, isSplit, listPaneWidth, palette, resolveScheme } from "./src/theme";
 import { CardFeed } from "./src/feed/CardFeed";
 import type { StatusIcons } from "./src/feed/immersive";
 import { pullUpdate } from "./src/updates";
@@ -34,6 +33,12 @@ import * as Updates from "expo-updates";
 type Tab = "chat" | "feed" | "kb";
 const EXIT_CONFIRM_MS = 2000;
 const TAB_HEIGHT = 56;
+
+const TABS = [
+  ["feed", "今日", "discover"],
+  ["chat", "对话", "chat"],
+  ["kb", "知识库", "library"],
+] as const;
 
 function Shell() {
   const insets = useSafeAreaInsets();
@@ -48,7 +53,6 @@ function Shell() {
   const lastExit = useRef(0);
   const [tab, setTab] = useState<Tab>("feed");
   const [todayUnread] = useState(false);
-  const [follow, setFollow] = useState<"loading" | "on" | "off" | "error">("loading");
   const origin = configuredOrigin();
   const [thread, setThread] = useState(false);
   const boot = useChatBoot();
@@ -75,26 +79,11 @@ function Shell() {
   const tabOpacity = useRef(new Animated.Value(1)).current;
   const live = thread;
   const inThread = tab === "chat" && thread;
-  const showTabs = !inThread && !(keyboard && tab === "chat");
+  const showBottomTabs = !split && !inThread && !(keyboard && tab === "chat");
+  const showRail = split && !coverTabs;
   const showList = tab === "chat" && (split || !live);
   const showThread = tab === "chat" && (split || live);
   const screenChrome = chatChrome(scheme);
-
-  useEffect(() => {
-    if (!origin) {
-      setFollow("error");
-      return;
-    }
-    let alive = true;
-    createFeedClient({ origin }).botBySlug("qbot").then((bot) => {
-      if (alive) setFollow(bot.followed ? "on" : "off");
-    }).catch(() => { if (alive) setFollow("error"); });
-    return () => { alive = false; };
-  }, [origin]);
-
-  useEffect(() => {
-    if (follow === "off") setThread(false);
-  }, [follow]);
 
   useEffect(() => {
     const background = inThread ? screenChrome.canvas : colors.canvas;
@@ -135,7 +124,7 @@ function Shell() {
   }, [dark]);
 
   useEffect(() => {
-    Animated.timing(tabOpacity, { toValue: coverTabs ? 0 : 1, duration: 300, useNativeDriver: true }).start();
+    Animated.timing(tabOpacity, { toValue: coverTabs ? 0 : 1, duration: 240, useNativeDriver: true }).start();
   }, [coverTabs, tabOpacity]);
 
   const exitOrHint = useCallback(() => {
@@ -160,7 +149,7 @@ function Shell() {
   useEffect(() => {
     if (Platform.OS !== "android") return;
     const sub = BackHandler.addEventListener("hardwareBackPress", () => {
-      if (tab === "chat" && thread) {
+      if (tab === "chat" && thread && !split) {
         setThread(false);
         return true;
       }
@@ -173,7 +162,7 @@ function Shell() {
       return true;
     });
     return () => sub.remove();
-  }, [tab, thread, exitOrHint]);
+  }, [tab, thread, split, exitOrHint]);
 
   const openKb = () => {
     console.log(`QBOT_TIMING kb-tap ${libraryReady ? "warm" : "cold"}`);
@@ -182,125 +171,179 @@ function Shell() {
     webRef.current?.show("kb");
   };
 
+  const selectTab = (id: Tab) => {
+    if (id === "chat") {
+      webRef.current?.park();
+      setTab("chat");
+    } else if (id === "feed") {
+      setTab("feed");
+    } else {
+      openKb();
+    }
+  };
+
+  const listStatusNote = boot.phase === "error"
+    ? (boot.message ?? "无法连接服务器")
+    : boot.phase === "checking"
+      ? "正在连接"
+      : null;
+
   return (
-    <View style={{ flex: 1, backgroundColor: inThread ? screenChrome.canvas : colors.canvas, paddingTop: tab === "feed" ? 0 : insets.top }}>
+    <View style={{ flex: 1, flexDirection: split ? "row" : "column", backgroundColor: inThread ? screenChrome.canvas : colors.canvas }}>
       <StatusBar style={tab === "feed" && feedStatus ? feedStatus : colors.status} />
-      <View style={{ flex: 1, position: "relative", flexDirection: split && tab === "chat" ? "row" : "column" }}>
+      {showRail ? (
         <View
-          pointerEvents={tab === "feed" ? "auto" : "none"}
-          style={tab === "feed" ? { flex: 1 } : { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, opacity: 0, zIndex: -1 }}
-        >
-          <CardFeed
-            active={tab === "feed"}
-            origin={origin}
-            topInset={insets.top}
-            onBackReady={(back) => { feedBack.current = back; }}
-            onCover={setCoverTabs}
-            onFollowChange={(bot) => { if (bot.slug === "qbot") setFollow(bot.followed ? "on" : "off"); }}
-            onStatusStyle={setFeedStatus}
-          />
-        </View>
-        <ChatRuntime boot={boot}>
-        {showList ? (
-          <View style={split ? { width: listWidth, borderRightWidth: 1, borderRightColor: colors.line, paddingBottom: thread && !showTabs ? insets.bottom : 0 } : { flex: 1 }}>
-            {boot.phase === "ready" ? (
-              <ConversationList
-                colors={colors}
-                badge={liveBadge(connectionView)}
-                onOpen={() => setThread(true)}
-                follow={follow}
-              />
-            ) : (
-              <View style={{ flex: 1, backgroundColor: colors.bg, padding: 16 }}>
-                <Text style={{ fontSize: 20, lineHeight: 26, fontWeight: "700", color: colors.text }}>对话</Text>
-                <Text style={{ marginTop: 12, color: colors.muted, fontSize: 14 }}>{boot.phase === "error" ? boot.message : "正在打开"}</Text>
-              </View>
-            )}
-          </View>
-        ) : null}
-        {thread && boot.phase === "ready" ? (
-          <View
-            pointerEvents={showThread ? "auto" : "none"}
-            style={showThread ? { flex: 1, minWidth: 0 } : { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, opacity: 0, zIndex: -1 }}
-          >
-            <LiveChat
-              scheme={scheme}
-              showBack={!split}
-              onBack={() => setThread(false)}
-              view={connectionView}
-              onOpenLibrary={openKb}
-              active={showThread}
-            />
-          </View>
-        ) : showThread ? (
-          <View style={{ flex: 1, minWidth: 0 }}>
-            <ChatEmpty colors={colors} />
-          </View>
-        ) : null}
-        </ChatRuntime>
-        {webReady ? (
-          <WebPane
-            ref={webRef}
-            visible={tab === "kb"}
-            tab="kb"
-            dark={dark}
-            backgroundColor={colors.canvas}
-            onBackResult={onBackResult}
-            onReady={() => setLibraryReady(true)}
-            onExternal={(url) => { Linking.openURL(url).catch(() => {}); }}
-          />
-        ) : null}
-      </View>
-      {showTabs && !coverTabs ? (
-        <Animated.View
-          pointerEvents={coverTabs ? "none" : "auto"}
           style={{
-            opacity: tabOpacity,
-            backgroundColor: dark ? "#171614" : "#F3EFE7",
-            borderTopWidth: 1,
-            borderTopColor: dark ? "#34312C" : "#E3DDD1",
-            paddingBottom: insets.bottom,
+            width: RAIL_WIDTH,
+            backgroundColor: colors.canvas,
+            borderRightWidth: 1,
+            borderRightColor: colors.line,
+            paddingTop: insets.top + 14,
+            paddingBottom: insets.bottom + 12,
+            alignItems: "center",
+            gap: 6,
           }}
         >
-          <View style={{ height: TAB_HEIGHT, flexDirection: "row" }}>
-            {([
-              ["feed", "今日", "discover"],
-              ["chat", "对话", "chat"],
-              ["kb", "知识库", "library"],
-            ] as const).map(([id, label, icon]) => {
-              const current = tab === id;
-              const ink = dark ? "#EDE8DF" : "#1C1B19";
-              const quiet = dark ? "#9A9386" : "#736D62";
-              return (
-                <Pressable
-                  key={id}
-                  accessibilityRole="tab"
-                  accessibilityState={{ selected: current }}
-                  accessibilityLabel={label}
-                  onPress={() => {
-                    if (id === "chat") {
-                      webRef.current?.park();
-                      setTab("chat");
-                    } else if (id === "feed") setTab("feed");
-                    else openKb();
-                  }}
-                  style={{ flex: 1, alignItems: "center", justifyContent: "flex-start", paddingTop: 8 }}
-                >
-                  <View>
-                    <TabBarIcon name={icon} tone={dark ? "dark" : "light"} selected={current} />
-                    {id === "feed" && todayUnread && !current ? (
-                      <View style={{ position: "absolute", top: -4, right: -6, width: 12, height: 12, borderRadius: 6, backgroundColor: "#FF6A2B", borderWidth: 2, borderColor: dark ? "#171614" : "#F3EFE7" }} />
-                    ) : null}
-                  </View>
-                  <Text style={{ marginTop: 4, fontSize: 12, lineHeight: 16, fontWeight: current ? "700" : "400", color: current ? ink : quiet }}>
-                    {label}
-                  </Text>
-                </Pressable>
-              );
-            })}
+          <View style={{ marginBottom: 14, borderRadius: 10, overflow: "hidden" }}>
+            <QbotAvatar size={36} />
           </View>
-        </Animated.View>
+          {TABS.map(([id, label, icon]) => {
+            const current = tab === id;
+            return (
+              <Pressable
+                key={id}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: current }}
+                accessibilityLabel={label}
+                onPress={() => selectTab(id)}
+                style={({ pressed }) => ({
+                  width: 56,
+                  height: 56,
+                  borderRadius: 14,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 3,
+                  backgroundColor: current ? colors.selected : pressed ? colors.press : "transparent",
+                })}
+              >
+                <View>
+                  <TabBarIcon name={icon} tone={dark ? "dark" : "light"} selected={current} />
+                  {id === "feed" && todayUnread && !current ? (
+                    <View style={{ position: "absolute", top: -4, right: -6, width: 12, height: 12, borderRadius: 6, backgroundColor: colors.accent, borderWidth: 2, borderColor: colors.canvas }} />
+                  ) : null}
+                </View>
+                <Text style={{ fontSize: 11, lineHeight: 15, fontWeight: current ? "700" : "400", color: current ? colors.text : colors.muted }}>
+                  {label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
       ) : null}
+      <View style={{ flex: 1, minWidth: 0, paddingTop: tab === "feed" ? 0 : insets.top }}>
+        <View style={{ flex: 1, position: "relative", flexDirection: split && tab === "chat" ? "row" : "column" }}>
+          <View
+            pointerEvents={tab === "feed" ? "auto" : "none"}
+            style={tab === "feed" ? { flex: 1 } : { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, opacity: 0, zIndex: -1 }}
+          >
+            <CardFeed
+              active={tab === "feed"}
+              origin={origin}
+              topInset={insets.top}
+              onBackReady={(back) => { feedBack.current = back; }}
+              onCover={setCoverTabs}
+              onStatusStyle={setFeedStatus}
+            />
+          </View>
+          <ChatRuntime boot={boot}>
+            {showList ? (
+              <View style={split ? { width: listWidth, borderRightWidth: 1, borderRightColor: colors.line, paddingBottom: insets.bottom } : { flex: 1 }}>
+                {boot.phase === "ready" ? (
+                  <ConversationList
+                    colors={colors}
+                    statusNote={listStatusNote}
+                    onOpen={() => setThread(true)}
+                  />
+                ) : (
+                  <View style={{ flex: 1, backgroundColor: colors.bg, padding: 16 }}>
+                    <Text style={{ fontSize: 20, lineHeight: 28, fontWeight: "700", color: colors.text }}>对话</Text>
+                    <Text style={{ marginTop: 12, color: colors.muted, fontSize: 14, lineHeight: 20 }}>{boot.phase === "error" ? boot.message : "正在打开"}</Text>
+                  </View>
+                )}
+              </View>
+            ) : null}
+            {thread && boot.phase === "ready" ? (
+              <View
+                pointerEvents={showThread ? "auto" : "none"}
+                style={showThread ? { flex: 1, minWidth: 0 } : { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, opacity: 0, zIndex: -1 }}
+              >
+                <LiveChat
+                  scheme={scheme}
+                  showBack={!split}
+                  onBack={() => setThread(false)}
+                  view={connectionView}
+                  onOpenLibrary={openKb}
+                  active={showThread}
+                />
+              </View>
+            ) : showThread ? (
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <ChatEmpty colors={colors} />
+              </View>
+            ) : null}
+          </ChatRuntime>
+          {webReady ? (
+            <WebPane
+              ref={webRef}
+              visible={tab === "kb"}
+              tab="kb"
+              dark={dark}
+              backgroundColor={colors.canvas}
+              onBackResult={onBackResult}
+              onReady={() => setLibraryReady(true)}
+              onExternal={(url) => { Linking.openURL(url).catch(() => {}); }}
+            />
+          ) : null}
+        </View>
+        {showBottomTabs && !coverTabs ? (
+          <Animated.View
+            pointerEvents={coverTabs ? "none" : "auto"}
+            style={{
+              opacity: tabOpacity,
+              backgroundColor: colors.canvas,
+              borderTopWidth: 1,
+              borderTopColor: colors.line,
+              paddingBottom: insets.bottom,
+            }}
+          >
+            <View style={{ height: TAB_HEIGHT, flexDirection: "row" }}>
+              {TABS.map(([id, label, icon]) => {
+                const current = tab === id;
+                return (
+                  <Pressable
+                    key={id}
+                    accessibilityRole="tab"
+                    accessibilityState={{ selected: current }}
+                    accessibilityLabel={label}
+                    onPress={() => selectTab(id)}
+                    style={{ flex: 1, alignItems: "center", justifyContent: "flex-start", paddingTop: 8 }}
+                  >
+                    <View>
+                      <TabBarIcon name={icon} tone={dark ? "dark" : "light"} selected={current} />
+                      {id === "feed" && todayUnread && !current ? (
+                        <View style={{ position: "absolute", top: -4, right: -6, width: 12, height: 12, borderRadius: 6, backgroundColor: colors.accent, borderWidth: 2, borderColor: colors.canvas }} />
+                      ) : null}
+                    </View>
+                    <Text style={{ marginTop: 4, fontSize: 12, lineHeight: 16, fontWeight: current ? "700" : "400", color: current ? colors.text : colors.muted }}>
+                      {label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </Animated.View>
+        ) : null}
+      </View>
     </View>
   );
 }

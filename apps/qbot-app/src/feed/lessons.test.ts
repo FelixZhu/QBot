@@ -64,7 +64,8 @@ test("the today tab mounts the card feed, not the lesson feed", () => {
   assert.match(appSrc, /CardFeed/);
   assert.equal(appSrc.includes("LessonFeed"), false);
   assert.equal(appSrc.includes("FeedPane"), false);
-  assert.match(appSrc, /#FF6A2B/);
+  assert.match(appSrc, /colors\.accent/);
+  assert.match(appSrc, /RAIL_WIDTH/);
   assert.equal(appSrc.includes("#F5A623"), false);
   assert.match(appSrc, /TAB_HEIGHT = 56/);
   assert.match(appSrc, /fontSize: 12/);
