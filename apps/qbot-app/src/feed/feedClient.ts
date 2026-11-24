@@ -1,15 +1,33 @@
+export type CardProvenance = "manual" | "agent" | "scheduled";
+
 export type FeedCard = {
   id: string;
   title: string;
   publishedAt: string;
   visibility: "public" | "followers";
-  provenance: "manual";
+  provenance: CardProvenance;
   artifactId: string;
   artifactVersion: number;
   manifestSha256: string;
   coverPath: string;
+  coverLightPath?: string | null;
+  coverDarkPath?: string | null;
   bot: { id: string; slug: string; displayName: string; followed: boolean };
 };
+
+export function isValidProvenance(value: unknown): value is CardProvenance {
+  return value === "manual" || value === "agent" || value === "scheduled";
+}
+
+/** Pick theme-matched cover path when provided, otherwise fall back to coverPath. */
+export function pickCoverPath(
+  card: Pick<FeedCard, "coverPath" | "coverLightPath" | "coverDarkPath">,
+  scheme: "light" | "dark",
+): string {
+  if (scheme === "dark" && card.coverDarkPath) return card.coverDarkPath;
+  if (scheme === "light" && card.coverLightPath) return card.coverLightPath;
+  return card.coverPath;
+}
 
 export type FeedPage = { cards: FeedCard[]; next: string | null };
 
@@ -132,7 +150,7 @@ export function createFeedClient(options: { origin: string; token?: string; fetc
 function parseCard(value: unknown): FeedCard {
   const card = value as Partial<FeedCard>;
   const bot = card.bot;
-  if (!card.id || !card.title || !card.publishedAt || !card.artifactId || !card.coverPath || card.provenance !== "manual" || typeof card.artifactVersion !== "number" || !bot?.id || !bot.displayName) {
+  if (!card.id || !card.title || !card.publishedAt || !card.artifactId || !card.coverPath || !isValidProvenance(card.provenance) || typeof card.artifactVersion !== "number" || !bot?.id || !bot.displayName) {
     throw new Error("无法连接服务器");
   }
   return {
@@ -140,11 +158,13 @@ function parseCard(value: unknown): FeedCard {
     title: card.title,
     publishedAt: card.publishedAt,
     visibility: card.visibility === "followers" ? "followers" : "public",
-    provenance: "manual",
+    provenance: card.provenance,
     artifactId: card.artifactId,
     artifactVersion: card.artifactVersion,
     manifestSha256: card.manifestSha256 ?? "",
     coverPath: card.coverPath,
+    coverLightPath: typeof card.coverLightPath === "string" ? card.coverLightPath : null,
+    coverDarkPath: typeof card.coverDarkPath === "string" ? card.coverDarkPath : null,
     bot: { id: bot.id, slug: bot.slug ?? "", displayName: bot.displayName, followed: Boolean(bot.followed) },
   };
 }

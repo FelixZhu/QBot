@@ -11,6 +11,7 @@ import {
 
 export function createCachedHistory(input: {
   getId: () => string | null;
+  isBusy?: () => boolean;
   client: ServerClient;
   onSync: (label: string | null) => void;
   importNow: (id: string, messages: ServerMessage[]) => void;
@@ -32,6 +33,7 @@ export function createCachedHistory(input: {
         void pull.then((messages) => {
           if (input.getId() !== id) return;
           input.onSync(null);
+          if (input.isBusy?.()) return;
           if (!messagesEqual(cached, messages)) input.importNow(id, messages);
         }).catch(() => {
           if (input.getId() === id) input.onSync(STALE_LABEL);

@@ -12,7 +12,19 @@ export async function startChatServer(deps: ChatServerDeps): Promise<{ port: num
   return {
     port,
     close: async () => {
-      await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+      await new Promise<void>((resolve, reject) => {
+        const timer = setTimeout(() => {
+          server.closeAllConnections?.();
+          resolve();
+        }, 5_000);
+        timer.unref();
+        server.close((error) => {
+          clearTimeout(timer);
+          if (error) reject(error);
+          else resolve();
+        });
+        server.closeIdleConnections?.();
+      });
       await deps.runtime.close();
     },
   };
