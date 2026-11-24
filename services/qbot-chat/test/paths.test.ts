@@ -4,7 +4,16 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { test } from "node:test";
 import { loadConfig } from "../src/config.ts";
-import { authorizeOss, createLocalObjectStore, createPublicOssObjectStore, normalizePrefix, objectKey } from "../src/feed/objects.ts";
+import {
+  authorizeOss,
+  createLocalObjectStore,
+  createOssObjectStore,
+  createPublicOssObjectStore,
+  normalizePrefix,
+  objectKey,
+  parseOssEndpoint,
+  validateOssBucket,
+} from "../src/feed/objects.ts";
 import { bundlePath, contentTypeFor, decodeCursor, encodeCursor } from "../src/feed/paths.ts";
 
 const base = {
@@ -108,5 +117,111 @@ test("public card reads use the fixed https origin and send no credential", asyn
   assert.equal(calls.every((call) => call.url.startsWith(`${origin}/qbot/cards/`)), true);
   assert.equal(await store.read(artifact, 1, "../secret.txt"), null);
   assert.equal(await store.read(artifact, 1, "qbot/private/note.txt"), null);
+  assert.equal(calls.length, 2);
+  assert.equal(store.write, undefined);
+});
+
+test("OSS prefix, bucket, endpoint, and signed store lock all reads and writes under qbot/cards/", async () => {
+  const artifact = "00000000-0000-4000-8000-0000000000d1";
+  assert.equal(normalizePrefix(""), "qbot/cards/");
+  assert.equal(normalizePrefix("qbot/cards"), "qbot/cards/");
+  assert.equal(normalizePrefix("/qbot/cards/"), "qbot/cards/");
+  assert.equal(normalizePrefix("qbot/cards/prod"), "qbot/cards/prod/");
+  for (const bad of ["/", "qbot/", "qbot/private/", "qbot/cards-evil/", "other/cards/", "qbot/cards/../private/", "qbot/cards/./sub/", "qbot/cards//sub/", "qbot/cards/%2e%2e/"]) {
+    assert.throws(() => normalizePrefix(bad), /QBOT_OSS_KEY_PREFIX/, bad);
+    assert.equal(objectKey(bad, artifact, 1, "index.html"), null, bad);
+  }
+  assert.equal(objectKey("", artifact, 1, "index.html"), null);
+
+  assert.equal(parseOssEndpoint("oss-cn-example.aliyuncs.com"), "oss-cn-example.aliyuncs.com");
+  assert.equal(parseOssEndpoint("https://oss-cn-example-internal.aliyuncs.com/"), "oss-cn-example-internal.aliyuncs.com");
+  for (const badHost of ["http://oss.example.invalid", "127.0.0.1", "10.0.2.2", "localhost", "oss..example.invalid", "oss.example.invalid/path", "user@oss.example.invalid"]) {
+    assert.throws(() => parseOssEndpoint(badHost), /QBOT_OSS_ENDPOINT/, badHost);
+  }
+  assert.equal(validateOssBucket("cards-bucket-1"), "cards-bucket-1");
+  for (const badBucket of ["bad..bucket", "bad.", "bad-", "UPPER"]) {
+    assert.throws(() => validateOssBucket(badBucket), /QBOT_OSS_BUCKET/, badBucket);
+  }
+
+  assert.throws(() => authorizeOss({
+    method: "PUT",
+    bucket: "cards",
+    key: `qbot/private/${artifact}/v1/index.html`,
+    endpointHost: "oss.example.invalid",
+    accessKeyId: "test-ak",
+    accessKeySecret: "test-sk",
+    date: "Sat, 21 Nov 2026 08:44:00 GMT",
+    contentType: "text/html; charset=utf-8",
+  }), /qbot\/cards\//);
+  assert.throws(() => authorizeOss({
+    method: "PUT",
+    bucket: "cards",
+    key: `qbot/cards/${artifact}/v1/index.html`,
+    endpointHost: "oss.example.invalid",
+    accessKeyId: "test-ak",
+    accessKeySecret: "test-sk",
+    date: "Sat, 21 Nov 2026 08:44:00 GMT",
+    contentType: "text/html\r\nx-oss-object-acl: public-read",
+  }), /newlines/);
+
+  const ossEnv = {
+    ...base,
+    QBOT_OSS_ENDPOINT: "https://oss.example.invalid",
+    QBOT_OSS_BUCKET: "cards",
+    QBOT_OSS_ACCESS_KEY_ID: "test-access-key",
+    QBOT_OSS_ACCESS_KEY_SECRET: "test-secret-value",
+  };
+  assert.equal(loadConfig(ossEnv).oss?.keyPrefix, "qbot/cards/");
+  assert.equal(loadConfig({ ...ossEnv, QBOT_OSS_KEY_PREFIX: "qbot/cards/v2" }).oss?.keyPrefix, "qbot/cards/v2/");
+  assert.throws(() => loadConfig({ ...ossEnv, QBOT_OSS_KEY_PREFIX: "qbot/" }), /qbot\/cards\//);
+  assert.throws(() => loadConfig({ ...ossEnv, QBOT_OSS_KEY_PREFIX: "qbot/private/" }), /qbot\/cards\//);
+  assert.throws(() => loadConfig({ ...ossEnv, QBOT_OSS_KEY_PREFIX: "qbot/cards/../private/" }), /QBOT_OSS_KEY_PREFIX/);
+
+  assert.throws(() => createOssObjectStore({
+    bucket: "cards",
+    endpointHost: "oss.example.invalid",
+    accessKeyId: "test-ak",
+    accessKeySecret: "test-sk",
+    keyPrefix: "qbot/private/",
+  }), /qbot\/cards\//);
+  assert.throws(() => createOssObjectStore({
+    bucket: "cards",
+    endpointHost: "127.0.0.1",
+    accessKeyId: "test-ak",
+    accessKeySecret: "test-sk",
+    keyPrefix: "qbot/cards/",
+  }), /QBOT_OSS_ENDPOINT/);
+
+  const calls: { method: string; url: string; headers: Headers; redirect?: RequestRedirect }[] = [];
+  const fetchImpl: typeof fetch = async (input, init) => {
+    calls.push({
+      method: init?.method ?? "GET",
+      url: String(input),
+      headers: new Headers(init?.headers),
+      redirect: init?.redirect,
+    });
+    if (init?.method === "PUT") return new Response(null, { status: 200 });
+    return new Response(Buffer.from("oss-card-bytes"), { status: 200 });
+  };
+  const cfg = loadConfig(ossEnv).oss!;
+  const ossStore = createOssObjectStore(cfg, fetchImpl);
+  assert.equal(await ossStore.write!(artifact, 1, "index.html", Buffer.from("<main>ok</main>"), "text/html; charset=utf-8"), true);
+  assert.equal((await ossStore.read(artifact, 1, "index.html"))?.toString(), "oss-card-bytes");
+  assert.equal(calls.length, 2);
+  assert.equal(calls[0]?.method, "PUT");
+  assert.equal(calls[0]?.url, `https://cards.oss.example.invalid/qbot/cards/${artifact}/v1/index.html`);
+  assert.equal(calls[0]?.headers.get("x-oss-object-acl"), null);
+  assert.equal(calls[0]?.redirect, "manual");
+  assert.equal(calls[0]?.url.includes(cfg.accessKeySecret), false);
+  assert.equal(calls[1]?.method, "GET");
+  assert.equal(calls[1]?.url, `https://cards.oss.example.invalid/qbot/cards/${artifact}/v1/index.html`);
+  assert.equal(calls[1]?.redirect, "manual");
+
+  assert.equal(await ossStore.write!(artifact, 1, "../secret.png", Buffer.from("x"), "image/png"), false);
+  assert.equal(await ossStore.write!(artifact, 1, "..%2Fsecret.png", Buffer.from("x"), "image/png"), false);
+  assert.equal(await ossStore.write!("not-a-uuid", 1, "index.html", Buffer.from("x"), "text/html; charset=utf-8"), false);
+  assert.equal(await ossStore.write!(artifact, 1, "index.html", Buffer.alloc(0), "text/html; charset=utf-8"), false);
+  assert.equal(await ossStore.write!(artifact, 1, "index.html", Buffer.from("x"), "text/html\r\nx-oss-object-acl: public-read"), false);
+  assert.equal(await ossStore.read(artifact, 1, "../secret.txt"), null);
   assert.equal(calls.length, 2);
 });

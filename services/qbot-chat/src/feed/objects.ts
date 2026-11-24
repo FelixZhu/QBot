@@ -27,6 +27,16 @@ export type PublicOssConfig = {
 };
 
 const HOST = /^[A-Za-z0-9.-]+(?::\d+)?$/;
+const BUCKET = /^[a-z0-9][a-z0-9.-]{1,62}$/;
+const PREFIX_SEGMENT = /^[A-Za-z0-9._-]+$/;
+
+export function validateOssBucket(raw: string): string {
+  const bucket = raw.trim();
+  if (!BUCKET.test(bucket) || bucket.includes("..") || bucket.endsWith(".") || bucket.endsWith("-")) {
+    throw new Error("QBOT_OSS_BUCKET is not a bucket name");
+  }
+  return bucket;
+}
 
 export function parseOssEndpoint(raw: string): string {
   const trimmed = raw.trim().replace(/\/+$/, "");
@@ -35,25 +45,61 @@ export function parseOssEndpoint(raw: string): string {
   if (host.includes("://") || host.includes("/") || host.includes("@") || host.includes(" ") || !HOST.test(host)) {
     throw new Error("QBOT_OSS_ENDPOINT must be a hostname");
   }
+  const colon = host.indexOf(":");
+  const hostname = (colon >= 0 ? host.slice(0, colon) : host).replace(/\.$/, "");
+  const portRaw = colon >= 0 ? host.slice(colon + 1) : "";
+  if (
+    !hostname
+    || hostname.includes("..")
+    || hostname.startsWith(".")
+    || hostname.startsWith("-")
+    || hostname.endsWith("-")
+    || hostname === "localhost"
+    || hostname.endsWith(".localhost")
+    || isIP(hostname) !== 0
+  ) {
+    throw new Error("QBOT_OSS_ENDPOINT must be a public hostname");
+  }
+  if (portRaw) {
+    const port = Number(portRaw);
+    if (!Number.isInteger(port) || port < 1 || port > 65535) {
+      throw new Error("QBOT_OSS_ENDPOINT port is invalid");
+    }
+  }
   return host;
 }
 
 export function normalizePrefix(raw: string): string {
-  const prefix = (raw.trim() || DEFAULT_KEY_PREFIX).replace(/^\/+/, "");
-  if (!prefix.startsWith("qbot/")) throw new Error("QBOT_OSS_KEY_PREFIX must stay under qbot/");
-  if (prefix.includes("..") || !/^[A-Za-z0-9][A-Za-z0-9._/-]{0,80}$/.test(prefix)) {
+  const trimmed = raw.trim();
+  const stripped = (trimmed || DEFAULT_KEY_PREFIX).replace(/^\/+/, "").replace(/\/+$/, "");
+  if (!stripped || stripped.length > 80) {
+    throw new Error("QBOT_OSS_KEY_PREFIX must stay under qbot/cards/");
+  }
+  const parts = stripped.split("/");
+  if (parts.some((part) => !part || part === "." || part === ".." || !PREFIX_SEGMENT.test(part))) {
     throw new Error("QBOT_OSS_KEY_PREFIX is not a relative prefix");
   }
-  return prefix.endsWith("/") ? prefix : `${prefix}/`;
+  const normalized = `${parts.join("/")}/`;
+  if (!normalized.startsWith(DEFAULT_KEY_PREFIX)) {
+    throw new Error("QBOT_OSS_KEY_PREFIX must stay under qbot/cards/");
+  }
+  return normalized;
 }
 
 /** Immutable key. A new artifact version is a new prefix; this never rewrites an older one. */
 export function objectKey(prefix: string, artifactId: string, version: number, relPath: string): string | null {
+  if (!prefix.trim()) return null;
   if (!isUuid(artifactId) || !Number.isInteger(version) || version < 1 || version > 9999) return null;
+  let safePrefix: string;
+  try {
+    safePrefix = normalizePrefix(prefix);
+  } catch {
+    return null;
+  }
   const safe = bundlePath(relPath);
   if (!safe) return null;
-  const key = `${prefix}${artifactId}/v${version}/${safe}`;
-  if (!key.startsWith("qbot/")) return null;
+  const key = `${safePrefix}${artifactId}/v${version}/${safe}`;
+  if (!key.startsWith(DEFAULT_KEY_PREFIX)) return null;
   return key;
 }
 
@@ -68,8 +114,21 @@ export function authorizeOss(input: {
   date: string;
   contentType?: string;
 }): { url: string; headers: Record<string, string> } {
+  const bucket = validateOssBucket(input.bucket);
+  const endpointHost = parseOssEndpoint(input.endpointHost);
+  if (
+    !input.key.startsWith(DEFAULT_KEY_PREFIX)
+    || input.key.includes("..")
+    || input.key.includes("//")
+    || /[\r\n\0]/.test(input.key)
+  ) {
+    throw new Error("OSS key must stay under qbot/cards/");
+  }
   const contentType = input.contentType ?? "";
-  const resource = `/${input.bucket}/${input.key}`;
+  if (/[\r\n]/.test(contentType) || /[\r\n]/.test(input.date)) {
+    throw new Error("OSS header values must not contain newlines");
+  }
+  const resource = `/${bucket}/${input.key}`;
   const stringToSign = `${input.method}\n\n${contentType}\n${input.date}\n${resource}`;
   const signature = createHmac("sha1", input.accessKeySecret).update(stringToSign).digest("base64");
   const headers: Record<string, string> = {
@@ -78,17 +137,18 @@ export function authorizeOss(input: {
     ...(contentType ? { "Content-Type": contentType } : {}),
   };
   const encoded = input.key.split("/").map((part) => encodeURIComponent(part)).join("/");
-  return { url: `https://${input.bucket}.${input.endpointHost}/${encoded}`, headers };
+  return { url: `https://${bucket}.${endpointHost}/${encoded}`, headers };
 }
 
 export function createLocalObjectStore(root: string, prefix = DEFAULT_KEY_PREFIX): ObjectStore {
   const base = path.resolve(root);
+  const safePrefix = normalizePrefix(prefix);
   return {
     async read(artifactId, version, relPath) {
-      const key = objectKey(prefix, artifactId, version, relPath);
+      const key = objectKey(safePrefix, artifactId, version, relPath);
       if (!key) return null;
       const full = path.resolve(base, key);
-      const directory = path.resolve(base, prefix, artifactId, `v${version}`) + path.sep;
+      const directory = path.resolve(base, safePrefix, artifactId, `v${version}`) + path.sep;
       if (!full.startsWith(directory)) return null;
       try {
         const info = await stat(full);
@@ -100,10 +160,10 @@ export function createLocalObjectStore(root: string, prefix = DEFAULT_KEY_PREFIX
     },
     async write(artifactId, version, relPath, bytes) {
       if (bytes.length === 0 || bytes.length > LIMITS.artifactBytes) return false;
-      const key = objectKey(prefix, artifactId, version, relPath);
+      const key = objectKey(safePrefix, artifactId, version, relPath);
       if (!key) return false;
       const full = path.resolve(base, key);
-      const directory = path.resolve(base, prefix, artifactId, `v${version}`) + path.sep;
+      const directory = path.resolve(base, safePrefix, artifactId, `v${version}`) + path.sep;
       if (!full.startsWith(directory)) return false;
       await mkdir(path.dirname(full), { recursive: true });
       await writeFile(full, bytes, { flag: "wx" });
@@ -113,22 +173,30 @@ export function createLocalObjectStore(root: string, prefix = DEFAULT_KEY_PREFIX
 }
 
 export function createOssObjectStore(config: OssConfig, fetchImpl: typeof fetch = fetch): ObjectStore {
+  const bucket = validateOssBucket(config.bucket);
+  const endpointHost = parseOssEndpoint(config.endpointHost);
+  const keyPrefix = normalizePrefix(config.keyPrefix);
+  const expectedOrigin = new URL(`https://${bucket}.${endpointHost}`).origin;
   return {
     async read(artifactId, version, relPath) {
-      const key = objectKey(config.keyPrefix, artifactId, version, relPath);
-      if (!key) return null;
+      const key = objectKey(keyPrefix, artifactId, version, relPath);
+      if (!key || !key.startsWith(keyPrefix) || !key.startsWith(DEFAULT_KEY_PREFIX)) return null;
       const signed = authorizeOss({
         method: "GET",
-        bucket: config.bucket,
+        bucket,
         key,
-        endpointHost: config.endpointHost,
+        endpointHost,
         accessKeyId: config.accessKeyId,
         accessKeySecret: config.accessKeySecret,
         date: new Date().toUTCString(),
       });
+      const url = new URL(signed.url);
+      if (url.origin !== expectedOrigin || !url.pathname.startsWith(`/${keyPrefix}`) || !url.pathname.startsWith(`/${DEFAULT_KEY_PREFIX}`)) {
+        return null;
+      }
       let response: Response;
       try {
-        response = await fetchImpl(signed.url, {
+        response = await fetchImpl(url.toString(), {
           method: "GET",
           headers: signed.headers,
           redirect: "manual",
@@ -151,21 +219,26 @@ export function createOssObjectStore(config: OssConfig, fetchImpl: typeof fetch 
     },
     async write(artifactId, version, relPath, bytes, contentType) {
       if (bytes.length === 0 || bytes.length > LIMITS.artifactBytes) return false;
-      const key = objectKey(config.keyPrefix, artifactId, version, relPath);
-      if (!key) return false;
+      if (!contentType || /[\r\n]/.test(contentType)) return false;
+      const key = objectKey(keyPrefix, artifactId, version, relPath);
+      if (!key || !key.startsWith(keyPrefix) || !key.startsWith(DEFAULT_KEY_PREFIX)) return false;
       const signed = authorizeOss({
         method: "PUT",
-        bucket: config.bucket,
+        bucket,
         key,
-        endpointHost: config.endpointHost,
+        endpointHost,
         accessKeyId: config.accessKeyId,
         accessKeySecret: config.accessKeySecret,
         date: new Date().toUTCString(),
         contentType,
       });
+      const url = new URL(signed.url);
+      if (url.origin !== expectedOrigin || !url.pathname.startsWith(`/${keyPrefix}`) || !url.pathname.startsWith(`/${DEFAULT_KEY_PREFIX}`)) {
+        return false;
+      }
       let response: Response;
       try {
-        response = await fetchImpl(signed.url, {
+        response = await fetchImpl(url.toString(), {
           method: "PUT",
           headers: { ...signed.headers, "Content-Length": String(bytes.length) },
           body: new Uint8Array(bytes),

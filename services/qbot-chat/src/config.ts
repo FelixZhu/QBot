@@ -1,6 +1,6 @@
 import path from "node:path";
 import { LIMITS } from "./limits.ts";
-import { DEFAULT_KEY_PREFIX, normalizePrefix, parseOssEndpoint, parsePublicOssOrigin, type OssConfig, type PublicOssConfig } from "./feed/objects.ts";
+import { DEFAULT_KEY_PREFIX, normalizePrefix, parseOssEndpoint, parsePublicOssOrigin, validateOssBucket, type OssConfig, type PublicOssConfig } from "./feed/objects.ts";
 
 export const DEFAULT_MODEL = "deepseek/deepseek-v4.1-flash-1017";
 export const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
@@ -24,9 +24,10 @@ export type Config = {
   /** Explicit private-deploy switch. Unset stays on bearer auth. */
   personalOpen: boolean;
   /**
-   * Separate from personalOpen. Unset keeps feed, follow, and card reads on the bearer.
-   * Exactly `1` lets the single configured owner read cards and follow or unfollow
-   * a public bot. It does not open chat, and chat's flag does not open these routes.
+   * Separate from personalOpen. Unset keeps feed, follow, and card routes on the bearer.
+   * Exactly `1` lets the single configured owner read cards, publish public cards on a
+   * public bot, and follow or unfollow a public bot. Deleting cards still requires the
+   * bearer. It does not open chat, and chat's flag does not open these routes.
    */
   feedOpen: boolean;
   objectRoot: string | null;
@@ -114,15 +115,15 @@ function objectConfig(env: NodeJS.ProcessEnv): { objectRoot: string | null; oss:
   if (!accessKeyId || !accessKeySecret || !bucket || !endpoint) {
     throw new Error("OSS settings must include the endpoint, bucket, and both key parts");
   }
-  if (!/^[a-z0-9][a-z0-9.-]{1,62}$/.test(bucket)) throw new Error("QBOT_OSS_BUCKET is not a bucket name");
+  const safeBucket = validateOssBucket(bucket);
   return {
     objectRoot: null,
     oss: {
-      bucket,
+      bucket: safeBucket,
       endpointHost: parseOssEndpoint(endpoint),
       accessKeyId,
       accessKeySecret,
-      keyPrefix: normalizePrefix(prefix || "qbot/cards/"),
+      keyPrefix: normalizePrefix(prefix || DEFAULT_KEY_PREFIX),
     },
     publicOss: null,
   };

@@ -236,10 +236,72 @@ test("seed, feeds, follow, and bundle access against temporary postgres", { time
       const restored = await json(base, `/v1/bots/${first.agentId}/follow`, { method: "POST", body: "{}" });
       assert.equal((await restored.json() as { followed: boolean }).followed, true);
       assert.deepEqual(await counts(pool), before);
-      assert.equal((await fetch(`${base}/v1/cards`, { method: "POST" })).status, 404);
 
       const dynPng = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
       const dynHtml = Buffer.from("<!doctype html><main>动态新卡片</main>", "utf8");
+      const openPayload = (overrides: Record<string, unknown> = {}) => JSON.stringify({
+        title: "免登录公开卡片",
+        provenance: "agent",
+        files: [
+          { path: "cover-light.png", contentBase64: dynPng.toString("base64") },
+          { path: "cover-dark.png", contentBase64: dynPng.toString("base64") },
+          { path: "index.html", contentBase64: dynHtml.toString("base64") },
+        ],
+        ...overrides,
+      });
+
+      assert.equal((await json(base, "/v1/cards", { method: "POST", body: openPayload({ visibility: "followers" }) })).status, 404);
+      assert.equal((await json(base, "/v1/cards", { method: "POST", body: openPayload({ visibility: "private" }) })).status, 404);
+      assert.equal((await json(base, "/v1/cards", { method: "POST", body: openPayload({ botSlug: "other", visibility: "public" }) })).status, 404);
+
+      const openPublished = await json(base, "/v1/cards", {
+        method: "POST",
+        body: openPayload({ title: "免登录公开卡片", visibility: "public" }),
+      });
+      assert.equal(openPublished.status, 201, await openPublished.clone().text());
+      const openCard = await openPublished.json() as { id: string; artifactId: string; visibility: string };
+      assert.equal(openCard.visibility, "public");
+      assert.equal((await fetch(`${base}/v1/cards/${openCard.id}`, { method: "DELETE" })).status, 404);
+      assert.equal((await fetch(`${base}/v1/cards/${openCard.id}`, {
+        method: "DELETE",
+        headers: { Authorization: "Bearer wrong-token-value-123456" },
+      })).status, 404);
+      assert.equal((await fetch(`${base}/v1/cards/${openCard.id}`)).status, 200);
+      assert.equal((await fetch(`${base}/v1/cards/${openCard.id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${TOKEN}` },
+      })).status, 204);
+
+      const readonlyFeed = await startChatServer({
+        config: loadConfig({
+          DATABASE_URL: runtimeUrl,
+          QBOT_OWNER_ID: OWNER,
+          QBOT_ACCESS_TOKEN: TOKEN,
+          OPENROUTER_API_KEY: "fixture-openrouter-key-not-a-secret",
+          HOST: "127.0.0.1",
+          PORT: "0",
+          QBOT_FIXTURE_UPSTREAM: "1",
+          QBOT_FIXTURE_UPSTREAM_URL: "http://127.0.0.1:9/v1/chat/completions",
+          QBOT_FEED_OPEN: "1",
+          QBOT_OSS_PUBLIC: "1",
+          QBOT_OSS_PUBLIC_ORIGIN: "https://cards.example.invalid",
+        }),
+        store: createStore(pool),
+        runtime: stubRuntime(),
+        pool,
+      });
+      try {
+        const roRes = await json(`http://127.0.0.1:${readonlyFeed.port}`, "/v1/cards", {
+          method: "POST",
+          body: openPayload(),
+        });
+        assert.equal(roRes.status, 503);
+        const roBody = await roRes.json() as { error?: { code?: string } };
+        assert.equal(roBody.error?.code, "storage_readonly");
+      } finally {
+        await readonlyFeed.close();
+      }
+
       const published = await fetch(`${base}/v1/cards`, {
         method: "POST",
         headers: { Authorization: `Bearer ${TOKEN}`, "Content-Type": "application/json" },
@@ -308,6 +370,8 @@ test("seed, feeds, follow, and bundle access against temporary postgres", { time
       try {
         assert.equal((await fetch(`http://127.0.0.1:${personal.port}/v1/session`)).status, 200);
         assert.equal((await fetch(`http://127.0.0.1:${personal.port}/v1/feed?scope=following`)).status, 401);
+        assert.equal((await json(`http://127.0.0.1:${personal.port}`, "/v1/cards", { method: "POST", body: openPayload() })).status, 401);
+        assert.equal((await fetch(`http://127.0.0.1:${personal.port}/v1/cards/${INFO}`, { method: "DELETE" })).status, 401);
       } finally {
         await personal.close();
       }

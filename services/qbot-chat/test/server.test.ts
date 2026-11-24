@@ -39,11 +39,22 @@ test("personal mode is off unless the private flag is exactly 1", async () => {
   const store = createStore(pool);
   const runtime = { engine: "dsh", id: "fixture", run() { throw new Error("unused"); }, async close() {} } as ConversationEngine;
   const closed = await startChatServer({ config: loadConfig({ ...base, QBOT_ACCESS_TOKEN: TOKEN, PORT: "0" }), store, runtime });
+  const closedConversation = await store.createConversation(OWNER, "待鉴权验证");
   try {
     const denied = await fetch(`http://127.0.0.1:${closed.port}/v1/session`);
     assert.equal(denied.status, 401);
     const body = await denied.text();
     assert.equal(body.includes(TOKEN), false);
+    const deniedPatch = await fetch(`http://127.0.0.1:${closed.port}/v1/conversations/${closedConversation.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: "未登录改名" }),
+    });
+    assert.equal(deniedPatch.status, 401);
+    const deniedDelete = await fetch(`http://127.0.0.1:${closed.port}/v1/conversations/${closedConversation.id}`, {
+      method: "DELETE",
+    });
+    assert.equal(deniedDelete.status, 401);
   } finally {
     await closed.close();
   }
@@ -54,6 +65,18 @@ test("personal mode is off unless the private flag is exactly 1", async () => {
     const body = await session.text();
     assert.equal(body.includes("fixture-openrouter-key"), false);
     assert.match(body, /"upstream":"fixture"/);
+    const renamed = await fetch(`http://127.0.0.1:${open.port}/v1/conversations/${closedConversation.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: "免登录改名" }),
+    });
+    assert.equal(renamed.status, 200);
+    assert.equal(((await renamed.json()) as { title: string }).title, "免登录改名");
+    const removed = await fetch(`http://127.0.0.1:${open.port}/v1/conversations/${closedConversation.id}`, {
+      method: "DELETE",
+    });
+    assert.equal(removed.status, 204);
+    assert.equal((await fetch(`http://127.0.0.1:${open.port}/v1/conversations/${closedConversation.id}`)).status, 404);
   } finally {
     await open.close();
     await pool.end();

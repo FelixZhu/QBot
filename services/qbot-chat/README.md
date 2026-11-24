@@ -104,7 +104,7 @@ The phone build reads `EXPO_PUBLIC_QBOT_ORIGIN` at publish time. Leave it unset 
 
 ## Cards
 
-`QBOT_FEED_OPEN` stays off. Feed, follow, and card routes keep requiring `QBOT_ACCESS_TOKEN`. If that flag is later set, a request without a bearer can list, mint, and read only a public card on a public bot. Follow acts for the configured owner and only on a public bot. A private bot and a followers-only card stay unreachable. The flag does not skip the bearer on chat. These routes set no CORS header, and follow accepts only JSON.
+`QBOT_FEED_OPEN` stays off. Feed, follow, and card routes keep requiring `QBOT_ACCESS_TOKEN`. If that flag is later set, a request without a bearer can list, mint, read, and publish (`POST /v1/cards`) only a `public` card on a `public` bot, and follow or unfollow only a `public` bot for the configured owner. `DELETE /v1/cards/:id` always requires the bearer token (without it, `QBOT_FEED_OPEN=1` returns `404`). A private bot and a followers-only card stay unreachable without the bearer. When `QBOT_OSS_PUBLIC=1` is active (read-only), `POST /v1/cards` safely returns `503 storage_readonly`. Signed OSS mode locks `QBOT_OSS_KEY_PREFIX` under `qbot/cards/`. The flag does not skip the bearer on chat. These routes set no CORS header, and follow accepts only JSON.
 
 `authored_at` on the two cards is when the text was recorded, `2026-11-21T09:21:18Z`. `published_at` is the clock of the first successful seed and is not rewritten later. The seed does not delete conversations. A second run does not publish them again, and it does not follow Qbot again after an unfollow.
 
