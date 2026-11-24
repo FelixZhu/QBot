@@ -1,0 +1,72 @@
+name: app-ota
+
+# Manual only. Publishes a JS-only OTA update for apps/qbot-app to the Expo
+# preview channel. Never builds or charges for a native APK.
+on:
+  workflow_dispatch:
+    inputs:
+      message:
+        description: "OTA update release message"
+        required: false
+        default: "QBot preview OTA update"
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: app-ota
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      EXPO_NO_TELEMETRY: "1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/qbot-app/package-lock.json
+
+      - name: Verify required secrets are configured
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          EXPO_PUBLIC_QBOT_ORIGIN: ${{ secrets.EXPO_PUBLIC_QBOT_ORIGIN }}
+        run: |
+          if [[ -z "$EXPO_TOKEN" ]]; then
+            echo "::error::Missing repository secret EXPO_TOKEN."
+            exit 1
+          fi
+          if [[ -z "$EXPO_PUBLIC_QBOT_ORIGIN" ]]; then
+            echo "::error::Missing repository secret EXPO_PUBLIC_QBOT_ORIGIN."
+            exit 1
+          fi
+          if [[ "$EXPO_PUBLIC_QBOT_ORIGIN" != https://* ]]; then
+            echo "::error::EXPO_PUBLIC_QBOT_ORIGIN must start with https://."
+            exit 1
+          fi
+          echo "Required secrets present."
+
+      - name: Install dependencies and typecheck
+        working-directory: apps/qbot-app
+        run: |
+          npm ci --no-audit --no-fund
+          npx tsc --noEmit
+
+      - name: Publish OTA update to preview channel
+        working-directory: apps/qbot-app
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          EXPO_PUBLIC_QBOT_ORIGIN: ${{ secrets.EXPO_PUBLIC_QBOT_ORIGIN }}
+          OTA_MESSAGE: ${{ inputs.message }}
+        run: |
+          MSG="${OTA_MESSAGE:-QBot preview OTA update}"
+          npx --yes eas-cli@latest update \
+            --channel preview \
+            --non-interactive \
+            --message "$MSG"
