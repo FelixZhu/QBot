@@ -114,6 +114,7 @@ export const SystemFileChooser = forwardRef<SystemFileChooserHandle, {
   const webRef = useRef<WebViewHandle>(null);
   const ready = useRef(false);
   const pending = useRef<"photo" | "file" | null>(null);
+  const [mounted, setMounted] = useState(false);
   const [failed, setFailed] = useState(false);
 
   const open = (kind: "photo" | "file") => {
@@ -130,15 +131,20 @@ export const SystemFileChooser = forwardRef<SystemFileChooserHandle, {
         onUnavailable();
         return;
       }
+      if (!mounted) {
+        pending.current = kind;
+        setMounted(true);
+        return;
+      }
       if (!ready.current) {
         pending.current = kind;
         return;
       }
       open(kind);
     },
-  }), [failed, onPicked, onUnavailable]);
+  }), [failed, mounted, onPicked, onUnavailable]);
 
-  if (Platform.OS === "web") return null;
+  if (Platform.OS === "web" || !mounted) return null;
   return (
     <View style={{ position: "absolute", width: 1, height: 1, opacity: 0 }} collapsable={false} pointerEvents="none">
       <WebView

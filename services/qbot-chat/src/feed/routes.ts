@@ -134,6 +134,15 @@ async function dispatch(deps: FeedDeps, req: IncomingMessage, res: ServerRespons
     sendJson(res, 200, detail);
     return;
   }
+  if (card && req.method === "DELETE" && mode === "bearer") {
+    const id = card[1] ?? "";
+    if (!isUuid(id)) throw new HttpError(404, "not_found", "没有这张卡片");
+    const removed = await feed.deleteCard(ownerId, id);
+    if (!removed) throw new HttpError(404, "not_found", "没有这张卡片");
+    res.writeHead(204, { "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff", "Referrer-Policy": "no-referrer" });
+    res.end();
+    return;
+  }
   throw new HttpError(404, "not_found", "没有这个接口");
 }
 
@@ -192,13 +201,18 @@ async function publishCardRoute(deps: FeedDeps, req: IncomingMessage, res: Serve
     throw new HttpError(400, "bad_request", error instanceof Error ? error.message : "卡片包不合法");
   }
 
+  const feed = store(deps);
+  if (!(await feed.hasAgent(ownerId, botSlug))) {
+    throw new HttpError(404, "not_found", "没有这个 bot");
+  }
+
   const artifactId = randomUUID();
   const version = 1;
   for (const file of validated.files) {
     const ok = await objects.write(artifactId, version, file.path, file.bytes, file.contentType);
     if (!ok) throw new HttpError(502, "object_write", "对象写入失败");
   }
-  const created = await store(deps).publishCard({
+  const created = await feed.publishCard({
     ownerId,
     botSlug,
     artifactId,

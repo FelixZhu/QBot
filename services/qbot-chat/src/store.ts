@@ -51,7 +51,10 @@ export type ChatStore = {
   getAgent(ownerId: string): Promise<AgentRecord>;
   failStaleRuns(): Promise<void>;
   listConversations(ownerId: string): Promise<Conversation[]>;
+  getConversation(ownerId: string, conversationId: string): Promise<Conversation | null>;
   createConversation(ownerId: string, title: string): Promise<Conversation>;
+  renameConversation(ownerId: string, conversationId: string, title: string): Promise<Conversation | null>;
+  deleteConversation(ownerId: string, conversationId: string): Promise<boolean>;
   listMessages(ownerId: string, conversationId: string, limit: number): Promise<StoredMessage[]>;
   beginTurn(ownerId: string, conversationId: string, text: string): Promise<BegunTurn>;
   finishTurn(ownerId: string, assistantId: string, runId: string, status: "complete" | "failed" | "cancelled", content: string): Promise<void>;
@@ -103,6 +106,16 @@ export function createStore(pool: pg.Pool): ChatStore {
       );
       return result.rows.map(toConversation);
     },
+    async getConversation(ownerId, conversationId) {
+      const result = await pool.query<{ id: string; title: string; created_at: Date; updated_at: Date }>(
+        `SELECT id, title, created_at, updated_at
+         FROM conversations
+         WHERE id = $1 AND owner_id = $2`,
+        [conversationId, ownerId],
+      );
+      const row = result.rows[0];
+      return row ? toConversation(row) : null;
+    },
     async createConversation(ownerId, title) {
       const count = await pool.query<{ n: number }>("SELECT count(*)::int AS n FROM conversations WHERE owner_id = $1", [ownerId]);
       if ((count.rows[0]?.n ?? 0) >= LIMITS.conversations) {
@@ -119,6 +132,35 @@ export function createStore(pool: pg.Pool): ChatStore {
       const row = result.rows[0];
       if (!row) throw new HttpError(500, "persist", "数据库没有完成写入");
       return toConversation(row);
+    },
+    async renameConversation(ownerId, conversationId, title) {
+      const result = await pool.query<{ id: string; title: string; created_at: Date; updated_at: Date }>(
+        `UPDATE conversations
+         SET title = $3, updated_at = now()
+         WHERE id = $1 AND owner_id = $2
+         RETURNING id, title, created_at, updated_at`,
+        [conversationId, ownerId, title],
+      );
+      const row = result.rows[0];
+      return row ? toConversation(row) : null;
+    },
+    async deleteConversation(ownerId, conversationId) {
+      return transaction(pool, async (query) => {
+        const owned = await query(
+          "SELECT 1 FROM conversations WHERE id = $1 AND owner_id = $2 FOR UPDATE",
+          [conversationId, ownerId],
+        );
+        if (owned.rowCount !== 1) return false;
+        const pending = await query(
+          "SELECT 1 FROM messages WHERE conversation_id = $1 AND status = 'pending' LIMIT 1",
+          [conversationId],
+        );
+        if ((pending.rowCount ?? 0) > 0) throw new HttpError(409, "busy", "上一条还在生成");
+        await query("DELETE FROM messages WHERE conversation_id = $1 AND owner_id = $2", [conversationId, ownerId]);
+        await query("DELETE FROM runs WHERE conversation_id = $1 AND owner_id = $2", [conversationId, ownerId]);
+        const removed = await query("DELETE FROM conversations WHERE id = $1 AND owner_id = $2", [conversationId, ownerId]);
+        return removed.rowCount === 1;
+      });
     },
     async listMessages(ownerId, conversationId, limit) {
       const owned = await pool.query("SELECT 1 FROM conversations WHERE id = $1 AND owner_id = $2", [conversationId, ownerId]);

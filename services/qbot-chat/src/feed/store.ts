@@ -127,10 +127,13 @@ export type FeedStore = {
   list(ownerId: string, scope: FeedScope, limit: number, cursor: string | null, mode: AccessMode): Promise<{ cards: FeedCard[]; next: string | null }>;
   bot(ownerId: string, agentId: string): Promise<BotProfile | null>;
   botBySlug(ownerId: string, slug: string): Promise<BotProfile | null>;
+  hasAgent(ownerId: string, slug: string): Promise<boolean>;
   follow(ownerId: string, agentId: string): Promise<boolean>;
   unfollow(ownerId: string, agentId: string): Promise<boolean>;
   card(ownerId: string, cardId: string, mode: AccessMode): Promise<CardDetail | null>;
   publishCard(input: PublishCardInput): Promise<CardDetail | null>;
+  deleteCard(ownerId: string, cardId: string): Promise<boolean>;
+  purgeExpiredCapabilities(): Promise<number>;
   mint(ownerId: string, cardId: string, mode: AccessMode): Promise<MintedCapability | null>;
   resolve(token: string, artifactId: string, version: number, relPath: string): Promise<"expired" | "denied" | ResolvedFile>;
 };
@@ -163,6 +166,10 @@ export function createFeedStore(pool: pg.Pool): FeedStore {
     },
     async botBySlug(ownerId, slug) {
       return oneBot(pool, ownerId, "slug", slug);
+    },
+    async hasAgent(ownerId, slug) {
+      const result = await pool.query("SELECT 1 FROM agents WHERE owner_id = $1 AND slug = $2", [ownerId, slug]);
+      return result.rowCount === 1;
     },
     async follow(ownerId, agentId) {
       const visible = await visibleAgent(pool, ownerId, agentId);
@@ -219,10 +226,40 @@ export function createFeedStore(pool: pg.Pool): FeedStore {
       if (!inserted) return null;
       return this.card(input.ownerId, cardId, "bearer");
     },
+    async deleteCard(ownerId, cardId) {
+      return transaction(pool, async (query) => {
+        const owned = await query<{ id: string }>(
+          `SELECT c.id
+           FROM cards c
+           JOIN agents g ON g.id = c.agent_id
+           WHERE c.id = $1 AND g.owner_id = $2
+           FOR UPDATE OF c`,
+          [cardId, ownerId],
+        );
+        if (owned.rowCount !== 1) return false;
+        await query(
+          `DELETE FROM artifact_capabilities
+           WHERE artifact_id IN (SELECT id FROM artifacts WHERE card_id = $1)`,
+          [cardId],
+        );
+        await query(
+          `DELETE FROM artifact_files
+           WHERE artifact_id IN (SELECT id FROM artifacts WHERE card_id = $1)`,
+          [cardId],
+        );
+        await query("UPDATE cards SET artifact_id = NULL WHERE id = $1", [cardId]);
+        await query("DELETE FROM artifacts WHERE card_id = $1", [cardId]);
+        const removed = await query("DELETE FROM cards WHERE id = $1", [cardId]);
+        return removed.rowCount === 1;
+      });
+    },
+    async purgeExpiredCapabilities() {
+      const result = await pool.query("DELETE FROM artifact_capabilities WHERE expires_at < now()");
+      return result.rowCount ?? 0;
+    },
     async mint(ownerId, cardId, mode) {
       const detail = await this.card(ownerId, cardId, mode);
       if (!detail) return null;
-      await pool.query("DELETE FROM artifact_capabilities WHERE expires_at < now()");
       const token = randomBytes(32).toString("base64url");
       const hash = createHash("sha256").update(token).digest();
       const expires = new Date(Date.now() + LIMITS.capabilitySeconds * 1000);

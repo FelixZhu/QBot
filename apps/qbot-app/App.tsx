@@ -15,8 +15,9 @@ import {
 import { StatusBar } from "expo-status-bar";
 import { setBackgroundColorAsync } from "expo-system-ui";
 import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { ChatEmpty, ConversationList } from "./src/ChatPane";
-import { clearSavedToken, isUnauthorizedMessage, loadSavedToken, verifyAndSaveToken } from "./src/chat/accessToken";
+import { clearClientCaches, clearSavedToken, isUnauthorizedMessage, loadSavedToken, verifyAndSaveToken } from "./src/chat/accessToken";
 import { deviceSecretStorage } from "./src/chat/deviceSecret";
 import { LiveChat } from "./src/chat/LiveChat";
 import { TokenModal } from "./src/chat/TokenModal";
@@ -203,6 +204,7 @@ function Shell() {
   const handleSaveToken = useCallback(async (rawToken: string) => {
     if (!origin) throw new Error("这一版没有带上服务器地址");
     const verified = await verifyAndSaveToken({ origin, rawToken, secrets: deviceSecretStorage });
+    await clearClientCaches(AsyncStorage);
     setToken(verified);
     setAuthVersion((v) => v + 1);
     setTokenModalOpen(false);
@@ -210,6 +212,7 @@ function Shell() {
 
   const handleClearToken = useCallback(async () => {
     await clearSavedToken(deviceSecretStorage);
+    await clearClientCaches(AsyncStorage);
     setToken("");
     setThread(false);
     setAuthVersion((v) => v + 1);
