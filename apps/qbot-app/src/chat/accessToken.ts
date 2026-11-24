@@ -45,3 +45,20 @@ export async function clearSavedToken(secrets: SecretStore): Promise<void> {
     // Ignore secure store errors on removal so the in-memory token still clears.
   }
 }
+
+export type CacheStorageLike = {
+  getAllKeys(): Promise<readonly string[]>;
+  multiRemove(keys: readonly string[]): Promise<void>;
+};
+
+const CACHE_PREFIXES = ["qbot.feed.cache.v1.", "qbot.chat.thread.", "qbot.chat.lastThread"] as const;
+
+export async function clearClientCaches(storage: CacheStorageLike): Promise<void> {
+  try {
+    const keys = await storage.getAllKeys();
+    const doomed = keys.filter((key) => CACHE_PREFIXES.some((prefix) => key.startsWith(prefix)));
+    if (doomed.length > 0) await storage.multiRemove(doomed);
+  } catch {
+    // Cache cleanup is best-effort.
+  }
+}

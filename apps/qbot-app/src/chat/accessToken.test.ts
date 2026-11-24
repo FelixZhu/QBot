@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
+  clearClientCaches,
   clearSavedToken,
   isUnauthorizedMessage,
   loadSavedToken,
@@ -66,4 +67,26 @@ test("verifyAndSaveToken does not overwrite secure storage when server rejects w
     ),
   }), /需要有效的访问令牌/);
   assert.equal(secrets.map.has(TOKEN_KEY), false);
+});
+
+test("clearClientCaches removes only qbot feed and thread cache keys", async () => {
+  const removed: string[] = [];
+  await clearClientCaches({
+    async getAllKeys() {
+      return [
+        "qbot.feed.cache.v1.following",
+        "qbot.chat.thread.abc",
+        "qbot.chat.lastThread",
+        "unrelated.setting",
+      ];
+    },
+    async multiRemove(keys) {
+      removed.push(...keys);
+    },
+  });
+  assert.deepEqual(removed, [
+    "qbot.feed.cache.v1.following",
+    "qbot.chat.thread.abc",
+    "qbot.chat.lastThread",
+  ]);
 });

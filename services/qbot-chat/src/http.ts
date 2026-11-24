@@ -92,6 +92,44 @@ async function handle(deps: ChatServerDeps, req: IncomingMessage, res: ServerRes
     sendJson(res, 201, await deps.store.createConversation(deps.config.ownerId, title));
     return;
   }
+  const singleConversation = /^\/v1\/conversations\/([^/]+)$/.exec(path);
+  const singleId = singleConversation?.[1];
+  if (singleId) {
+    if (!UUID.test(singleId)) {
+      sendJson(res, 404, errorBody("not_found", "没有这则会话"));
+      return;
+    }
+    if (req.method === "GET") {
+      const conversation = await deps.store.getConversation(deps.config.ownerId, singleId);
+      if (!conversation) {
+        sendJson(res, 404, errorBody("not_found", "没有这则会话"));
+        return;
+      }
+      sendJson(res, 200, conversation);
+      return;
+    }
+    if (req.method === "PATCH") {
+      const body = await readJson(req);
+      const title = requiredTitle(body);
+      const updated = await deps.store.renameConversation(deps.config.ownerId, singleId, title);
+      if (!updated) {
+        sendJson(res, 404, errorBody("not_found", "没有这则会话"));
+        return;
+      }
+      sendJson(res, 200, updated);
+      return;
+    }
+    if (req.method === "DELETE") {
+      const removed = await deps.store.deleteConversation(deps.config.ownerId, singleId);
+      if (!removed) {
+        sendJson(res, 404, errorBody("not_found", "没有这则会话"));
+        return;
+      }
+      res.writeHead(204, { "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff", "Referrer-Policy": "no-referrer" });
+      res.end();
+      return;
+    }
+  }
   const messages = /^\/v1\/conversations\/([^/]+)\/messages$/.exec(path);
   const conversationId = messages?.[1];
   if (conversationId && !UUID.test(conversationId)) {
@@ -217,6 +255,14 @@ async function readJson(req: IncomingMessage): Promise<Record<string, unknown>> 
 function optionalTitle(body: Record<string, unknown>): string {
   rejectUnknown(body, ["title"]);
   if (body.title == null) return "新对话";
+  if (typeof body.title !== "string") throw new HttpError(400, "bad_request", "标题不合法");
+  const title = body.title.replace(/\s+/g, " ").trim();
+  if (!title || title.length > LIMITS.titleChars || title.includes("\u0000")) throw new HttpError(400, "bad_request", "标题不合法");
+  return title;
+}
+
+function requiredTitle(body: Record<string, unknown>): string {
+  rejectUnknown(body, ["title"]);
   if (typeof body.title !== "string") throw new HttpError(400, "bad_request", "标题不合法");
   const title = body.title.replace(/\s+/g, " ").trim();
   if (!title || title.length > LIMITS.titleChars || title.includes("\u0000")) throw new HttpError(400, "bad_request", "标题不合法");

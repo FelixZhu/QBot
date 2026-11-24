@@ -273,6 +273,13 @@ test("seed, feeds, follow, and bundle access against temporary postgres", { time
       const dynDarkCover = await fetch(`${base}/v1/artifacts/${dynCard.artifactId}/v/1/${dynCap.token}/files/cover-dark.png`);
       assert.equal(dynDarkCover.status, 200);
       assert.equal(dynDarkCover.headers.get("content-type"), "image/png");
+      assert.equal((await fetch(`${base}/v1/cards/${dynCard.id}`, { method: "DELETE" })).status, 404);
+      const deleted = await fetch(`${base}/v1/cards/${dynCard.id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${TOKEN}` },
+      });
+      assert.equal(deleted.status, 204);
+      assert.equal((await fetch(`${base}/v1/cards/${dynCard.id}`, { headers: { Authorization: `Bearer ${TOKEN}` } })).status, 404);
       assert.deepEqual(await applyMigrations({ runtimeUrl, directory }), []);
 
       const stranger = await startChatServer({
