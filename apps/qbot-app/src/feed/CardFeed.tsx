@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, FlatList, Image, Pressable, Text, useColorScheme, View } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { QbotAvatar } from "../QbotAvatar";
+import { isUnauthorizedMessage } from "../chat/accessToken";
 import { palette, resolveScheme } from "../theme";
 import { CardWork } from "./CardWork";
 import { CoverFace, publishedFace } from "./CoverFace";
@@ -43,19 +44,25 @@ type Work = { title: string; url: string; index: number };
 export function CardFeed({
   active,
   origin,
+  token,
+  tokenReady = true,
   topInset,
   onBackReady,
   onCover,
   onFollowChange,
   onStatusStyle,
+  onRequestAuth,
 }: {
   active: boolean;
   origin: string | null;
+  token?: string;
+  tokenReady?: boolean;
   topInset: number;
   onBackReady: (back: () => boolean) => void;
   onCover: (covered: boolean) => void;
   onFollowChange?: (bot: { id: string; slug: string; followed: boolean }) => void;
   onStatusStyle?: (style: StatusIcons) => void;
+  onRequestAuth?: () => void;
 }) {
   const scheme = resolveScheme(useColorScheme());
   const colors = palette[scheme];
@@ -78,6 +85,7 @@ export function CardFeed({
   const [work, setWork] = useState<Work | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const column = feedColumnWidth(width);
+  const authToken = token || undefined;
   page.current = index;
 
   const load = useCallback(async (nextScope: FeedScope, cursor?: string | null) => {
@@ -88,7 +96,7 @@ export function CardFeed({
       setCached(false);
       return;
     }
-    const client = createFeedClient({ origin });
+    const client = createFeedClient({ origin, token: authToken });
     if (!cursor) {
       setPhase("loading");
       setCards([]);
@@ -111,22 +119,29 @@ export function CardFeed({
         setMessage(text);
         return;
       }
+      if (isUnauthorizedMessage(text)) {
+        setCards([]);
+        setCached(false);
+        setPhase("error");
+        setMessage(text);
+        return;
+      }
       const saved = await readCache(nextScope);
       setCards(saved);
       setCached(saved.length > 0);
       setPhase("error");
       setMessage(text);
     }
-  }, [origin]);
+  }, [authToken, origin]);
 
   useEffect(() => {
-    if (!active) return;
+    if (!active || !tokenReady) return;
     coverEpochRef.current += 1;
     coversRef.current.clear();
     inFlightRef.current.clear();
     setCovers({});
     void load(scope);
-  }, [active, load, scope]);
+  }, [active, load, scope, tokenReady]);
 
   useEffect(() => {
     if (!origin || cards.length === 0) return;
@@ -139,7 +154,7 @@ export function CardFeed({
     });
     if (toFetch.length === 0) return;
     const epoch = coverEpochRef.current;
-    const client = createFeedClient({ origin });
+    const client = createFeedClient({ origin, token: authToken });
     const byId = new Map(cards.map((card) => [card.id, card]));
     for (const cardId of toFetch) {
       const card = byId.get(cardId);
@@ -156,7 +171,7 @@ export function CardFeed({
         if (coverEpochRef.current === epoch) inFlightRef.current.delete(cardId);
       });
     }
-  }, [cards, index, origin]);
+  }, [authToken, cards, index, origin]);
 
   const close = useCallback(() => {
     const restore = work?.index ?? page.current;
@@ -197,7 +212,7 @@ export function CardFeed({
     if (!origin || touch.current.blocked) return;
     setBusy(card.id);
     try {
-      const capability = await createFeedClient({ origin }).capability(card.id);
+      const capability = await createFeedClient({ origin, token: authToken }).capability(card.id);
       const pagePath = capability.files.find((file) => file.path === "index.html")?.path ?? "index.html";
       setWork({ title: card.title, url: artifactUrl(origin, capability.artifactId, capability.version, capability.token, pagePath), index: at });
       onCover(true);
@@ -215,7 +230,7 @@ export function CardFeed({
     const followed = !card.bot.followed;
     setBusy(card.bot.id);
     try {
-      const bot = await createFeedClient({ origin }).setFollow(card.bot.id, followed);
+      const bot = await createFeedClient({ origin, token: authToken }).setFollow(card.bot.id, followed);
       setCards((current) => {
         const nextCards = applyFollow(current, bot.id, bot.followed, scope);
         setIndex((value) => clampPage(value, nextCards.length));
@@ -281,6 +296,11 @@ export function CardFeed({
             <Pressable accessibilityRole="button" accessibilityLabel="重试" onPress={() => void load(scope)} style={{ marginTop: 16, minHeight: 44, justifyContent: "center" }}>
               <Text style={{ color: colors.accentInk, fontSize: 16, fontWeight: "700" }}>重试</Text>
             </Pressable>
+            {isUnauthorizedMessage(view.message) && onRequestAuth ? (
+              <Pressable accessibilityRole="button" accessibilityLabel="输入访问口令" onPress={onRequestAuth} style={{ marginTop: 12, height: 44, paddingHorizontal: 22, borderRadius: 22, backgroundColor: colors.accentInk, alignItems: "center", justifyContent: "center" }}>
+                <Text style={{ color: colors.bg, fontSize: 15, fontWeight: "700" }}>输入访问口令</Text>
+              </Pressable>
+            ) : null}
           </View>
         ) : null}
         {view.kind === "loading" ? (

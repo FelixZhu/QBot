@@ -15,6 +15,7 @@ export function LiveChat({
   onBack,
   view,
   onOpenLibrary,
+  onManageToken,
   active = true,
 }: {
   scheme: Scheme;
@@ -22,6 +23,7 @@ export function LiveChat({
   onBack: () => void;
   view: ConnectionView;
   onOpenLibrary?: () => void;
+  onManageToken?: () => void;
   active?: boolean;
 }) {
   const chrome = chatChrome(scheme);
@@ -29,7 +31,7 @@ export function LiveChat({
   return (
     <View style={{ flex: 1, backgroundColor: chrome.canvas }}>
       <View style={{ flex: 1, width: "100%", maxWidth: READ_MAX, alignSelf: "center" }}>
-        <ChatHeader scheme={scheme} showBack={showBack} onBack={onBack} view={view} syncLine={syncLine} />
+        <ChatHeader scheme={scheme} showBack={showBack} onBack={onBack} view={view} syncLine={syncLine} onManageToken={onManageToken} />
         <ChatThreadSurface
           scheme={scheme}
           listHeader={view.phase === "ready" && view.session.upstream === "fixture" ? (
@@ -51,12 +53,14 @@ function ChatHeader({
   onBack,
   view,
   syncLine,
+  onManageToken,
 }: {
   scheme: Scheme;
   showBack: boolean;
   onBack: () => void;
   view: ConnectionView;
   syncLine: string | null;
+  onManageToken?: () => void;
 }) {
   const chrome = chatChrome(scheme);
   const { switchToNewThread } = useThreadListNew();
@@ -104,6 +108,11 @@ function ChatHeader({
           <Pressable onPress={() => { setMore(false); start(); }} accessibilityRole="button" accessibilityLabel="新建对话">
             <Text style={{ color: chrome.text, fontSize: 15, lineHeight: 22 }}>新建对话</Text>
           </Pressable>
+          {onManageToken ? (
+            <Pressable onPress={() => { setMore(false); onManageToken(); }} accessibilityRole="button" accessibilityLabel="访问口令">
+              <Text style={{ color: chrome.text, fontSize: 15, lineHeight: 22 }}>访问口令</Text>
+            </Pressable>
+          ) : null}
         </View>
       ) : null}
     </View>
