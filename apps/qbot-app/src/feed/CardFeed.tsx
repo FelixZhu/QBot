@@ -1,15 +1,14 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, FlatList, Image, Pressable, Text, useColorScheme, View } from "react-native";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ActivityIndicator, FlatList, Image, Pressable, ScrollView, Text, useColorScheme, View } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { QbotAvatar } from "../QbotAvatar";
 import { isUnauthorizedMessage } from "../chat/accessToken";
-import { palette, resolveScheme } from "../theme";
+import { isSplit, listPaneWidth, palette, resolveScheme } from "../theme";
 import { CardWork } from "./CardWork";
 import { CoverFace, publishedFace } from "./CoverFace";
 import {
   artifactUrl,
   createFeedClient,
-  feedColumnWidth,
   formatPublished,
   isValidProvenance,
   pickCoverPath,
@@ -22,13 +21,14 @@ import {
   ACCOUNT_GAP,
   ACCOUNT_HEIGHT,
   applyFollow,
+  botLabel,
   clampPage,
   classifyFeedGesture,
   coverSurface,
   EMPTY_ACTION,
-  verticalStep,
   EMPTY_BODY,
   EMPTY_TITLE,
+  isDefaultBot,
   overlayInk,
   scopeAfterSwipe,
   selectCoverPrefetchIds,
@@ -42,6 +42,7 @@ import {
 const CACHE = "qbot.feed.cache.v1";
 
 type Work = { title: string; url: string; index: number };
+type UndoToast = { botId: string; botName: string };
 
 export function CardFeed({
   active,
@@ -69,8 +70,10 @@ export function CardFeed({
   const scheme = resolveScheme(useColorScheme());
   const colors = palette[scheme];
   const listRef = useRef<FlatList<FeedCard>>(null);
-  const touch = useRef({ x: 0, y: 0, blocked: false });
+  const touchRef = useRef({ x: 0, y: 0 });
   const page = useRef(0);
+  const loadedKeyRef = useRef<string | null>(null);
+  const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [width, setWidth] = useState(0);
   const [height, setHeight] = useState(0);
   const [scope, setScope] = useState<FeedScope>("following");
@@ -86,9 +89,16 @@ export function CardFeed({
   const coverEpochRef = useRef(0);
   const [work, setWork] = useState<Work | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
-  const column = feedColumnWidth(width);
+  const [undoToast, setUndoToast] = useState<UndoToast | null>(null);
+  const split = isSplit(width);
+  const dirWidth = Math.min(320, Math.max(260, listPaneWidth(width) - 40));
   const authToken = token || undefined;
+  const loadKey = `${scope}:${authToken ?? ""}`;
   page.current = index;
+
+  useEffect(() => () => {
+    if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+  }, []);
 
   const load = useCallback(async (nextScope: FeedScope, cursor?: string | null) => {
     if (!origin) {
@@ -112,6 +122,7 @@ export function CardFeed({
       setPhase("ready");
       setCached(false);
       setMessage("");
+      loadedKeyRef.current = `${nextScope}:${authToken ?? ""}`;
       if (!cursor) {
         await AsyncStorage.setItem(`${CACHE}.${nextScope}`, JSON.stringify({ cards: loaded.cards, savedAt: new Date().toISOString() }));
       }
@@ -136,14 +147,16 @@ export function CardFeed({
     }
   }, [authToken, origin]);
 
+  // Preserve current scope & card index across Tab switches; reload when scope or token changes.
   useEffect(() => {
     if (!active || !tokenReady) return;
+    if (loadedKeyRef.current === loadKey && cards.length > 0) return;
     coverEpochRef.current += 1;
     coversRef.current.clear();
     inFlightRef.current.clear();
     setCovers({});
     void load(scope);
-  }, [active, load, scope, tokenReady]);
+  }, [active, cards.length, load, loadKey, scope, tokenReady]);
 
   useEffect(() => {
     coverEpochRef.current += 1;
@@ -208,7 +221,7 @@ export function CardFeed({
     }
     const current = presentFeed({ phase, count: cards.length, cached, message });
     if (current.kind === "empty") {
-      onStatusStyle?.("dark");
+      onStatusStyle?.(scheme === "dark" ? "light" : "dark");
       return;
     }
     if (current.kind === "ready" || current.kind === "cached") {
@@ -219,7 +232,7 @@ export function CardFeed({
   }, [cached, cards.length, message, onStatusStyle, phase, scheme, surface, work]);
 
   const open = async (card: FeedCard, at: number) => {
-    if (!origin || touch.current.blocked) return;
+    if (!origin) return;
     setBusy(card.id);
     try {
       const capability = await createFeedClient({ origin, token: authToken }).capability(card.id);
@@ -235,18 +248,25 @@ export function CardFeed({
     }
   };
 
-  const toggle = async (card: FeedCard) => {
+  const toggleFollow = async (botId: string, botName: string, nextFollowed: boolean) => {
     if (!origin) return;
-    const followed = !card.bot.followed;
-    setBusy(card.bot.id);
+    setBusy(botId);
     try {
-      const bot = await createFeedClient({ origin, token: authToken }).setFollow(card.bot.id, followed);
+      const bot = await createFeedClient({ origin, token: authToken }).setFollow(botId, nextFollowed);
       setCards((current) => {
         const nextCards = applyFollow(current, bot.id, bot.followed, scope);
         setIndex((value) => clampPage(value, nextCards.length));
         return nextCards;
       });
       onFollowChange?.({ id: bot.id, slug: bot.slug, followed: bot.followed });
+      if (!bot.followed) {
+        setUndoToast({ botId: bot.id, botName });
+        if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+        undoTimerRef.current = setTimeout(() => setUndoToast(null), 3500);
+      } else {
+        setUndoToast(null);
+        if (scope === "following") void load(scope);
+      }
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "无法连接服务器");
     } finally {
@@ -254,12 +274,144 @@ export function CardFeed({
     }
   };
 
+  const switchScope = (nextScope: FeedScope) => {
+    if (nextScope === scope) return;
+    loadedKeyRef.current = null;
+    setScope(nextScope);
+  };
+
+  const jumpToCard = (targetIndex: number) => {
+    const clamped = clampPage(targetIndex, cards.length);
+    setIndex(clamped);
+    listRef.current?.scrollToIndex({ index: clamped, animated: true });
+  };
+
+  const groups = useMemo(() => {
+    const map = new Map<string, { botName: string; isDefault: boolean; items: { card: FeedCard; idx: number }[] }>();
+    cards.forEach((card, idx) => {
+      const key = card.bot.id;
+      const existing = map.get(key);
+      if (existing) {
+        existing.items.push({ card, idx });
+      } else {
+        map.set(key, {
+          botName: botLabel(card.bot),
+          isDefault: isDefaultBot(card.bot),
+          items: [{ card, idx }],
+        });
+      }
+    });
+    return Array.from(map.entries());
+  }, [cards]);
+
   const view = presentFeed({ phase, count: cards.length, cached, message });
   const ink = overlayInk(view.kind === "empty" ? "paper" : surface, scheme);
-  const quiet = ink === "#EDE8DF" ? "rgba(237,232,223,0.6)" : "rgba(28,27,25,0.6)";
-  const ground = view.kind === "empty" || view.kind === "ready" || view.kind === "cached"
-    ? surfaceColor(view.kind === "empty" ? "paper" : surface, scheme)
-    : scheme === "dark" ? colors.canvas : "#F3EFE7";
+  const quiet = scheme === "dark" ? "rgba(237,232,223,0.58)" : "rgba(28,27,25,0.58)";
+  const ground = split
+    ? colors.canvas
+    : view.kind === "empty" || view.kind === "ready" || view.kind === "cached"
+      ? surfaceColor(view.kind === "empty" ? "paper" : surface, scheme)
+      : colors.canvas;
+
+  const renderAttribution = (item: FeedCard, itemInk: string) => {
+    const defaultBot = isDefaultBot(item.bot);
+    const label = botLabel(item.bot);
+    return (
+      <View style={{ position: "absolute", left: 16, right: 16, bottom: ACCOUNT_GAP, height: ACCOUNT_HEIGHT, flexDirection: "row", alignItems: "center", gap: 10 }}>
+        <View style={{ width: 34, height: 34, borderRadius: 17, overflow: "hidden" }}>
+          <QbotAvatar size={36} />
+        </View>
+        <Text style={{ color: itemInk, fontSize: 15, lineHeight: 20, fontWeight: "700" }}>{label}</Text>
+        {defaultBot ? (
+          <View style={{ paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999, backgroundColor: colors.selected }}>
+            <Text style={{ color: colors.muted, fontSize: 11, lineHeight: 15, fontWeight: "700" }}>默认</Text>
+          </View>
+        ) : (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={item.bot.followed ? `已关注 ${label}` : `关注 ${label}`}
+            hitSlop={10}
+            onPress={() => void toggleFollow(item.bot.id, label, !item.bot.followed)}
+            style={({ pressed }) => ({
+              height: 28,
+              paddingHorizontal: 11,
+              borderRadius: 14,
+              borderWidth: 1.25,
+              borderColor: item.bot.followed ? colors.line : itemInk,
+              justifyContent: "center",
+              opacity: pressed ? 0.65 : 1,
+            })}
+          >
+            <Text style={{ color: item.bot.followed ? colors.text2 : itemInk, fontSize: 12, lineHeight: 16, fontWeight: item.bot.followed ? "400" : "700" }}>
+              {item.bot.followed ? "已关注" : "关注"}
+            </Text>
+          </Pressable>
+        )}
+        <Text style={{ marginLeft: "auto", color: colors.muted, fontSize: 12, lineHeight: 16 }}>{formatPublished(item.publishedAt)}</Text>
+      </View>
+    );
+  };
+
+  const renderCardBody = (item: FeedCard, itemIndex: number, cardHeight: number, compact = false) => {
+    const tone = coverSurface(item.id);
+    const itemInk = overlayInk(tone, scheme);
+    return (
+      <View style={{ height: cardHeight, backgroundColor: surfaceColor(tone, scheme) }}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={item.title}
+          onPress={() => void open(item, itemIndex)}
+          style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0 }}
+        >
+          {publishedFace(item.id) ? (
+            <CoverFace cardId={item.id} surface={tone} scheme={scheme} topInset={topInset} compact={compact} />
+          ) : covers[item.id] ? (
+            <Image source={{ uri: covers[item.id] }} resizeMode="cover" accessibilityElementsHidden style={{ width: "100%", height: "100%" }} />
+          ) : (
+            <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+              {busy === item.id ? <ActivityIndicator color={itemInk} /> : <Text style={{ color: itemInk }}>封面没有载入</Text>}
+            </View>
+          )}
+        </Pressable>
+        {renderAttribution(item, itemInk)}
+      </View>
+    );
+  };
+
+  const renderFeedStates = () => (
+    <>
+      {view.kind === "error" ? (
+        <View style={{ flex: 1, paddingHorizontal: 32, paddingTop: topInset + 72, alignItems: "center", justifyContent: "center" }}>
+          <Text style={{ color: colors.text, fontSize: 16, lineHeight: 24, textAlign: "center" }}>{view.message}</Text>
+          <Pressable accessibilityRole="button" accessibilityLabel="重试" onPress={() => void load(scope)} style={{ marginTop: 18, minHeight: 44, paddingHorizontal: 20, borderRadius: 999, backgroundColor: colors.btnPrimaryBg, justifyContent: "center" }}>
+            <Text style={{ color: colors.btnPrimaryFg, fontSize: 15, fontWeight: "700" }}>重试</Text>
+          </Pressable>
+          {isUnauthorizedMessage(view.message) && onRequestAuth ? (
+            <Pressable accessibilityRole="button" accessibilityLabel="输入访问口令" onPress={onRequestAuth} style={{ marginTop: 12, height: 44, paddingHorizontal: 22, borderRadius: 22, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.raised, alignItems: "center", justifyContent: "center" }}>
+              <Text style={{ color: colors.text, fontSize: 15, fontWeight: "700" }}>输入访问口令</Text>
+            </Pressable>
+          ) : null}
+        </View>
+      ) : null}
+      {view.kind === "loading" ? (
+        <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+          <Text style={{ color: colors.muted, fontSize: 14 }}>正在打开</Text>
+        </View>
+      ) : null}
+      {view.kind === "empty" ? (
+        <View style={{ flex: 1, backgroundColor: colors.canvas, alignItems: "center", justifyContent: "center", paddingHorizontal: 32 }}>
+          <QbotAvatar size={48} />
+          <Text style={{ marginTop: 20, color: colors.text, fontSize: 24, lineHeight: 32, fontWeight: "700", textAlign: "center" }}>{EMPTY_TITLE}</Text>
+          <Text style={{ marginTop: 8, color: colors.text2, fontSize: 15, lineHeight: 24, textAlign: "center" }}>{EMPTY_BODY}</Text>
+          <Pressable accessibilityRole="button" accessibilityLabel={EMPTY_ACTION} onPress={() => switchScope("recommended")} style={{ marginTop: 22, height: 44, paddingHorizontal: 22, borderRadius: 22, backgroundColor: colors.btnPrimaryBg, alignItems: "center", justifyContent: "center" }}>
+            <Text style={{ color: colors.btnPrimaryFg, fontSize: 15, fontWeight: "700" }}>{EMPTY_ACTION}</Text>
+          </Pressable>
+        </View>
+      ) : null}
+    </>
+  );
+
+  const stageCard = cards[index] ?? null;
 
   return (
     <View
@@ -271,133 +423,166 @@ export function CardFeed({
         setHeight(event.nativeEvent.layout.height);
       }}
       onTouchStart={(event) => {
-        touch.current.x = event.nativeEvent.pageX;
-        touch.current.y = event.nativeEvent.pageY;
+        touchRef.current.x = event.nativeEvent.pageX;
+        touchRef.current.y = event.nativeEvent.pageY;
       }}
       onTouchEnd={(event) => {
-        if (touch.current.blocked || work) {
-          touch.current.blocked = false;
-          return;
-        }
-        const dx = event.nativeEvent.pageX - touch.current.x;
-        const dy = event.nativeEvent.pageY - touch.current.y;
-        const kind = classifyFeedGesture(dx, dy);
-        const card = cards[page.current];
-        console.log(`QBOT_GESTURE ${kind} dx=${Math.round(dx)} dy=${Math.round(dy)} card=${card?.id ?? "none"}`);
-        if (kind === "tap" && card) {
-          void open(card, page.current);
-          return;
-        }
-        if (kind === "horizontal") {
-          setScope(scopeAfterSwipe(scope, dx, dy));
-          return;
-        }
-        if (kind === "vertical" && height > 0) {
-          const nextIndex = clampPage(page.current + verticalStep(dx, dy), cards.length);
-          setIndex(nextIndex);
-          listRef.current?.scrollToIndex({ index: nextIndex, animated: true });
+        if (work || split) return;
+        const dx = event.nativeEvent.pageX - touchRef.current.x;
+        const dy = event.nativeEvent.pageY - touchRef.current.y;
+        if (classifyFeedGesture(dx, dy) === "horizontal") {
+          switchScope(scopeAfterSwipe(scope, dx, dy));
         }
       }}
     >
-      <View style={{ width: column || "100%", alignSelf: "center", flex: 1 }}>
-        {view.kind === "error" ? (
-          <View style={{ flex: 1, paddingHorizontal: 32, paddingTop: topInset + 72, alignItems: "center" }}>
-            <Text style={{ color: colors.text, fontSize: 16, lineHeight: 24, textAlign: "center" }}>{view.message}</Text>
-            <Pressable accessibilityRole="button" accessibilityLabel="重试" onPress={() => void load(scope)} style={{ marginTop: 16, minHeight: 44, justifyContent: "center" }}>
-              <Text style={{ color: colors.accentInk, fontSize: 16, fontWeight: "700" }}>重试</Text>
-            </Pressable>
-            {isUnauthorizedMessage(view.message) && onRequestAuth ? (
-              <Pressable accessibilityRole="button" accessibilityLabel="输入访问口令" onPress={onRequestAuth} style={{ marginTop: 12, height: 44, paddingHorizontal: 22, borderRadius: 22, backgroundColor: colors.accentInk, alignItems: "center", justifyContent: "center" }}>
-                <Text style={{ color: colors.bg, fontSize: 15, fontWeight: "700" }}>输入访问口令</Text>
-              </Pressable>
-            ) : null}
-          </View>
-        ) : null}
-        {view.kind === "loading" ? (
-          <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
-            <Text style={{ color: colors.muted }}>正在打开</Text>
-          </View>
-        ) : null}
-        {view.kind === "empty" ? (
-          <View style={{ flex: 1, backgroundColor: scheme === "dark" ? "#171614" : "#F3EFE7", alignItems: "center", justifyContent: "center", paddingHorizontal: 32 }}>
-            <QbotAvatar size={48} />
-            <Text style={{ marginTop: 22, color: scheme === "dark" ? "#EDE8DF" : "#1C1B19", fontSize: 26, lineHeight: 34, fontWeight: "700", textAlign: "center" }}>{EMPTY_TITLE}</Text>
-            <Text style={{ marginTop: 10, color: scheme === "dark" ? "#ABA498" : "#5C574E", fontSize: 15, lineHeight: 24, textAlign: "center" }}>{EMPTY_BODY}</Text>
-            <Pressable accessibilityRole="button" accessibilityLabel={EMPTY_ACTION} onPress={() => setScope("recommended")} style={{ marginTop: 22, height: 44, paddingHorizontal: 22, borderRadius: 22, backgroundColor: scheme === "dark" ? "#EDE8DF" : "#1C1B19", alignItems: "center", justifyContent: "center" }}>
-              <Text style={{ color: scheme === "dark" ? "#171614" : "#F3EFE7", fontSize: 16, fontWeight: "700" }}>{EMPTY_ACTION}</Text>
-            </Pressable>
-          </View>
-        ) : null}
-        {(view.kind === "ready" || view.kind === "cached") && height > 0 ? (
-          <FlatList
-            ref={listRef}
-            data={cards}
-            keyExtractor={(card) => card.id}
-            scrollEnabled={false}
-            showsVerticalScrollIndicator={false}
-            getItemLayout={(_, itemIndex) => ({ length: height, offset: height * itemIndex, index: itemIndex })}
-            onMomentumScrollEnd={(event) => {
-              const nextIndex = nextFeedPage(page.current, event.nativeEvent.contentOffset.y, height, cards.length);
-              setIndex(nextIndex);
-              if (nextIndex * height !== event.nativeEvent.contentOffset.y) {
-                listRef.current?.scrollToIndex({ index: nextIndex, animated: true });
-              }
-            }}
-            onEndReached={() => { if (next && phase === "ready") void load(scope, next); }}
-            renderItem={({ item, index: itemIndex }) => {
-              const tone = coverSurface(item.id);
-              const itemInk = overlayInk(tone, scheme);
-              return (
-                <View style={{ height, backgroundColor: surfaceColor(tone, scheme) }}>
-                  <View accessibilityLabel={item.title} style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0 }}>
-                    {publishedFace(item.id) ? (
-                      <CoverFace cardId={item.id} surface={tone} scheme={scheme} topInset={topInset} />
-                    ) : covers[item.id] ? (
-                      <Image source={{ uri: covers[item.id] }} resizeMode="cover" accessibilityElementsHidden style={{ width: "100%", height: "100%" }} />
-                    ) : (
-                      <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
-                        {busy === item.id ? <ActivityIndicator color={itemInk} /> : <Text style={{ color: itemInk }}>封面没有载入</Text>}
-                      </View>
-                    )}
-                  </View>
-                  <View onTouchStart={() => { touch.current.blocked = true; }} style={{ position: "absolute", left: 16, right: 16, bottom: ACCOUNT_GAP, height: ACCOUNT_HEIGHT, flexDirection: "row", alignItems: "center", gap: 10 }}>
-                    <View style={{ width: 36, height: 36, borderRadius: 18, borderWidth: 1.5, borderColor: itemInk, overflow: "hidden" }}>
-                      <QbotAvatar size={36} />
-                    </View>
-                    <Text style={{ color: itemInk, fontSize: 16, fontWeight: "700" }}>{item.bot.displayName}</Text>
-                    <Pressable accessibilityRole="button" accessibilityLabel={item.bot.followed ? `已关注 ${item.bot.displayName}` : `关注 ${item.bot.displayName}`} onPress={() => void toggle(item)} style={{ height: 26, paddingHorizontal: 11, borderRadius: 13, borderWidth: 1.5, borderColor: item.bot.followed ? (itemInk === "#EDE8DF" ? "rgba(237,232,223,0.35)" : "rgba(28,27,25,0.28)") : itemInk, justifyContent: "center" }}>
-                      <Text style={{ color: itemInk, fontSize: 13, fontWeight: item.bot.followed ? "400" : "700" }}>{item.bot.followed ? "已关注" : "关注"}</Text>
+      {split ? (
+        <View style={{ flex: 1, flexDirection: "row", paddingTop: topInset }}>
+          <View style={{ width: dirWidth, borderRightWidth: 1, borderRightColor: colors.line, backgroundColor: colors.canvas }}>
+            <View style={{ height: 52, paddingHorizontal: 16, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+              <Text style={{ fontSize: 20, lineHeight: 28, fontWeight: "700", color: colors.text }}>今日</Text>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+                {([["following", "关注"], ["recommended", "推荐"]] as const).map(([id, label]) => {
+                  const selected = scope === id;
+                  return (
+                    <Pressable key={id} accessibilityRole="tab" accessibilityState={{ selected }} accessibilityLabel={label} hitSlop={8} onPress={() => switchScope(id)} style={{ minHeight: 36, justifyContent: "center" }}>
+                      <Text style={{ fontSize: 14, lineHeight: 20, fontWeight: selected ? "700" : "400", color: selected ? colors.text : colors.muted }}>{label}</Text>
                     </Pressable>
-                    <Text style={{ marginLeft: "auto", color: itemInk, opacity: 0.7, fontSize: 12 }}>{formatPublished(item.publishedAt)}</Text>
-                  </View>
+                  );
+                })}
+              </View>
+            </View>
+            <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 24 }}>
+              {groups.map(([botId, group]) => (
+                <View key={botId}>
+                  <Text style={{ fontSize: 12, lineHeight: 16, fontWeight: "700", color: colors.muted, paddingHorizontal: 16, paddingTop: 14, paddingBottom: 6 }}>
+                    {group.botName}{group.isDefault ? " · 默认" : ""}
+                  </Text>
+                  {group.items.map(({ card, idx }) => {
+                    const selected = idx === index;
+                    return (
+                      <Pressable
+                        key={card.id}
+                        accessibilityRole="button"
+                        accessibilityLabel={card.title}
+                        onPress={() => jumpToCard(idx)}
+                        style={({ pressed }) => ({
+                          marginHorizontal: 10,
+                          marginBottom: 4,
+                          paddingHorizontal: 12,
+                          paddingVertical: 10,
+                          borderRadius: 10,
+                          flexDirection: "row",
+                          alignItems: "center",
+                          gap: 10,
+                          backgroundColor: selected ? colors.selected : pressed ? colors.press : "transparent",
+                          borderLeftWidth: selected ? 3 : 0,
+                          borderLeftColor: colors.accent,
+                        })}
+                      >
+                        <QbotAvatar size={28} />
+                        <View style={{ flex: 1, minWidth: 0 }}>
+                          <Text style={{ fontSize: 14, lineHeight: 20, fontWeight: "700", color: colors.text }} numberOfLines={1}>{card.title}</Text>
+                          <Text style={{ fontSize: 12, lineHeight: 16, color: colors.muted, marginTop: 2 }}>{formatPublished(card.publishedAt)}</Text>
+                        </View>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              ))}
+            </ScrollView>
+          </View>
+          <View style={{ flex: 1, minWidth: 0, alignItems: "center", justifyContent: "center", padding: 20, backgroundColor: colors.canvas }}>
+            {view.kind === "ready" || view.kind === "cached" ? (
+              stageCard ? (
+                <View style={{ width: "100%", maxWidth: 420, flex: 1, maxHeight: 740, borderRadius: 20, overflow: "hidden", borderWidth: 1, borderColor: colors.line }}>
+                  {renderCardBody(stageCard, index, Math.min(740, Math.max(420, height - topInset - 40)), true)}
+                </View>
+              ) : null
+            ) : renderFeedStates()}
+          </View>
+        </View>
+      ) : (
+        <View style={{ flex: 1 }}>
+          {renderFeedStates()}
+          {(view.kind === "ready" || view.kind === "cached") && height > 0 ? (
+            <FlatList
+              ref={listRef}
+              data={cards}
+              keyExtractor={(card) => card.id}
+              scrollEnabled
+              pagingEnabled
+              decelerationRate="fast"
+              showsVerticalScrollIndicator={false}
+              getItemLayout={(_, itemIndex) => ({ length: height, offset: height * itemIndex, index: itemIndex })}
+              onMomentumScrollEnd={(event) => {
+                const nextIndex = nextFeedPage(page.current, event.nativeEvent.contentOffset.y, height, cards.length);
+                setIndex(nextIndex);
+              }}
+              onEndReached={() => { if (next && phase === "ready") void load(scope, next); }}
+              renderItem={({ item, index: itemIndex }) => renderCardBody(item, itemIndex, height)}
+            />
+          ) : null}
+          {(view.kind === "ready" || view.kind === "cached") && cards.length > 1 ? (
+            <View pointerEvents="none" style={{ position: "absolute", right: 7, top: "45%", gap: 5, alignItems: "center" }}>
+              {cards.slice(0, 8).map((card, dotIdx) => (
+                <View
+                  key={card.id}
+                  style={{
+                    width: 4,
+                    height: dotIdx === index ? 16 : 4,
+                    borderRadius: 2,
+                    backgroundColor: ink,
+                    opacity: dotIdx === index ? 0.85 : 0.25,
+                  }}
+                />
+              ))}
+            </View>
+          ) : null}
+          {view.kind === "cached" ? (
+            <Text style={{ position: "absolute", top: topInset + SWITCH_GAP + SWITCH_HEIGHT + 2, left: 0, right: 0, textAlign: "center", color: ink, fontSize: 12 }}>{view.message}</Text>
+          ) : null}
+          <View pointerEvents="box-none" style={{ position: "absolute", top: topInset + SWITCH_GAP, left: 0, right: 0, height: SWITCH_HEIGHT, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 16 }}>
+            {([
+              ["following", "关注"],
+              ["recommended", "推荐"],
+            ] as const).map(([id, label], itemIndex) => {
+              const selected = scope === id;
+              return (
+                <View key={id} style={{ flexDirection: "row", alignItems: "center", gap: 16 }}>
+                  {itemIndex === 1 ? <Text style={{ color: ink, opacity: 0.35, fontSize: 16 }}>·</Text> : null}
+                  <Pressable
+                    accessibilityRole="tab"
+                    accessibilityState={{ selected }}
+                    accessibilityLabel={label}
+                    hitSlop={8}
+                    onPress={() => switchScope(id)}
+                    style={{ minHeight: SWITCH_HEIGHT, justifyContent: "center", alignItems: "center" }}
+                  >
+                    <Text style={{ color: selected ? ink : quiet, fontSize: 16, lineHeight: 24, fontWeight: selected ? "700" : "400" }}>{label}</Text>
+                    <View style={{ marginTop: 2, width: 16, height: 2.5, borderRadius: 2, backgroundColor: selected ? ink : "transparent" }} />
+                  </Pressable>
                 </View>
               );
-            }}
-          />
-        ) : null}
-        {view.kind === "cached" ? (
-          <Text style={{ position: "absolute", top: topInset + SWITCH_GAP + SWITCH_HEIGHT, left: 0, right: 0, textAlign: "center", color: ink, fontSize: 12 }}>{view.message}</Text>
-        ) : null}
-        <View onTouchStart={() => { touch.current.blocked = true; }} pointerEvents="box-none" style={{ position: "absolute", top: topInset + SWITCH_GAP, left: 0, right: 0, height: SWITCH_HEIGHT, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 14 }}>
-          {([
-            ["following", "关注"],
-            ["recommended", "推荐"],
-          ] as const).map(([id, label], itemIndex) => {
-            const selected = scope === id;
-            return (
-              <View key={id} style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
-                {itemIndex === 1 ? <Text style={{ color: ink, opacity: 0.4, fontSize: 17 }}>·</Text> : null}
-                <Pressable accessibilityRole="tab" accessibilityState={{ selected }} accessibilityLabel={label} onPress={() => setScope(id)} style={{ minHeight: SWITCH_HEIGHT, justifyContent: "center" }}>
-                  <Text style={{ color: selected ? ink : quiet, fontSize: 17, lineHeight: 36, fontWeight: selected ? "700" : "400" }}>{label}</Text>
-                </Pressable>
-              </View>
-            );
-          })}
+            })}
+          </View>
         </View>
-      </View>
+      )}
+      {undoToast ? (
+        <View style={{ position: "absolute", left: 16, right: 16, bottom: ACCOUNT_GAP + ACCOUNT_HEIGHT + 12, borderRadius: 12, backgroundColor: colors.btnPrimaryBg, paddingHorizontal: 16, paddingVertical: 12, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+          <Text style={{ color: colors.btnPrimaryFg, fontSize: 14, lineHeight: 20 }}>已取消关注 {undoToast.botName}</Text>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="撤销取消关注"
+            hitSlop={10}
+            onPress={() => void toggleFollow(undoToast.botId, undoToast.botName, true)}
+          >
+            <Text style={{ color: colors.accent, fontSize: 14, lineHeight: 20, fontWeight: "700" }}>撤销</Text>
+          </Pressable>
+        </View>
+      ) : null}
       {work ? (
         <View style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}>
-          <CardWork url={work.url} title={work.title} colors={colors} topInset={topInset} onClose={close} />
+          <CardWork url={work.url} title={work.title} colors={colors} scheme={scheme} topInset={topInset} onClose={close} />
         </View>
       ) : null}
     </View>

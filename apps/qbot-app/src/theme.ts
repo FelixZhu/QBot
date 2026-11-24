@@ -7,11 +7,13 @@ export type Palette = {
   canvas: string;
   bg: string;
   text: string;
+  text2: string;
   muted: string;
   line: string;
   accent: string;
   /** Orange used for text and links. The fill accent is too light for small type. */
   accentInk: string;
+  accentSoft: string;
   bubbleMe: string;
   bubbleMeText: string;
   bubbleBot: string;
@@ -19,8 +21,13 @@ export type Palette = {
   press: string;
   /** Whole-row fill for the open conversation. */
   selected: string;
+  btnPrimaryBg: string;
+  btnPrimaryFg: string;
   status: "light" | "dark";
 };
+
+/** Left navigation rail width on unfolded/wide screens (>= 600dp). */
+export const RAIL_WIDTH = 72;
 
 /** Wide list and directory panes: 38% of the window, clamped to 320–400dp. */
 export const LIST_PANE_RATIO = 0.38;
@@ -37,37 +44,46 @@ export const PHONE_CARD_HEIGHT = 844;
 /** Side gutters take the card color at this HSL lightness. */
 export const GUTTER_LIGHTNESS = 0.15;
 
+/** Single source of truth for v2.0 light and dark warm paper/ink surfaces. */
 export const palette: Record<Scheme, Palette> = {
   light: {
     canvas: "#F3EFE7",
-    bg: "#FAF9F6",
+    bg: "#FAF8F3",
     text: "#1C1B19",
-    muted: "#8A8781",
-    line: "#EAE7E1",
+    text2: "#5C574E",
+    muted: "#736D62",
+    line: "#E3DDD1",
     accent: "#FF6A2B",
     accentInk: "#C24410",
-    bubbleMe: "#1C1B19",
-    bubbleMeText: "#FAF9F6",
-    bubbleBot: "#FFFFFF",
-    raised: "#FFFFFF",
+    accentSoft: "rgba(255,106,43,0.12)",
+    bubbleMe: "#ECE7DD",
+    bubbleMeText: "#1C1B19",
+    bubbleBot: "#FFFEFB",
+    raised: "#FFFEFB",
     press: "rgba(28,27,25,0.06)",
     selected: "#ECE7DD",
+    btnPrimaryBg: "#1C1B19",
+    btnPrimaryFg: "#F3EFE7",
     status: "dark",
   },
   dark: {
     canvas: "#171614",
     bg: "#1F1D1A",
     text: "#EDE8DF",
+    text2: "#ABA498",
     muted: "#9A9386",
     line: "#34312C",
     accent: "#FF6A2B",
     accentInk: "#FF8A55",
-    bubbleMe: "#EDE8DF",
-    bubbleMeText: "#1C1B19",
-    bubbleBot: "#2E2B27",
-    raised: "#2E2B27",
+    accentSoft: "rgba(255,106,43,0.20)",
+    bubbleMe: "#2E2B27",
+    bubbleMeText: "#EDE8DF",
+    bubbleBot: "#262420",
+    raised: "#262420",
     press: "rgba(237,232,223,0.08)",
     selected: "#2E2B27",
+    btnPrimaryBg: "#EDE8DF",
+    btnPrimaryFg: "#171614",
     status: "light",
   },
 };
@@ -77,7 +93,7 @@ export function resolveScheme(colorScheme: string | null | undefined): Scheme {
   return colorScheme === "dark" ? "dark" : "light";
 }
 
-/** Chat screen colors taken from the approved 2026-11-20 light and dark frames. */
+/** Chat screen colors derived directly from the unified v2.0 palette. */
 export type ChatChrome = {
   canvas: string;
   text: string;
@@ -106,57 +122,58 @@ export type ChatChrome = {
 };
 
 export function chatChrome(scheme: Scheme): ChatChrome {
+  const tokens = palette[scheme];
   if (scheme === "dark") {
     return {
-      canvas: "#151515",
-      text: "#F3F1EA",
-      muted: "#9B9B96",
-      userBubble: "#2B2B29",
-      userText: "#ECEBE6",
-      composer: "#232322",
-      line: "rgba(255,255,255,0.08)",
-      send: "#FF6A2B",
+      canvas: tokens.bg,
+      text: tokens.text,
+      muted: tokens.muted,
+      userBubble: tokens.bubbleMe,
+      userText: tokens.bubbleMeText,
+      composer: tokens.raised,
+      line: tokens.line,
+      send: tokens.accent,
       onSend: "#FFFFFF",
-      inkText: "#FF8A55",
+      inkText: tokens.accentInk,
       pressed: "#E85A1F",
-      ink: "#F4F1EA",
-      onInk: "#1C1B19",
-      sheet: "#1F1F1E",
-      tile: "#2A2A28",
-      scrim: "rgba(0,0,0,0.55)",
-      toast: "#3A3A38",
-      toastText: "#F4F1EA",
-      check: "#5FAF6A",
-      selection: "rgba(255,106,43,0.45)",
-      icon: "#B7B7B2",
-      disabled: "#5C5C58",
-      soft: "#2A2A28",
+      ink: tokens.btnPrimaryBg,
+      onInk: tokens.btnPrimaryFg,
+      sheet: tokens.raised,
+      tile: tokens.selected,
+      scrim: "rgba(0,0,0,0.56)",
+      toast: "#34312C",
+      toastText: tokens.text,
+      check: "#7FBA96",
+      selection: "rgba(255,106,43,0.40)",
+      icon: tokens.text2,
+      disabled: "#6E695F",
+      soft: tokens.selected,
     };
   }
   return {
-    canvas: "#FAF9F5",
-    text: "#1C1B19",
-    muted: "#8E8A82",
-    userBubble: "#EFEDE6",
-    userText: "#1F1E1D",
-    composer: "#FFFFFF",
-    line: "rgba(28,27,25,0.08)",
-    send: "#FF6A2B",
+    canvas: tokens.bg,
+    text: tokens.text,
+    muted: tokens.muted,
+    userBubble: tokens.bubbleMe,
+    userText: tokens.bubbleMeText,
+    composer: tokens.raised,
+    line: tokens.line,
+    send: tokens.accent,
     onSend: "#FFFFFF",
-    inkText: "#C24410",
+    inkText: tokens.accentInk,
     pressed: "#E85A1F",
-    ink: "#1C1B19",
-    onInk: "#FFFFFF",
-    sheet: "#FFFFFF",
-    tile: "#F6F3EC",
-    scrim: "rgba(28,27,25,0.38)",
-    toast: "#323230",
-    toastText: "#FFFFFF",
-    check: "#5FAF6A",
-    selection: "rgba(255,106,43,0.35)",
-    icon: "#6F6B64",
-    disabled: "#C8C4BC",
-    soft: "#F3F0E8",
+    ink: tokens.btnPrimaryBg,
+    onInk: tokens.btnPrimaryFg,
+    sheet: tokens.raised,
+    tile: tokens.canvas,
+    scrim: "rgba(28,27,25,0.36)",
+    toast: "#1C1B19",
+    toastText: "#F3EFE7",
+    check: "#3E7B57",
+    selection: "rgba(255,106,43,0.32)",
+    icon: tokens.text2,
+    disabled: "#ABA498",
+    soft: tokens.selected,
   };
 }
 

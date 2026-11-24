@@ -28,6 +28,7 @@ const marks = {
   file: require("./marks/file.png"),
   book: require("./marks/book.png"),
   chevron: require("./marks/chevron.png"),
+  back: require("./marks/chevron.png"),
 } as const satisfies Record<string, ImageSourcePropType>;
 
 export type MarkName = keyof typeof marks;
@@ -40,7 +41,12 @@ export function ChatMark({ name, color, size = 22 }: { name: MarkName; color: st
       resizeMode="contain"
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
-      style={{ width: size, height: size, tintColor: color }}
+      style={{
+        width: size,
+        height: size,
+        tintColor: color,
+        ...(name === "back" ? { transform: [{ rotate: "180deg" }] } : {}),
+      }}
     />
   );
 }

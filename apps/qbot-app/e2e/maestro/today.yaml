@@ -9,7 +9,9 @@ appId: io.github.felixzhu.qiandrive
 - extendedWaitUntil:
     visible: "get this over the line"
     timeout: 30000
-- assertVisible: "已关注 Qbot"
+- assertVisible: "QBot"
+- assertVisible: "默认"
+- assertNotVisible: "已关注 Qbot"
 - assertVisible: "今日"
 - assertVisible: "对话"
 - assertVisible: "知识库"
@@ -23,7 +25,7 @@ appId: io.github.felixzhu.qiandrive
     visible: "三个入口：今日、对话、知识库"
     timeout: 10000
 - assertNotVisible: "返回"
-- assertVisible: "已关注 Qbot"
+- assertVisible: "QBot"
 - takeScreenshot:
     path: today-narrow-light-info
 - swipe:
@@ -34,7 +36,7 @@ appId: io.github.felixzhu.qiandrive
     visible: "get this over the line"
     timeout: 10000
 - assertNotVisible: "返回"
-- assertVisible: "已关注 Qbot"
+- assertVisible: "QBot"
 - takeScreenshot:
     path: today-narrow-light-page
 - tapOn: "get this over the line"
@@ -46,7 +48,7 @@ appId: io.github.felixzhu.qiandrive
     path: today-narrow-light-work
 - tapOn: "返回"
 - extendedWaitUntil:
-    visible: "已关注 Qbot"
+    visible: "QBot"
     timeout: 10000
 - assertNotVisible: "返回"
 - tapOn: "get this over the line"
@@ -55,13 +57,13 @@ appId: io.github.felixzhu.qiandrive
     timeout: 20000
 - tapOn: "返回"
 - extendedWaitUntil:
-    visible: "已关注 Qbot"
+    visible: "QBot"
     timeout: 10000
 - assertNotVisible: "返回"
 - assertVisible: "get this over the line"
 - takeScreenshot:
     path: today-narrow-light-restored
-- assertVisible: "已关注 Qbot"
+- assertVisible: "QBot"
 - assertNotVisible: "返回"
 # 手指从右向左：关注到推荐。再从左向右回到关注。源标签用选中状态区分，卡和底栏不变，不打开作品。
 - swipe:
@@ -77,7 +79,7 @@ appId: io.github.felixzhu.qiandrive
     text: "^关注$"
     selected: false
 - assertVisible: "get this over the line"
-- assertVisible: "已关注 Qbot"
+- assertVisible: "QBot"
 - assertVisible: "今日"
 - assertVisible: "对话"
 - assertVisible: "知识库"
@@ -98,7 +100,7 @@ appId: io.github.felixzhu.qiandrive
     text: "^推荐$"
     selected: false
 - assertVisible: "get this over the line"
-- assertVisible: "已关注 Qbot"
+- assertVisible: "QBot"
 - assertVisible: "今日"
 - assertVisible: "对话"
 - assertVisible: "知识库"
@@ -106,24 +108,3 @@ appId: io.github.felixzhu.qiandrive
 - assertNotVisible: "三个入口：今日、对话、知识库"
 - takeScreenshot:
     path: today-narrow-light-scope-following
-- tapOn: "已关注 Qbot"
-- extendedWaitUntil:
-    visible: "暂时没有新内容"
-    timeout: 10000
-- assertVisible: "去推荐看看"
-- takeScreenshot:
-    path: today-narrow-light-empty
-- tapOn: "去推荐看看"
-- extendedWaitUntil:
-    visible: "关注 Qbot"
-    timeout: 10000
-- assertVisible: "get this over the line"
-- takeScreenshot:
-    path: today-narrow-light-follow-sync
-- tapOn: "关注 Qbot"
-- tapOn: "关注"
-- extendedWaitUntil:
-    visible: "已关注 Qbot"
-    timeout: 10000
-- takeScreenshot:
-    path: today-narrow-light-refollowed

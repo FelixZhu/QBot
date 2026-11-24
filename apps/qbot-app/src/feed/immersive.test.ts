@@ -4,6 +4,7 @@ import { test } from "node:test";
 import type { FeedCard } from "./feedClient.ts";
 import {
   applyFollow,
+  botLabel,
   clampPage,
   contentBand,
   coverSurface,
@@ -13,28 +14,35 @@ import {
   EMPTY_TITLE,
   fractionClearsOverlays,
   classifyFeedGesture,
+  isDefaultBot,
   scopeAfterSwipe,
   selectCoverPrefetchIds,
   verticalStep,
   showsAttribution,
   statusIcons,
   surfaceColor,
+  workThemeScript,
 } from "./immersive.ts";
 
 const info = card("00000000-0000-4000-8000-0000000000c1", "三个入口：今日、对话、知识库");
 const english = card("00000000-0000-4000-8000-0000000000c2", "get this over the line");
 
-test("the two published covers keep their surfaces and a third card does not borrow one", () => {
+test("the two published covers keep their v2.0 surfaces and dark work pages get dark styling", () => {
   assert.equal(coverSurface(info.id), "paper");
   assert.equal(coverSurface(english.id), "orange");
   assert.equal(coverSurface("00000000-0000-4000-8000-000000000099"), "system");
-  assert.equal(surfaceColor("orange", "dark"), "#FF6A2B");
+  assert.equal(surfaceColor("orange", "light"), "#FAF8F3");
+  assert.equal(surfaceColor("orange", "dark"), "#1F1D1A");
   assert.equal(surfaceColor("paper", "light"), "#F3EFE7");
   assert.equal(surfaceColor("paper", "dark"), "#171614");
-  assert.equal(statusIcons("orange", "dark"), "dark");
+  assert.equal(statusIcons("orange", "light"), "dark");
+  assert.equal(statusIcons("orange", "dark"), "light");
   assert.equal(statusIcons("paper", "light"), "dark");
   assert.equal(statusIcons("paper", "dark"), "light");
   assert.equal(statusIcons("system", "dark"), "light");
+  assert.match(workThemeScript(true), /#171614/);
+  assert.match(workThemeScript(true), /#FF8A55/);
+  assert.match(workThemeScript(false), /#FAF8F3/);
 });
 
 test("the text band follows the real status inset and leaves the native row clear", () => {
@@ -75,12 +83,23 @@ test("a swipe never opens the work and a short touch is the only tap", () => {
   assert.equal(scopeAfterSwipe("following", 2, 3), "following");
 });
 
-test("unfollowing hides the card on 关注 and leaves it on 推荐", () => {
-  const followed = applyFollow([info, english], info.bot.id, false, "following");
+test("default QBot stays in 关注 without following while external bots filter on unfollow", () => {
+  assert.equal(isDefaultBot(info.bot), true);
+  assert.equal(botLabel(info.bot), "QBot");
+  const defaultKept = applyFollow([info, english], info.bot.id, false, "following");
+  assert.deepEqual(defaultKept.map((item) => item.id), [info.id, english.id]);
+  const external: FeedCard = {
+    ...english,
+    id: "00000000-0000-4000-8000-0000000000e1",
+    bot: { id: "00000000-0000-4000-8000-0000000000b2", slug: "english-bot", displayName: "English Bot", followed: true },
+  };
+  assert.equal(isDefaultBot(external.bot), false);
+  assert.equal(botLabel(external.bot), "English Bot");
+  const followed = applyFollow([external], external.bot.id, false, "following");
   assert.deepEqual(followed.map((item) => item.id), []);
-  const recommended = applyFollow([info, english], info.bot.id, false, "recommended");
-  assert.equal(recommended.length, 2);
-  assert.equal(recommended.every((item) => item.bot.followed === false), true);
+  const recommended = applyFollow([external], external.bot.id, false, "recommended");
+  assert.equal(recommended.length, 1);
+  assert.equal(recommended[0]?.bot.followed, false);
   assert.equal(clampPage(3, 1), 0);
   assert.equal(clampPage(1, 0), 0);
 });
@@ -143,7 +162,8 @@ test("the today screen does not replace the published works with the sample boar
   assert.match(appSrc, /CardFeed/);
   assert.equal(appSrc.includes("LessonFeed"), false);
   assert.equal(appSrc.includes("FeedPane"), false);
-  assert.match(appSrc, /#FF6A2B/);
+  assert.match(appSrc, /colors\.accent/);
+  assert.match(appSrc, /RAIL_WIDTH/);
   assert.equal(appSrc.includes("#F5A623"), false);
   assert.match(appSrc, /TAB_HEIGHT = 56/);
   assert.match(appSrc, /今日/);

@@ -15,6 +15,17 @@ export const EMPTY_BODY = "关注的 Bot 有更新时，会继续出现在这里
 export const EMPTY_ACTION = "去推荐看看";
 
 export const SCOPES = ["following", "recommended"] as const;
+export const DEFAULT_BOT_SLUG = "qbot";
+
+/** QBot is the built-in personal assistant and never requires following. */
+export function isDefaultBot(bot: { slug?: string } | null | undefined): boolean {
+  return (bot?.slug ?? "").toLowerCase() === DEFAULT_BOT_SLUG;
+}
+
+/** Normalize the default bot display name to QBot across the UI. */
+export function botLabel(bot: { slug?: string; displayName: string }): string {
+  return isDefaultBot(bot) ? "QBot" : bot.displayName;
+}
 
 /** Surfaces of the two published works. Anything else stays on the system canvas. */
 const PUBLISHED_SURFACE = {
@@ -31,22 +42,58 @@ export function coverSurface(cardId: string): CoverSurface {
   return "system";
 }
 
+/** v2.0 surfaces: warm paper in light mode, warm ink in dark mode (brand orange uses accent strip + highlights). */
 export function surfaceColor(surface: CoverSurface, scheme: "light" | "dark"): string {
-  if (surface === "orange") return "#FF6A2B";
+  if (surface === "orange") return scheme === "dark" ? "#1F1D1A" : "#FAF8F3";
   if (surface === "paper") return scheme === "dark" ? "#171614" : "#F3EFE7";
   return scheme === "dark" ? "#171614" : "#F3EFE7";
 }
 
-/** Orange stays dark icons. A dark paper cover fills the status bar, so those icons are light. */
-export function statusIcons(surface: CoverSurface, scheme: "light" | "dark"): StatusIcons {
-  if (surface === "orange") return "dark";
-  if (surface === "paper") return scheme === "dark" ? "light" : "dark";
+export function statusIcons(_surface: CoverSurface, scheme: "light" | "dark"): StatusIcons {
   return scheme === "dark" ? "light" : "dark";
 }
 
-export function overlayInk(surface: CoverSurface, scheme: "light" | "dark"): string {
-  if ((surface === "paper" || surface === "system") && scheme === "dark") return "#EDE8DF";
-  return "#1C1B19";
+export function overlayInk(_surface: CoverSurface, scheme: "light" | "dark"): string {
+  return scheme === "dark" ? "#EDE8DF" : "#1C1B19";
+}
+
+/** Inject v2.0 warm-ink dark styling (and clean sans typography) into published static HTML work pages. */
+export function workThemeScript(dark: boolean): string {
+  const css = dark
+    ? `:root{color-scheme:dark!important}
+html,body{background:#171614!important;color:#EDE8DF!important;font-family:system-ui,-apple-system,"Noto Sans SC",sans-serif!important}
+.mast,.deck,.foot,.note,details p{color:#ABA498!important}
+.rule{border-top-color:#EDE8DF!important;border-bottom-color:#EDE8DF!important}
+.chips span{border-color:#EDE8DF!important;color:#EDE8DF!important}
+.chips .fill{background:#FF6A2B!important;border-color:#FF6A2B!important;color:#1C1B19!important}
+.phrase{color:#FF8A55!important}
+.meaning,.hook,h1,.hero,summary{color:#EDE8DF!important}
+.points{border-top-color:#EDE8DF!important}
+.points li{border-bottom-color:#34312C!important;color:#EDE8DF!important}
+.points .n{color:#FF8A55!important}
+.points .tag{background:#2E2B27!important;color:#EDE8DF!important}
+.example{background:#262420!important;border:1px solid #34312C!important;border-left:3.5px solid #FF6A2B!important}
+.example .label{color:#FF8A55!important}
+.example p{color:#EDE8DF!important}`
+    : `:root{color-scheme:light!important}
+html,body{background:#FAF8F3!important;color:#1C1B19!important;font-family:system-ui,-apple-system,"Noto Sans SC",sans-serif!important}
+.mast,.deck,.foot,.note,details p{color:#5C574E!important}
+.chips .fill{background:#1C1B19!important;color:#F3EFE7!important}
+.points .n{color:#C24410!important}
+.points .tag{background:#ECE7DD!important;color:#1C1B19!important}
+.example{background:#FFFEFB!important;border:1px solid #E3DDD1!important;border-left:3.5px solid #FF6A2B!important}
+.example .label{color:#C24410!important}
+.example p{color:#1C1B19!important}`;
+  return `(function(){
+  function inject(){
+    var id="qbot-work-v2";
+    var el=document.getElementById(id);
+    if(!el&&document.head){el=document.createElement("style");el.id=id;document.head.appendChild(el);}
+    if(el) el.textContent=${JSON.stringify(css)};
+  }
+  inject();
+  document.addEventListener("DOMContentLoaded",inject);
+})();true;`;
 }
 
 /** Mast starts under the real status inset and the switch. Body stops above the native attribution row. */
@@ -145,10 +192,11 @@ export function scopeAfterSwipe(scope: FeedScope, dx: number, dy: number): FeedS
   return SCOPES[next] ?? scope;
 }
 
+/** Default QBot stays in 关注 without needing an explicit follow; external bots filter normally. */
 export function applyFollow(cards: FeedCard[], botId: string, followed: boolean, scope: FeedScope): FeedCard[] {
   return cards
     .map((card) => card.bot.id === botId ? { ...card, bot: { ...card.bot, followed } } : card)
-    .filter((card) => scope !== "following" || card.bot.followed);
+    .filter((card) => scope !== "following" || isDefaultBot(card.bot) || card.bot.followed);
 }
 
 export function clampPage(index: number, count: number): number {

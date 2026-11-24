@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactElement, type ReactNode } from "react";
 import {
+  Animated,
   BackHandler,
   FlatList,
   Image,
@@ -179,11 +180,29 @@ function useOutbox() {
   return { items, running, submitText, sendNow, drop, stop };
 }
 
-const YAHEI = "Microsoft YaHei";
+function BreathingDot({ color }: { color: string }) {
+  const pulse = useRef(new Animated.Value(0.45)).current;
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, { toValue: 1, duration: 1200, useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 0.45, duration: 1200, useNativeDriver: true }),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [pulse]);
+  return (
+    <Animated.View
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+      style={{ width: 9, height: 9, borderRadius: 5, backgroundColor: color, opacity: pulse }}
+    />
+  );
+}
 
 function enrichedStyle(chrome: ChatChrome, reading: ReadingStyle, scheme: Scheme): MarkdownStyle {
   const block = {
-    fontFamily: YAHEI,
     fontSize: reading.fontSize,
     lineHeight: reading.lineHeight,
     color: chrome.text,
@@ -213,7 +232,7 @@ function enrichedStyle(chrome: ChatChrome, reading: ReadingStyle, scheme: Scheme
 }
 
 function ChatMessage() {
-  const { chrome, scheme, reading, markdownColors, submitText, stop, notice } = useChatActions();
+  const { chrome, scheme, reading, submitText, stop, notice } = useChatActions();
   const role = useAuiState((state) => state.message.role);
   const parts = useAuiState((state) => state.message.parts);
   const content = useAuiState((state) => state.message.content);
@@ -226,6 +245,7 @@ function ChatMessage() {
   const cancelled = status?.type === "incomplete" && status.reason === "cancelled";
   const caption = sourceCaption(parts);
   const canCopy = clipboardAvailable();
+  const isLastMessage = messages.length > 0 && messages[messages.length - 1]?.id === messageId;
   const [copied, setCopied] = useState(false);
   const [copyLabel, setCopyLabel] = useState("复制");
   const [vote, setVote] = useState<"up" | "down" | null>(null);
@@ -256,16 +276,16 @@ function ChatMessage() {
   };
   const retryText = previousUserText(messages, messageId);
   return (
-    <MessagePrimitive.Root style={{ marginBottom: 22, alignItems: mine ? "flex-end" : "stretch" }}>
+    <MessagePrimitive.Root style={{ marginBottom: 20, alignItems: mine ? "flex-end" : "stretch" }}>
       <View style={mine ? {
-        maxWidth: "86%",
+        maxWidth: "82%",
         paddingHorizontal: 14,
         paddingVertical: 10,
         borderRadius: 18,
         backgroundColor: chrome.userBubble,
       } : { alignSelf: "stretch" }}>
         {mine ? (
-          <Text selectable selectionColor={chrome.selection} style={{ color: chrome.userText, fontSize: 16, lineHeight: 22 }}>{text}</Text>
+          <Text selectable selectionColor={chrome.selection} style={{ color: chrome.userText, fontSize: 16, lineHeight: 24 }}>{text}</Text>
         ) : text ? (
           <EnrichedMarkdownText
             markdown={text}
@@ -282,11 +302,11 @@ function ChatMessage() {
           />
         ) : null}
         {!mine && running && !text ? (
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-            <Text style={{ color: chrome.inkText, fontSize: 16, lineHeight: 24 }}>✻</Text>
-            <Text accessibilityLiveRegion="polite" style={{ flex: 1, color: chrome.muted, fontSize: 16, lineHeight: 24 }}>正在回复</Text>
-            <Pressable onPress={stop} accessibilityRole="button" accessibilityLabel="停止生成" hitSlop={8}>
-              <Text style={{ color: chrome.inkText, fontSize: 14, lineHeight: 20, fontWeight: "600" }}>停止</Text>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+            <BreathingDot color={chrome.send} />
+            <Text accessibilityLiveRegion="polite" style={{ flex: 1, color: chrome.muted, fontSize: 15, lineHeight: 24 }}>正在回复</Text>
+            <Pressable onPress={stop} accessibilityRole="button" accessibilityLabel="停止生成" hitSlop={10}>
+              <Text style={{ color: chrome.inkText, fontSize: 14, lineHeight: 20, fontWeight: "700" }}>停止</Text>
             </Pressable>
           </View>
         ) : null}
@@ -296,32 +316,34 @@ function ChatMessage() {
           <ErrorPrimitive.Message style={{ color: chrome.inkText, fontSize: 13, lineHeight: 18 }} />
         </ErrorPrimitive.Root>
         {!mine && text && !running ? (
-          <View style={{ marginTop: 12, gap: 8 }}>
+          <View style={{ marginTop: 10, gap: 8 }}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 18 }}>
               {canCopy ? (
-                <Pressable onPress={copyAll} accessibilityRole="button" accessibilityLabel={copyLabel} hitSlop={8}>
-                  <ChatMark name={copied ? "check" : "copy"} color={copied ? chrome.check : chrome.icon} />
+                <Pressable onPress={copyAll} accessibilityRole="button" accessibilityLabel={copyLabel} hitSlop={10}>
+                  <ChatMark name={copied ? "check" : "copy"} color={copied ? chrome.check : chrome.icon} size={18} />
                 </Pressable>
               ) : null}
-              <Pressable onPress={share} accessibilityRole="button" accessibilityLabel="分享" hitSlop={8}>
-                <ChatMark name="share" color={chrome.icon} />
+              <Pressable onPress={share} accessibilityRole="button" accessibilityLabel="分享" hitSlop={10}>
+                <ChatMark name="share" color={chrome.icon} size={18} />
               </Pressable>
-              <Pressable onPress={() => notice(VOICE_UNAVAILABLE)} accessibilityRole="button" accessibilityLabel="朗读" accessibilityState={{ disabled: true }} hitSlop={8}>
-                <ChatMark name="play" color={chrome.disabled} />
+              <Pressable onPress={() => notice(VOICE_UNAVAILABLE)} accessibilityRole="button" accessibilityLabel="朗读" accessibilityState={{ disabled: true }} hitSlop={10} style={{ opacity: 0.5 }}>
+                <ChatMark name="play" color={chrome.disabled} size={18} />
               </Pressable>
-              <Pressable onPress={() => setVote((current) => current === "up" ? null : "up")} accessibilityRole="button" accessibilityLabel="赞，只记在这次打开" hitSlop={8}>
-                <ChatMark name="up-thumb" color={vote === "up" ? chrome.send : chrome.icon} />
+              <Pressable onPress={() => setVote((current) => current === "up" ? null : "up")} accessibilityRole="button" accessibilityLabel="赞，只记在这次打开" hitSlop={10} style={{ opacity: vote === "up" ? 1 : 0.55 }}>
+                <ChatMark name="up-thumb" color={vote === "up" ? chrome.send : chrome.disabled} size={18} />
               </Pressable>
-              <Pressable onPress={() => setVote((current) => current === "down" ? null : "down")} accessibilityRole="button" accessibilityLabel="踩，只记在这次打开" hitSlop={8}>
-                <ChatMark name="down-thumb" color={vote === "down" ? chrome.send : chrome.icon} />
+              <Pressable onPress={() => setVote((current) => current === "down" ? null : "down")} accessibilityRole="button" accessibilityLabel="踩，只记在这次打开" hitSlop={10} style={{ opacity: vote === "down" ? 1 : 0.55 }}>
+                <ChatMark name="down-thumb" color={vote === "down" ? chrome.send : chrome.disabled} size={18} />
               </Pressable>
               {retryText ? (
-                <Pressable onPress={() => submitText(retryText)} accessibilityRole="button" accessibilityLabel="重试" hitSlop={8}>
-                  <ChatMark name="retry" color={chrome.icon} />
+                <Pressable onPress={() => submitText(retryText)} accessibilityRole="button" accessibilityLabel="重试" hitSlop={10}>
+                  <ChatMark name="retry" color={chrome.icon} size={18} />
                 </Pressable>
               ) : null}
             </View>
-            <Text style={{ color: chrome.muted, fontSize: 12, lineHeight: 18 }}>{ASSISTANT_DISCLAIMER}</Text>
+            {isLastMessage ? (
+              <Text style={{ color: chrome.muted, fontSize: 12, lineHeight: 16 }}>{ASSISTANT_DISCLAIMER}</Text>
+            ) : null}
           </View>
         ) : null}
       </View>
@@ -427,16 +449,16 @@ function Composer({
         </View>
       ))}
       {running && chromeState.action !== "stop" ? (
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 6 }}>
-          <Text style={{ color: chrome.inkText, fontSize: 15 }}>✻</Text>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 6 }}>
+          <BreathingDot color={chrome.send} />
           <Text style={{ flex: 1, color: chrome.muted, fontSize: 14, lineHeight: 20 }}>正在回复</Text>
-          <Pressable onPress={onStop} accessibilityRole="button" accessibilityLabel="停止生成" hitSlop={8}>
-            <Text style={{ color: chrome.inkText, fontSize: 14, lineHeight: 20, fontWeight: "600" }}>停止</Text>
+          <Pressable onPress={onStop} accessibilityRole="button" accessibilityLabel="停止生成" hitSlop={10}>
+            <Text style={{ color: chrome.inkText, fontSize: 14, lineHeight: 20, fontWeight: "700" }}>停止</Text>
           </Pressable>
         </View>
       ) : null}
       {chromeState.expanded ? (
-        <View style={{ borderRadius: 26, backgroundColor: chrome.composer, padding: 12, gap: 10, borderWidth: 1, borderColor: chrome.line }}>
+        <View style={{ borderRadius: 24, backgroundColor: chrome.composer, padding: 12, gap: 10, borderWidth: 1, borderColor: chrome.line }}>
           {drafts.length > 0 ? <DraftRow drafts={drafts} chrome={chrome} onRemove={onRemoveDraft} /> : null}
           <TextInput
             autoFocus={focused}
@@ -465,25 +487,25 @@ function Composer({
             }}
           />
           <View style={{ flexDirection: "row", alignItems: "center" }}>
-            <Pressable onPress={onOpenSheet} accessibilityRole="button" accessibilityLabel="添加" hitSlop={6} style={({ pressed }) => ({ width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center", backgroundColor: pressed ? chrome.line : chrome.soft })}>
-              <ChatMark name="plus" color={chrome.text} size={18} />
+            <Pressable onPress={onOpenSheet} accessibilityRole="button" accessibilityLabel="添加" hitSlop={6} style={({ pressed }) => ({ width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center", backgroundColor: pressed ? chrome.line : chrome.soft, opacity: 0.72 })}>
+              <ChatMark name="plus" color={chrome.icon} size={18} />
             </Pressable>
             <View style={{ flex: 1 }} />
             {running && chromeState.action === "send" ? (
-              <Pressable onPress={onStop} accessibilityRole="button" accessibilityLabel="停止生成" hitSlop={8} style={{ marginRight: 12 }}>
-                <Text style={{ color: chrome.inkText, fontSize: 14, fontWeight: "600" }}>停止</Text>
+              <Pressable onPress={onStop} accessibilityRole="button" accessibilityLabel="停止生成" hitSlop={10} style={{ marginRight: 12 }}>
+                <Text style={{ color: chrome.inkText, fontSize: 14, fontWeight: "700" }}>停止</Text>
               </Pressable>
             ) : null}
-            <Pressable onPress={voice} accessibilityRole="button" accessibilityLabel="麦克风" accessibilityState={{ disabled: true }} hitSlop={8} style={{ marginRight: 8 }}>
-              <ChatMark name="mic" color={chrome.disabled} />
+            <Pressable onPress={voice} accessibilityRole="button" accessibilityLabel="麦克风" accessibilityState={{ disabled: true }} hitSlop={8} style={{ marginRight: 8, opacity: 0.5 }}>
+              <ChatMark name="mic" color={chrome.disabled} size={18} />
             </Pressable>
             {action}
           </View>
         </View>
       ) : (
-        <View style={{ height: 56, borderRadius: 28, backgroundColor: chrome.composer, borderWidth: 1, borderColor: chrome.line, paddingHorizontal: 8, flexDirection: "row", alignItems: "center", gap: 4 }}>
-          <Pressable onPress={onOpenSheet} accessibilityRole="button" accessibilityLabel="添加" hitSlop={6} style={{ width: 40, height: 40, alignItems: "center", justifyContent: "center" }}>
-            <ChatMark name="plus" color={chrome.text} size={20} />
+        <View style={{ height: 52, borderRadius: 26, backgroundColor: chrome.composer, borderWidth: 1, borderColor: chrome.line, paddingHorizontal: 8, flexDirection: "row", alignItems: "center", gap: 4 }}>
+          <Pressable onPress={onOpenSheet} accessibilityRole="button" accessibilityLabel="添加" hitSlop={6} style={{ width: 40, height: 40, alignItems: "center", justifyContent: "center", opacity: 0.7 }}>
+            <ChatMark name="plus" color={chrome.icon} size={19} />
           </Pressable>
           <Pressable
             style={{ flex: 1, height: 40, justifyContent: "center" }}
@@ -493,10 +515,10 @@ function Composer({
             accessibilityRole="button"
             accessibilityLabel={chromeState.placeholder}
           >
-            <Text style={{ color: chrome.muted, fontSize: 16, lineHeight: 22 }}>{chromeState.placeholder}</Text>
+            <Text style={{ color: chrome.muted, fontSize: 15, lineHeight: 22 }}>{chromeState.placeholder}</Text>
           </Pressable>
-          <Pressable onPress={voice} accessibilityRole="button" accessibilityLabel="麦克风" accessibilityState={{ disabled: true }} hitSlop={6}>
-            <ChatMark name="mic" color={chrome.disabled} />
+          <Pressable onPress={voice} accessibilityRole="button" accessibilityLabel="麦克风" accessibilityState={{ disabled: true }} hitSlop={6} style={{ opacity: 0.5, marginRight: 2 }}>
+            <ChatMark name="mic" color={chrome.disabled} size={18} />
           </Pressable>
           {action}
         </View>
@@ -627,9 +649,9 @@ export function ChatThreadSurface({
 }: ChatThreadSurfaceProps) {
   const chrome = useMemo(() => chatChrome(scheme), [scheme]);
   const reading = useMemo<ReadingStyle>(() => ({
-    fontSize: 17,
-    lineHeight: 28,
-    fontFamily: Platform.select({ ios: "Georgia", android: "serif", default: "serif" }),
+    fontSize: 16,
+    lineHeight: 26,
+    fontFamily: undefined,
     selectionColor: chrome.selection,
   }), [chrome.selection]);
   const insets = useSafeAreaInsets();
@@ -654,16 +676,20 @@ export function ChatThreadSurface({
     canvas: chrome.canvas,
     bg: chrome.canvas,
     text: chrome.text,
+    text2: chrome.icon,
     muted: chrome.muted,
     line: chrome.line,
     accent: chrome.inkText,
     accentInk: chrome.inkText,
+    accentSoft: chrome.selection,
     bubbleMe: chrome.userBubble,
     bubbleMeText: chrome.userText,
     bubbleBot: "transparent",
     raised: chrome.soft,
     press: chrome.soft,
     selected: chrome.soft,
+    btnPrimaryBg: chrome.ink,
+    btnPrimaryFg: chrome.onInk,
     status: scheme === "dark" ? "light" : "dark",
   }), [chrome, scheme]);
   const actions = useMemo<ChatActions>(() => ({

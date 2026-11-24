@@ -164,18 +164,19 @@ appId: io.github.felixzhu.qiandrive
     timeout: 8000
 - tapOn: "返回会话列表"
 - extendedWaitUntil:
-    visible: "个人对话"
+    visible: "新建对话"
     timeout: 20000
 - assertNotVisible: "返回会话列表"
 
-# 今日是 Qbot 的两张手写卡。点开的是种子 HTML，返回留在原来的列表。
+# 今日是 QBot 的两张卡。点开的是种子 HTML，返回留在原来的列表。
 - tapOn:
     point: "17%,93%"
     retryTapIfNoChange: true
 - extendedWaitUntil:
     visible: "get this over the line"
     timeout: 20000
-- assertVisible: "Qbot"
+- assertVisible: "QBot"
+- assertVisible: "默认"
 - assertVisible: "关注"
 - assertNotVisible: "样例"
 - assertNotVisible: "Study Bot"
@@ -190,7 +191,7 @@ appId: io.github.felixzhu.qiandrive
     visible: "三个入口：今日、对话、知识库"
     timeout: 15000
 - assertNotVisible: "返回"
-- assertVisible: "已关注 Qbot"
+- assertVisible: "QBot"
 - takeScreenshot:
     path: light-feed-scrolled-down
 - swipe:
@@ -213,7 +214,7 @@ appId: io.github.felixzhu.qiandrive
 - extendedWaitUntil:
     visible: "get this over the line"
     timeout: 10000
-- assertVisible: "已关注 Qbot"
+- assertVisible: "QBot"
 - assertNotVisible: "返回"
 - takeScreenshot:
     path: light-feed-restored
@@ -231,7 +232,7 @@ appId: io.github.felixzhu.qiandrive
 - extendedWaitUntil:
     visible: "最近更新"
     timeout: 60000
-- assertNotVisible: "Qbot"
+- assertNotVisible: "QBot"
 - takeScreenshot:
     path: light-kb
 

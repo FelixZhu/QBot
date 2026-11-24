@@ -7,7 +7,8 @@ appId: io.github.felixzhu.qiandrive
 - extendedWaitUntil:
     visible: "get this over the line"
     timeout: 30000
-- assertVisible: "Qbot"
+- assertVisible: "QBot"
+- assertVisible: "默认"
 - assertNotVisible: "样例"
 - assertNotVisible: "Study Bot"
 - tapOn: "get this over the line"

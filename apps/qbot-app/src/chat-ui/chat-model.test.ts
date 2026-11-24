@@ -23,14 +23,16 @@ import {
 test("approved chat colors stay on the light and dark frames", () => {
   const light = chatChrome("light");
   const dark = chatChrome("dark");
-  assert.equal(light.canvas, "#FAF9F5");
-  assert.equal(light.userBubble, "#EFEDE6");
+  assert.equal(light.canvas, "#FAF8F3");
+  assert.equal(light.userBubble, "#ECE7DD");
+  assert.equal(light.muted, "#736D62");
   assert.equal(light.send, "#FF6A2B");
   assert.equal(light.inkText, "#C24410");
   assert.equal(light.onSend, "#FFFFFF");
-  assert.equal(dark.canvas, "#151515");
-  assert.equal(dark.userBubble, "#2B2B29");
-  assert.equal(dark.sheet, "#1F1F1E");
+  assert.equal(dark.canvas, "#1F1D1A");
+  assert.equal(dark.userBubble, "#2E2B27");
+  assert.equal(dark.sheet, "#262420");
+  assert.equal(dark.muted, "#9A9386");
   assert.equal(dark.send, "#FF6A2B");
   assert.equal(dark.inkText, "#FF8A55");
   assert.equal(ASSISTANT_DISCLAIMER.includes("演示"), false);
