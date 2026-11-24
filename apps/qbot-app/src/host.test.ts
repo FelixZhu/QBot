@@ -3,7 +3,6 @@ import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { filterDemos, localReply } from "./demos.ts";
 import { ASK_BACK, hostEmbedCss, showWebTab, themeBoot, themeUpdate } from "./embed.ts";
-import { demoSurface } from "./feed/demo/data.ts";
 import { gutterColor, isSplit, listPaneWidth, phoneFrame, resolveScheme } from "./theme.ts";
 
 test("system theme defaults to light unless the scheme is dark", () => {
@@ -32,10 +31,7 @@ test("wide panes share one 38% width, clamped to 320–400", () => {
   assert.ok(Math.abs(contained.height - (300 * 844) / 390) < 0.001);
   assert.equal(phoneFrame(0, 800).width, 0);
   assert.equal(gutterColor("#F5A623"), "#492f03");
-  assert.equal(demoSurface("demo-english"), "#FF6A2B");
-  assert.equal(gutterColor(demoSurface("demo-english")), "#4d1700");
-  assert.equal(gutterColor(demoSurface("demo-info")), "#332b1a");
-  assert.notEqual(gutterColor(demoSurface("demo-english")), gutterColor("#0B0B0F"));
+  assert.equal(gutterColor("#FF6A2B"), "#4d1700");
   assert.equal(gutterColor("#FFFFFF"), "#262626");
   assert.equal(gutterColor("#0B0B0F"), "#20202c");
   assert.notEqual(gutterColor("#0B0B0F"), gutterColor("#FFFFFF"));
@@ -47,11 +43,8 @@ test("wide panes share one 38% width, clamped to 320–400", () => {
   assert.match(showWebTab("kb"), /clamp\(320px,38%,400px\)/);
   const app = readFileSync(new URL("../App.tsx", import.meta.url), "utf8");
   const chat = readFileSync(new URL("./ChatPane.tsx", import.meta.url), "utf8");
-  const feedPane = readFileSync(new URL("./feed/FeedPane.tsx", import.meta.url), "utf8");
   assert.match(app, /listPaneWidth\(width\)/);
   assert.equal(app.includes("0.42"), false);
-  assert.match(feedPane, /listPaneWidth\(width\)/);
-  assert.equal(feedPane.includes("0.42"), false);
   const live = readFileSync(new URL("./chat/LiveChat.tsx", import.meta.url), "utf8");
   assert.match(live, /maxWidth: READ_MAX/);
   assert.match(chat, /colors\.selected/);

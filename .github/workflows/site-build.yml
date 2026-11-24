@@ -2,6 +2,10 @@ name: site-build
 
 on:
   pull_request:
+    paths:
+      - "apps/drive-web/**"
+      - "apps/chat-web/**"
+      - ".github/workflows/site-build.yml"
   workflow_dispatch:
 
 permissions:
