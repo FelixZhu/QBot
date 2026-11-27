@@ -1,6 +1,6 @@
 # 卡片包协议 v1.0
 
-这是给 Qian 确认的方案。导入接口没有实现，Skill 没有创建。写对象和读私人对象都还没有授权。`QBOT_FEED_OPEN` 不能打开这些路径。
+本方案已由 Qian 于 2026-11-28 确认；导入接口仍未实现，Skill 没有创建；写对象与读私人对象仍无授权。`QBOT_FEED_OPEN` 与 `QBOT_PERSONAL_OPEN` 都不能打开这些路径。
 
 `docs/card-package/v1.example.json` 的 digest、hash 和 bytes 是占位，`importable` 为 false，`sample` 为 true。它不能导入，也不能正式发布。`v1.schema.json` 只检查字段形状。形状通过之后，仍要做本文的摘要、HTML、CSP 和 SSRF 检查。
 
@@ -59,9 +59,9 @@ manifest 里如果出现 owner，忽略它。认证决定 owner。`botRef.slug` 
 
 `idempotencyKey` 只是客户端请求标签。真实唯一键是认证得到的 owner、允许的 Bot、`cardKey`、`contentVersion`。数据库用这四元组做唯一约束。同一版本重试用 `manifestDigest` 严格比较：四元组相同且 `manifestDigest` 相同，返回原来的结果；`manifestDigest` 不同就是冲突，即使 `contentDigest` 没变。新的调度或新的来源申报会改变整包摘要，不能被语义摘要相同放过。相同的 `idempotencyKey` 配上不同的四元组，也是冲突。
 
-`authoringClaim` 只是申报，取值 `human` 或 `bot`。导入审计另行核对，不采用自报。`sample` 为 true 时，dry-run 和 stage 可以做，commit 和 publish 都拒绝。来源或审计记录 `private` 为 true 时，不能整包公开到 OSS 或 Feed。
+`authoringClaim` 只是申报，取值 `human` 或 `bot`。导入审计另行核对，不采用自报。`sample` 为 true 时，可以完成校验与暂存，但不能写入可发布的版本行，也不能进入 `ready`，终态停在 `staged`，publish 拒绝。来源或审计记录 `private` 为 true 时，不能整包公开到 OSS 或 Feed。
 
-`cardKey` 在同一个 Bot 下稳定。`contentVersion` 从 1 递增。第一版 `expectedPreviousVersion` 为 null。更新必须等于服务端当前已提交的版本，否则冲突。
+`cardKey` 在同一个 Bot 下稳定。`contentVersion` 从 1 递增。第一版 `expectedPreviousVersion` 为 null。更新必须等于服务端当前已有版本，否则冲突。
 
 ## 锚点
 
@@ -78,42 +78,82 @@ manifest 里如果出现 owner，忽略它。认证决定 owner。`botRef.slug` 
 
 正文里碰巧有同一串字，不能单独证明结论。
 
-## 建议接口
+## 接口约定
 
-下面的路径都没有实现。权限也没有授予。
+下面的路径与异步流程都尚未实现。写对象、读私人对象和发布通知的权限也都没有授予。
 
 | 方法 | 路径 | 作用 | 权限 |
 | --- | --- | --- | --- |
-| POST | `/v1/card-imports/dry-run` | 只检查，不写库，不写对象 | 已认证 owner，且 Bot 在允许列表 |
-| POST | `/v1/card-imports/stage` | 检查通过后写入不可变暂存 | 同上，另需尚未授予的对象写权限 |
-| POST | `/v1/card-imports/{importId}/commit` | 写入版本行，不改可见指针 | 同上，要求 `expectedPreviousVersion`。`sample` 为 true 时拒绝 |
-| POST | `/v1/card-imports/{importId}/publish` | 只改可见指针，不发通知 | 另需发布权限。`sample` 为 true 时拒绝 |
-| GET | `/v1/card-imports/{importId}` | 读状态 | 仅该 owner |
+| POST | `/v1/card-imports` | 唯一上传入口：浅检查 ZIP 后入队，返回 `202` 与 `importId` | 已认证 owner，且 Bot 在允许列表 |
+| GET | `/v1/card-imports/{importId}` | 读导入状态与结果 | 仅该 owner |
+| POST | `/v1/card-imports/{importId}/publish` | 单步发布：事务切换可见指针，不发通知 | 另需发布权限。仅 `ready` 可发布；`sample` 为 true 时拒绝 |
 | POST | `/v1/card-imports/{importId}/rollback` | 可见指针回到上一版 | 与 publish 相同的权限 |
 
-请求带 `Idempotency-Key` 头，值等于 manifest 里的 `idempotencyKey`。它不是唯一键。commit 和 publish 的正文还要带 `expectedPreviousVersion`。
+### 1) `POST /v1/card-imports`
 
-状态响应建议为：
+这是唯一的卡片包上传入口。调用方必须是已认证 owner，且目标 Bot 在允许列表内。请求体直接是 ZIP 字节，`Content-Type: application/zip`。
+
+同步阶段只做认证与浅检查：核对 `Content-Type`、压缩后体积上限 8 MiB（可加 ZIP 魔数核对）。不在这个请求里做完整解压、摘要计算、HTML/CSP 或锚点等重检查。浅检查通过后入队，返回 `202`，正文含 `importId` 与 `state: "accepted"`（任务随即进入 `queued`）。
+
+请求带 `Idempotency-Key` 头，作为客户端请求标签（与 manifest 里的 `idempotencyKey` 对应）。上传阶段可能尚未解出 `manifest.json`，入口先按请求头与 ZIP 整包字节哈希处理幂等：
+
+- 同一 `Idempotency-Key` + 相同 ZIP 字节哈希：返回原 `importId`。
+- 同一 `Idempotency-Key` + 不同 ZIP 字节哈希，若原任务仍在途（`queued`、`validating`）或已是 `ready`、`published`（以及 `staged`、`rolled-back` 等非 `rejected` 状态）：返回冲突。
+- 若原任务已是 `rejected`：释放该 `Idempotency-Key`，允许整包重传，作为新一次尝试。
+
+异步阶段解出 `manifest.json` 之后，仍按上文「谁可以发」中的四元组（owner + 允许的 Bot + `cardKey` + `contentVersion`）与 `manifestDigest` 规则做真正去重与冲突判定。
+
+### 2) 异步流程
+
+任务入队后的流转顺序如下：
+
+`queued` → `validating`（执行解压、限额、schema、摘要、HTML/CSP、外链、锚点、安全区及四元组/版本核对）→ 校验通过后写入不可变暂存对象 → 写入不可见版本行（可见指针不动，`visibility` 仍为 `hidden`）→ `ready`。
+
+- 校验失败：进入 `rejected`，必须记下失败原因；不写最终对象，不写版本行（可以保留 import 记录本身）。
+- `sample` 为 true：可以完成校验与不可变暂存，但不能写入可发布的版本行，不能进入 `ready`，终态使用 `staged`；对其调用 publish 一律拒绝。
+- 异步流程不自动发布到「今日」。
+
+### 3) `GET /v1/card-imports/{importId}`
+
+仅该 owner 可读。持久状态只允许 `queued`、`validating`、`staged`、`ready`、`rejected`、`published`、`rolled-back` 七种。`accepted` 只出现在 `POST /v1/card-imports` 的 `202` 响应里，随即进入 `queued`，不作为 `GET` 的持久状态。
+
+`rejected` 状态必须带上失败原因（如 `reason`）。响应还包含 `botSlug`、`cardKey`、`contentVersion`、`contentDigest`、`manifestDigest`、`sample`、`publishAllowed`、`visibility`、`notification`（固定保持 `not-authorized`）。在任务尚未解出 manifest 之前，对应字段可为 `null`。以下为 `ready` 状态下的响应形状示例（仅作方案约定，接口尚未实现）：
 
 ```json
 {
   "importId": "example-import",
-  "state": "staged",
-  "implemented": false,
+  "state": "ready",
   "ownerBound": true,
   "botSlug": "example-bot",
   "cardKey": "example-card-key",
   "contentVersion": 2,
+  "manifestDigest": "0000000000000000000000000000000000000000000000000000000000000000",
   "contentDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "sample": false,
+  "publishAllowed": true,
   "visibility": "hidden",
-  "notification": "not-authorized",
-  "sample": true
+  "notification": "not-authorized"
 }
 ```
 
-`state` 只在 `rejected`、`validated`、`staged`、`committed`、`published`、`rolled-back` 之中。`validated` 是 dry-run 的结果，没有副作用。`staged` 只有暂存对象。`committed` 有版本行，可见指针不动，`visibility` 仍是 `hidden`。`published` 才在一次事务里把可见指针改到这一版。`notification` 在本方案里保持 `not-authorized`，不因为 publish 而发送，通知授权不扩大。
+### 4) `POST /v1/card-imports/{importId}/publish`
 
-`sample` 为 true 时，commit 和 publish 都拒绝，状态最多到 `staged`。时间用 schema 里的字段：`timezone` 固定 `Asia/Shanghai`；可见窗口是 `visibility.notBefore` 和 `visibility.notAfter`；安静时段是 `notification.quietHours.start` 与 `end`，小时只允许 00 到 23；冷却是 `notification.cooldownMinutes`；通知去重字符串是 `notification.dedupeKey`。过了 `notAfter` 不补发。安静时段内到期的通知不补到时段结束后。跨版本的 `contentDigest` 与当前已公开版相同，则 publish 不把这一版再公开一次。同一版本不靠这个比较放行。
+单独一步，需要发布权限。只有 `ready` 状态可以发布。请求正文带 `expectedPreviousVersion`（第一版为 `null`）。`sample` 为 true 时拒绝。
+
+时间用 schema 里的字段：`timezone` 固定 `Asia/Shanghai`；可见窗口是 `visibility.notBefore` 和 `visibility.notAfter`；安静时段是 `notification.quietHours.start` 与 `end`，小时只允许 00 到 23；冷却是 `notification.cooldownMinutes`；通知去重字符串是 `notification.dedupeKey`。过了 `notAfter` 不补发。安静时段内到期的通知不补到时段结束后。跨版本的 `contentDigest` 与当前已公开版相同，则 publish 不把这一版再公开一次。同一版本不靠这个比较放行。
+
+publish 在一次事务里把可见指针切到这一版，失败不改已发布行和 Feed。`notification` 在本方案里保持 `not-authorized`，不因为 publish 而发送，通知授权不扩大。
+
+### 5) `POST /v1/card-imports/{importId}/rollback`
+
+与 publish 同权，仅在 publish 之后把可见指针改回上一版，状态变为 `rolled-back`。
+
+## 与现有 `POST /v1/cards` 的关系
+
+- `POST /v1/cards` 是已实现的同步 JSON + 内嵌 Base64 发卡路径，线上仍因 OSS 写入凭证未接通而可能返回 `503 storage_readonly`。
+- 不要把 ZIP 导入塞进 `POST /v1/cards`。
+- 正式制作路径将是本导入 API（`POST /v1/card-imports` 及上述异步/发布流程）；`POST /v1/cards` 作为过渡路径保留，本次不删。
+- 异步暂存与入库上线仍依赖 OSS 写入凭证，本方案修订不解决这一点，也不授予对象写权限。
 
 ## 方案中的限额
 
@@ -137,7 +177,7 @@ HTML 解析后还要拒绝 `script`、`iframe`、`object`、`embed`、`form`、�
 
 暂存对象在校验完成之前不是最终对象。上传中断时中止未完成的 multipart，不在同一个未完成对象上继续追加。重传是整份字节重新上传，传完再按 hash 核对。
 
-hash 已经核对成功的对象不覆盖。同一 hash 再次出现就复用那个对象。hash 不同就使用新的键。commit 只增加不可见的版本行，不改可见指针。publish 才用一次 Postgres 事务把可见指针从上一版改到这一版。这次事务失败就留下没人引用的已核对对象，已发布的行不删，Feed 不变。回滚只在 publish 之后把可见指针改回上一版。
+hash 已经核对成功的对象不覆盖。同一 hash 再次出现就复用那个对象。hash 不同就使用新的键。异步校验通过后写入不可变暂存对象，并写入不可见的版本行，不改可见指针（`visibility` 仍为 `hidden`）；`sample` 为 true 时不写可发布版本行，终态停在 `staged`。publish 才用一次 Postgres 事务把可见指针从上一版改到这一版。这次事务失败就留下没人引用的已核对对象，已发布的行不删，Feed 不变。回滚只在 publish 之后把可见指针改回上一版。
 
 ## 安全区
 
@@ -157,4 +197,4 @@ hash 已经核对成功的对象不覆盖。同一 hash 再次出现就复用那
 
 ## 还没做
 
-Skill 没有创建。上面六个路径没有实现。对象写权限、私人读取和通知发送都没有授权。
+Skill 没有创建。上述接口与异步流程都未实现；对象写权限、私人读取和通知发送都未授权。
