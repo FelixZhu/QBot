@@ -149,6 +149,10 @@ With the flag unset, that code is `401`, and the same path with the operator tok
 
 The phone certificate must already be trusted. A non-loopback origin in the private publish environment must be `https://`.
 
+## Deploy
+
+Production publishes this directory with `rsync -a --delete --exclude='node_modules'` onto `/opt/qbot/services/qbot-chat`. The card-package import validator reads `docs/card-package/v1.schema.json` from *this* tree, not from the monorepo root. Keep that copy identical to repo-root `docs/card-package/v1.schema.json`. See [`deploy/README.md`](deploy/README.md) for the files that must travel with a release and the existing sync steps.
+
 ## Tests
 
 GitHub Actions job `chat-server` uses `pgvector/pgvector:0.8.7-pg15`, creates the same least-privilege role, and runs the server tests plus the app client tests against a fixture upstream. The fixture is labeled `openrouter-sse-not-a-model`.
