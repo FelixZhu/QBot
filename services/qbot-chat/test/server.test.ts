@@ -177,6 +177,7 @@ test("authenticated SSE persists a server-owned run and reloads it", { timeout: 
   const runtimePool = createPool(runtimeUrl);
   const migratePool = createPool(migrateUrl);
   for (const table of [
+    "card_imports",
     "artifact_capabilities",
     "artifact_files",
     "artifacts",

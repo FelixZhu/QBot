@@ -1,4 +1,4 @@
-import { createHash, randomUUID } from "node:crypto";
+import { createHash } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type pg from "pg";
 import { readBearer, tokensMatch } from "../auth.ts";
@@ -6,7 +6,6 @@ import type { Config } from "../config.ts";
 import { errorBody, HttpError } from "../errors.ts";
 import { etagMatches, sendJson, type ArtifactCache, type RateLimiter } from "../http-utils.ts";
 import { LIMITS } from "../limits.ts";
-import { validateBundle, type BundleFileRole, type CardProvenance, type CardVisibility } from "./bundle.ts";
 import type { ObjectStore } from "./objects.ts";
 import { ARTIFACT_CSP, bundlePath, contentTypeFor, isUuid } from "./paths.ts";
 import { createFeedStore, type AccessMode, type FeedScope, type FeedStore } from "./store.ts";
@@ -57,7 +56,7 @@ export async function tryFeed(deps: FeedDeps, req: IncomingMessage, res: ServerR
 function isFeedPath(path: string): boolean {
   return path === "/v1/feed"
     || path === "/v1/bots" || path.startsWith("/v1/bots/")
-    || path === "/v1/cards" || path.startsWith("/v1/cards/")
+    || path.startsWith("/v1/cards/")
     || path === "/v1/artifacts" || path.startsWith("/v1/artifacts/");
 }
 
@@ -82,10 +81,6 @@ async function dispatch(deps: FeedDeps, req: IncomingMessage, res: ServerRespons
       if (error instanceof Error && error.message === "bad cursor") throw new HttpError(400, "bad_request", "cursor 不合法");
       throw error;
     }
-    return;
-  }
-  if (req.method === "POST" && path === "/v1/cards") {
-    await publishCardRoute(deps, req, res, ownerId, mode);
     return;
   }
   const slug = BOT_SLUG.exec(path);
@@ -144,99 +139,6 @@ async function dispatch(deps: FeedDeps, req: IncomingMessage, res: ServerRespons
     return;
   }
   throw new HttpError(404, "not_found", "没有这个接口");
-}
-
-async function publishCardRoute(deps: FeedDeps, req: IncomingMessage, res: ServerResponse, ownerId: string, mode: AccessMode): Promise<void> {
-  const objects = deps.objects;
-  if (!objects?.write) {
-    throw new HttpError(503, "storage_readonly", "当前对象存储不支持写入，请配置 QBOT_OBJECT_ROOT 或 OSS 写入凭证");
-  }
-  const body = await readJsonObject(req, LIMITS.publishBodyBytes);
-  for (const key of Object.keys(body)) {
-    if (!["title", "botSlug", "visibility", "provenance", "authoredAt", "files"].includes(key)) {
-      throw new HttpError(400, "bad_request", `不能提交 ${key.slice(0, 40)}`);
-    }
-  }
-  const title = typeof body.title === "string" ? body.title.replace(/\s+/g, " ").trim() : "";
-  if (!title || title.length > 120 || title.includes("\u0000")) {
-    throw new HttpError(400, "bad_request", "标题不合法");
-  }
-  if (body.botSlug !== undefined && typeof body.botSlug !== "string") {
-    throw new HttpError(400, "bad_request", "botSlug 不合法");
-  }
-  const botSlug = typeof body.botSlug === "string" ? body.botSlug.trim() : "qbot";
-  if (!/^[a-z0-9-]{1,40}$/.test(botSlug)) {
-    throw new HttpError(400, "bad_request", "botSlug 不合法");
-  }
-  const rawVisibility = body.visibility === undefined ? "public" : body.visibility;
-  if (mode === "open" && rawVisibility !== "public") {
-    throw new HttpError(404, "not_found", "没有这个接口");
-  }
-  if (rawVisibility !== "public" && rawVisibility !== "followers") {
-    throw new HttpError(400, "bad_request", "visibility 不合法");
-  }
-  const visibility: CardVisibility = rawVisibility;
-  const provenance = (body.provenance ?? "manual") as CardProvenance;
-  if (provenance !== "manual" && provenance !== "agent" && provenance !== "scheduled") {
-    throw new HttpError(400, "bad_request", "provenance 不合法");
-  }
-  if (body.authoredAt !== undefined && typeof body.authoredAt !== "string") {
-    throw new HttpError(400, "bad_request", "authoredAt 不合法");
-  }
-  const authoredAtRaw = typeof body.authoredAt === "string" ? body.authoredAt : new Date().toISOString();
-  const authoredTime = Date.parse(authoredAtRaw);
-  if (!Number.isFinite(authoredTime)) throw new HttpError(400, "bad_request", "authoredAt 不合法");
-  const authoredAt = new Date(authoredTime).toISOString();
-
-  if (!Array.isArray(body.files) || body.files.length === 0) {
-    throw new HttpError(400, "bad_request", "必须提供卡片文件列表");
-  }
-  const rawFiles = body.files.map((item) => {
-    if (!item || typeof item !== "object" || Array.isArray(item)) {
-      throw new HttpError(400, "bad_request", "文件项不合法");
-    }
-    const rec = item as Record<string, unknown>;
-    if (typeof rec.path !== "string" || typeof rec.contentBase64 !== "string") {
-      throw new HttpError(400, "bad_request", "文件项缺少 path 或 contentBase64");
-    }
-    const role = rec.role === undefined ? undefined : String(rec.role) as BundleFileRole;
-    const bytes = Buffer.from(rec.contentBase64, "base64");
-    return { path: rec.path, bytes, role };
-  });
-
-  let validated;
-  try {
-    validated = validateBundle(rawFiles);
-  } catch (error) {
-    throw new HttpError(400, "bad_request", error instanceof Error ? error.message : "卡片包不合法");
-  }
-
-  const feed = store(deps);
-  if (!(await feed.hasAgent(ownerId, botSlug, mode))) {
-    throw new HttpError(404, "not_found", "没有这个 bot");
-  }
-
-  const artifactId = randomUUID();
-  const version = 1;
-  for (const file of validated.files) {
-    const ok = await objects.write(artifactId, version, file.path, file.bytes, file.contentType);
-    if (!ok) throw new HttpError(502, "object_write", "对象写入失败");
-  }
-  const created = await feed.publishCard({
-    ownerId,
-    botSlug,
-    artifactId,
-    version,
-    title,
-    visibility,
-    provenance,
-    authoredAt,
-    manifestSha256: validated.manifestSha256,
-    files: validated.files,
-    mode,
-  });
-  if (!created) throw new HttpError(404, "not_found", "没有这个 bot");
-  sendJson(res, 201, created);
 }
 
 async function serveArtifact(deps: FeedDeps, req: IncomingMessage, res: ServerResponse, path: string): Promise<void> {
@@ -299,28 +201,6 @@ function store(deps: FeedDeps): FeedStore {
     feeds.set(deps.pool, feed);
   }
   return feed;
-}
-
-async function readJsonObject(req: IncomingMessage, maxBytes: number): Promise<Record<string, unknown>> {
-  const type = req.headers["content-type"] ?? "";
-  if (!type.includes("application/json")) throw new HttpError(400, "bad_request", "请求必须是 JSON");
-  const chunks: Buffer[] = [];
-  let size = 0;
-  for await (const chunk of req) {
-    const buffer = Buffer.from(chunk);
-    size += buffer.length;
-    if (size > maxBytes) throw new HttpError(413, "too_large", "请求太大");
-    chunks.push(buffer);
-  }
-  if (size === 0) return {};
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(Buffer.concat(chunks).toString("utf8"));
-  } catch {
-    throw new HttpError(400, "bad_request", "请求不是 JSON");
-  }
-  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new HttpError(400, "bad_request", "请求必须是 JSON 对象");
-  return parsed as Record<string, unknown>;
 }
 
 async function readEmpty(req: IncomingMessage): Promise<void> {

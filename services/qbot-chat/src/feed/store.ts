@@ -147,6 +147,8 @@ export function createFeedStore(pool: pg.Pool): FeedStore {
       const result = await pool.query<CardRow>(
         `${CARD_SELECT}
          WHERE g.visibility = 'public'
+         AND (c.visible_from IS NULL OR c.visible_from <= now())
+         AND (c.visible_until IS NULL OR c.visible_until >= now())
          AND (
            ($2::text = 'recommended' AND c.visibility = 'public')
            OR ($2::text = 'following' AND EXISTS (
@@ -191,7 +193,13 @@ export function createFeedStore(pool: pg.Pool): FeedStore {
       return true;
     },
     async card(ownerId, cardId, mode) {
-      const result = await pool.query<CardRow>(`${CARD_SELECT} WHERE c.id = $2`, [ownerId, cardId]);
+      const result = await pool.query<CardRow>(
+        `${CARD_SELECT}
+         WHERE c.id = $2
+         AND (c.visible_from IS NULL OR c.visible_from <= now())
+         AND (c.visible_until IS NULL OR c.visible_until >= now())`,
+        [ownerId, cardId],
+      );
       const row = result.rows[0];
       if (!row || !canRead(row, mode)) return null;
       const files = await filesFor(pool, row.artifact_id);
@@ -255,7 +263,15 @@ export function createFeedStore(pool: pg.Pool): FeedStore {
            WHERE artifact_id IN (SELECT id FROM artifacts WHERE card_id = $1)`,
           [cardId],
         );
-        await query("UPDATE cards SET artifact_id = NULL WHERE id = $1", [cardId]);
+        await query(
+          `UPDATE cards
+           SET artifact_id = NULL,
+               previous_artifact_id = NULL,
+               current_import_id = NULL,
+               previous_import_id = NULL
+           WHERE id = $1`,
+          [cardId],
+        );
         await query("DELETE FROM artifacts WHERE card_id = $1", [cardId]);
         const removed = await query("DELETE FROM cards WHERE id = $1", [cardId]);
         return removed.rowCount === 1;

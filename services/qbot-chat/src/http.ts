@@ -3,6 +3,10 @@ import type pg from "pg";
 import { tokensMatch, readBearer } from "./auth.ts";
 import type { Config } from "./config.ts";
 import { errorBody, HttpError, publicErrorMessage } from "./errors.ts";
+import { tryCardImport } from "./card-import/routes.ts";
+import type { CardImportStore } from "./card-import/store.ts";
+import { createLocalZipStore, type ZipStore } from "./card-import/uploads.ts";
+import type { CardImportWorker } from "./card-import/worker.ts";
 import { createObjectStore, type ObjectStore } from "./feed/objects.ts";
 import { tryFeed } from "./feed/routes.ts";
 import { createArtifactCache, createRateLimiter, sendJson, type ArtifactCache, type RateLimiter } from "./http-utils.ts";
@@ -20,19 +24,24 @@ export type ChatServerDeps = {
   pool?: pg.Pool;
   objects?: ObjectStore;
   artifactCache?: ArtifactCache;
+  cardImports?: CardImportStore;
+  cardImportWorker?: CardImportWorker;
+  zipStore?: ZipStore;
   upstreamTimeoutMs?: number;
 };
 
 export function createChatServer(deps: ChatServerDeps) {
   const limiter = createRateLimiter();
   const feedLimiter = createRateLimiter();
+  const importLimiter = createRateLimiter();
   const full: ChatServerDeps = {
     ...deps,
     objects: deps.objects ?? createObjectStore({ objectRoot: deps.config.objectRoot, oss: deps.config.oss, publicOss: deps.config.publicOss }),
     artifactCache: deps.artifactCache ?? createArtifactCache(),
+    zipStore: deps.zipStore ?? createLocalZipStore(deps.config.importDir),
   };
   return createServer((req, res) => {
-    void handle(full, req, res, limiter, feedLimiter).catch((error: unknown) => {
+    void handle(full, req, res, limiter, feedLimiter, importLimiter).catch((error: unknown) => {
       if (res.headersSent || res.writableEnded) return;
       if (error instanceof HttpError) {
         sendJson(res, error.status, errorBody(error.code, error.message));
@@ -44,7 +53,14 @@ export function createChatServer(deps: ChatServerDeps) {
   });
 }
 
-async function handle(deps: ChatServerDeps, req: IncomingMessage, res: ServerResponse, limiter: RateLimiter, feedLimiter: RateLimiter): Promise<void> {
+async function handle(
+  deps: ChatServerDeps,
+  req: IncomingMessage,
+  res: ServerResponse,
+  limiter: RateLimiter,
+  feedLimiter: RateLimiter,
+  importLimiter: RateLimiter,
+): Promise<void> {
   const url = new URL(req.url ?? "/", "http://127.0.0.1");
   const path = url.pathname;
   if (req.method === "GET" && path === "/health") {
@@ -56,6 +72,7 @@ async function handle(deps: ChatServerDeps, req: IncomingMessage, res: ServerRes
     }
     return;
   }
+  if (await tryCardImport(deps, req, res, importLimiter)) return;
   if (await tryFeed(deps, req, res, feedLimiter)) return;
   if (!deps.config.personalOpen) {
     const token = readBearer(req.headers.authorization);

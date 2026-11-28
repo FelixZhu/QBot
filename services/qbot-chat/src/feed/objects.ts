@@ -1,4 +1,4 @@
-import { createHmac } from "node:crypto";
+import { createHash, createHmac } from "node:crypto";
 import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { isIP } from "node:net";
 import path from "node:path";
@@ -343,8 +343,20 @@ export function createLocalObjectStore(root: string, prefix = DEFAULT_KEY_PREFIX
       const directory = path.resolve(base, safePrefix, artifactId, `v${version}`) + path.sep;
       if (!full.startsWith(directory)) return false;
       await mkdir(path.dirname(full), { recursive: true });
-      await writeFile(full, bytes, { flag: "wx" });
-      return true;
+      try {
+        await writeFile(full, bytes, { flag: "wx" });
+        return true;
+      } catch (error) {
+        if (typeof error === "object" && error !== null && "code" in error && (error as { code?: unknown }).code === "EEXIST") {
+          try {
+            const existing = await readFile(full);
+            return createHash("sha256").update(existing).digest("hex") === createHash("sha256").update(bytes).digest("hex");
+          } catch {
+            return false;
+          }
+        }
+        throw error;
+      }
     },
   };
 }

@@ -13,6 +13,7 @@ import type { ConversationEngine } from "../src/runtime/dsh.ts";
 import { loadManifest, placeBundles, seedCards } from "../src/seed-cards.ts";
 import { startChatServer } from "../src/server.ts";
 import { createStore } from "../src/store.ts";
+import { buildCardPackageZip } from "./build-package.ts";
 
 const TOKEN = "qbot-fixture-token-not-a-secret";
 const OWNER = "00000000-0000-4000-8000-000000000001";
@@ -237,40 +238,31 @@ test("seed, feeds, follow, and bundle access against temporary postgres", { time
       assert.equal((await restored.json() as { followed: boolean }).followed, true);
       assert.deepEqual(await counts(pool), before);
 
-      const dynPng = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
-      const dynHtml = Buffer.from("<!doctype html><main>动态新卡片</main>", "utf8");
-      const openPayload = (overrides: Record<string, unknown> = {}) => JSON.stringify({
-        title: "免登录公开卡片",
-        provenance: "agent",
-        files: [
-          { path: "cover-light.png", contentBase64: dynPng.toString("base64") },
-          { path: "cover-dark.png", contentBase64: dynPng.toString("base64") },
-          { path: "index.html", contentBase64: dynHtml.toString("base64") },
-        ],
-        ...overrides,
-      });
-
-      assert.equal((await json(base, "/v1/cards", { method: "POST", body: openPayload({ visibility: "followers" }) })).status, 404);
-      assert.equal((await json(base, "/v1/cards", { method: "POST", body: openPayload({ visibility: "private" }) })).status, 404);
-      assert.equal((await json(base, "/v1/cards", { method: "POST", body: openPayload({ botSlug: "other", visibility: "public" }) })).status, 404);
-
-      const openPublished = await json(base, "/v1/cards", {
+      // Old sync JSON+Base64 publish route POST /v1/cards is deleted.
+      assert.equal((await fetch(`${base}/v1/cards`, {
         method: "POST",
-        body: openPayload({ title: "免登录公开卡片", visibility: "public" }),
-      });
-      assert.equal(openPublished.status, 201, await openPublished.clone().text());
-      const openCard = await openPublished.json() as { id: string; artifactId: string; visibility: string };
-      assert.equal(openCard.visibility, "public");
-      assert.equal((await fetch(`${base}/v1/cards/${openCard.id}`, { method: "DELETE" })).status, 404);
-      assert.equal((await fetch(`${base}/v1/cards/${openCard.id}`, {
-        method: "DELETE",
-        headers: { Authorization: "Bearer wrong-token-value-123456" },
+        headers: { Authorization: `Bearer ${TOKEN}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ title: "旧入口已删除", files: [] }),
       })).status, 404);
-      assert.equal((await fetch(`${base}/v1/cards/${openCard.id}`)).status, 200);
-      assert.equal((await fetch(`${base}/v1/cards/${openCard.id}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${TOKEN}` },
-      })).status, 204);
+      assert.equal((await fetch(`${base}/v1/cards`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: "旧入口已删除", files: [] }),
+      })).status, 404);
+
+      // QBOT_FEED_OPEN=1 must NOT open /v1/card-imports* write paths without Bearer.
+      const pkgV1 = buildCardPackageZip({
+        cardKey: "pg-async-card",
+        contentVersion: 1,
+        title: "异步导入测试卡片",
+        quote: "这是 Postgres 端到端异步导入验证结论",
+        idempotencyKey: "pg-feed-async-card-v1",
+      });
+      assert.equal((await fetch(`${base}/v1/card-imports`, {
+        method: "POST",
+        headers: { "Content-Type": "application/zip", "Idempotency-Key": pkgV1.idempotencyKey },
+        body: new Uint8Array(pkgV1.zip),
+      })).status, 401);
 
       const readonlyFeed = await startChatServer({
         config: loadConfig({
@@ -285,15 +277,17 @@ test("seed, feeds, follow, and bundle access against temporary postgres", { time
           QBOT_FEED_OPEN: "1",
           QBOT_OSS_PUBLIC: "1",
           QBOT_OSS_PUBLIC_ORIGIN: "https://cards.example.invalid",
+          QBOT_IMPORT_DIR: mkdtempSync(path.join(tmpdir(), "qbot-pg-ro-imports-")),
         }),
         store: createStore(pool),
         runtime: stubRuntime(),
         pool,
       });
       try {
-        const roRes = await json(`http://127.0.0.1:${readonlyFeed.port}`, "/v1/cards", {
+        const roRes = await fetch(`http://127.0.0.1:${readonlyFeed.port}/v1/card-imports`, {
           method: "POST",
-          body: openPayload(),
+          headers: { Authorization: `Bearer ${TOKEN}`, "Content-Type": "application/zip", "Idempotency-Key": pkgV1.idempotencyKey },
+          body: new Uint8Array(pkgV1.zip),
         });
         assert.equal(roRes.status, 503);
         const roBody = await roRes.json() as { error?: { code?: string } };
@@ -302,39 +296,112 @@ test("seed, feeds, follow, and bundle access against temporary postgres", { time
         await readonlyFeed.close();
       }
 
-      const published = await fetch(`${base}/v1/cards`, {
+      // Async import v1 -> queued -> ready (hidden from Feed) -> publish -> visible -> capability/files -> rollback -> hidden -> v2 publish -> DELETE.
+      const importedV1 = await fetch(`${base}/v1/card-imports`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${TOKEN}`, "Content-Type": "application/zip", "Idempotency-Key": pkgV1.idempotencyKey },
+        body: new Uint8Array(pkgV1.zip),
+      });
+      assert.equal(importedV1.status, 202, await importedV1.clone().text());
+      const v1Job = await importedV1.json() as { importId: string; state: string };
+      assert.equal(v1Job.state, "accepted");
+      const v1Ready = await pollImportState(base, v1Job.importId, ["ready", "rejected"]);
+      assert.equal(v1Ready.state, "ready", JSON.stringify(v1Ready));
+      assert.equal(v1Ready.visibility, "hidden");
+      assert.equal(v1Ready.publishAllowed, true);
+      assert.equal(v1Ready.notification, "not-authorized");
+      const importedCardId = String(v1Ready.cardId);
+      assert.equal((await fetch(`${base}/v1/cards/${importedCardId}`)).status, 404, "ready import must stay hidden until publish");
+
+      // sample=true stops at staged and publish is rejected.
+      const samplePkg = buildCardPackageZip({
+        cardKey: "pg-sample-card",
+        contentVersion: 1,
+        sample: true,
+        idempotencyKey: "pg-feed-sample-v1",
+      });
+      const samplePost = await fetch(`${base}/v1/card-imports`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${TOKEN}`, "Content-Type": "application/zip", "Idempotency-Key": samplePkg.idempotencyKey },
+        body: new Uint8Array(samplePkg.zip),
+      });
+      assert.equal(samplePost.status, 202);
+      const sampleId = ((await samplePost.json()) as { importId: string }).importId;
+      const sampleStaged = await pollImportState(base, sampleId, ["staged", "ready", "rejected"]);
+      assert.equal(sampleStaged.state, "staged");
+      assert.equal(sampleStaged.publishAllowed, false);
+      assert.equal((await fetch(`${base}/v1/card-imports/${sampleId}/publish`, {
         method: "POST",
         headers: { Authorization: `Bearer ${TOKEN}`, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: "动态发布卡片",
-          provenance: "agent",
-          files: [
-            { path: "cover-light.png", contentBase64: dynPng.toString("base64") },
-            { path: "cover-dark.png", contentBase64: dynPng.toString("base64") },
-            { path: "index.html", contentBase64: dynHtml.toString("base64") },
-          ],
-        }),
+        body: JSON.stringify({ expectedPreviousVersion: null }),
+      })).status, 409);
+
+      // Publish v1
+      const publishedV1 = await fetch(`${base}/v1/card-imports/${v1Job.importId}/publish`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${TOKEN}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ expectedPreviousVersion: null }),
       });
-      assert.equal(published.status, 201, await published.clone().text());
-      const dynCard = await published.json() as {
+      assert.equal(publishedV1.status, 200, await publishedV1.clone().text());
+      const pubV1Body = await publishedV1.json() as { state: string; visibility: string; cardId: string };
+      assert.equal(pubV1Body.state, "published");
+      assert.equal(pubV1Body.visibility, "public");
+
+      const afterPublish = await readFeed(base, "following", null);
+      assert.equal(afterPublish.cards[0]?.id, importedCardId);
+      const dynDetailRes = await fetch(`${base}/v1/cards/${importedCardId}`);
+      assert.equal(dynDetailRes.status, 200);
+      const dynCard = await dynDetailRes.json() as {
         id: string;
         artifactId: string;
-        provenance: string;
         coverLightPath: string | null;
         coverDarkPath: string | null;
       };
-      assert.equal(dynCard.provenance, "agent");
       assert.equal(dynCard.coverLightPath, "cover-light.png");
       assert.equal(dynCard.coverDarkPath, "cover-dark.png");
-      const afterPublish = await readFeed(base, "following", null);
-      assert.equal(afterPublish.cards[0]?.id, dynCard.id);
       const dynCap = await (await json(base, `/v1/cards/${dynCard.id}/capability`, { method: "POST", body: "{}" })).json() as { token: string };
-      const dynPage = await fetch(`${base}/v1/artifacts/${dynCard.artifactId}/v/1/${dynCap.token}/files/index.html`);
+      const dynPage = await fetch(`${base}/v1/artifacts/${dynCard.artifactId}/v/1/${dynCap.token}/files/work/index.html`);
       assert.equal(dynPage.status, 200);
-      assert.match(await dynPage.text(), /动态新卡片/);
+      assert.match(await dynPage.text(), /异步导入验证结论/);
       const dynDarkCover = await fetch(`${base}/v1/artifacts/${dynCard.artifactId}/v/1/${dynCap.token}/files/cover-dark.png`);
       assert.equal(dynDarkCover.status, 200);
       assert.equal(dynDarkCover.headers.get("content-type"), "image/png");
+
+      // Publish v2 then rollback to v1
+      const pkgV2 = buildCardPackageZip({
+        cardKey: "pg-async-card",
+        contentVersion: 2,
+        expectedPreviousVersion: 1,
+        title: "异步导入第二版",
+        quote: "这是第二版更新后的核心结论",
+        idempotencyKey: "pg-feed-async-card-v2",
+      });
+      const postV2 = await fetch(`${base}/v1/card-imports`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${TOKEN}`, "Content-Type": "application/zip", "Idempotency-Key": pkgV2.idempotencyKey },
+        body: new Uint8Array(pkgV2.zip),
+      });
+      assert.equal(postV2.status, 202);
+      const v2Id = ((await postV2.json()) as { importId: string }).importId;
+      assert.equal((await pollImportState(base, v2Id, ["ready", "rejected"])).state, "ready");
+      const pubV2 = await fetch(`${base}/v1/card-imports/${v2Id}/publish`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${TOKEN}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ expectedPreviousVersion: 1 }),
+      });
+      assert.equal(pubV2.status, 200);
+      assert.equal(((await (await fetch(`${base}/v1/cards/${importedCardId}`)).json()) as { artifactVersion: number }).artifactVersion, 2);
+
+      const rbV2 = await fetch(`${base}/v1/card-imports/${v2Id}/rollback`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${TOKEN}`, "Content-Type": "application/json" },
+        body: "{}",
+      });
+      assert.equal(rbV2.status, 200);
+      assert.equal(((await rbV2.json()) as { state: string }).state, "rolled-back");
+      assert.equal(((await (await fetch(`${base}/v1/cards/${importedCardId}`)).json()) as { artifactVersion: number }).artifactVersion, 1);
+
+      // DELETE /v1/cards/:id still enforces Bearer and works after card-import publish/rollback.
       assert.equal((await fetch(`${base}/v1/cards/${dynCard.id}`, { method: "DELETE" })).status, 404);
       const deleted = await fetch(`${base}/v1/cards/${dynCard.id}`, {
         method: "DELETE",
@@ -370,7 +437,12 @@ test("seed, feeds, follow, and bundle access against temporary postgres", { time
       try {
         assert.equal((await fetch(`http://127.0.0.1:${personal.port}/v1/session`)).status, 200);
         assert.equal((await fetch(`http://127.0.0.1:${personal.port}/v1/feed?scope=following`)).status, 401);
-        assert.equal((await json(`http://127.0.0.1:${personal.port}`, "/v1/cards", { method: "POST", body: openPayload() })).status, 401);
+        assert.equal((await fetch(`http://127.0.0.1:${personal.port}/v1/cards`, { method: "POST" })).status, 404);
+        assert.equal((await fetch(`http://127.0.0.1:${personal.port}/v1/card-imports`, {
+          method: "POST",
+          headers: { "Content-Type": "application/zip", "Idempotency-Key": pkgV1.idempotencyKey },
+          body: new Uint8Array(pkgV1.zip),
+        })).status, 401);
         assert.equal((await fetch(`http://127.0.0.1:${personal.port}/v1/cards/${INFO}`, { method: "DELETE" })).status, 401);
       } finally {
         await personal.close();
@@ -497,4 +569,17 @@ function requiredEnv(name: string): string {
   const value = process.env[name];
   if (!value) throw new Error(`${name} is required`);
   return value;
+}
+
+async function pollImportState(base: string, importId: string, terminal: readonly string[]): Promise<Record<string, unknown>> {
+  for (let i = 0; i < 80; i += 1) {
+    const res = await fetch(`${base}/v1/card-imports/${importId}`, {
+      headers: { Authorization: `Bearer ${TOKEN}` },
+    });
+    assert.equal(res.status, 200, await res.clone().text());
+    const body = await res.json() as Record<string, unknown>;
+    if (terminal.includes(String(body.state))) return body;
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+  throw new Error(`timed out waiting for import ${importId}`);
 }
