@@ -2,7 +2,7 @@
 
 本方案已由 Qian 于 2026-11-28 确认。本分支已在 `services/qbot-chat` 实现异步卡片包导入、状态查询、单步发布与回滚接口（`POST /v1/card-imports`、`GET /v1/card-imports/{importId}`、`POST /v1/card-imports/{importId}/publish`、`POST /v1/card-imports/{importId}/rollback`），并已同步删除旧的 `POST /v1/cards` 接口。`QBOT_FEED_OPEN` 与 `QBOT_PERSONAL_OPEN` 都不能打开这些导入、发布与回滚路径。Skill 尚未创建；通知发送仍保持 `not-authorized`；私人对象读取仍无授权；本 PR 不包含生产部署。
 
-`docs/card-package/v1.example.json` 的 digest、hash 和 bytes 是占位，`importable` 为 false，`sample` 为 true。它不能导入，也不能正式发布。`v1.schema.json` 只检查字段形状。形状通过之后，仍要做本文的摘要、HTML、CSP 和 SSRF 检查。
+`docs/card-package/v1.example.json` 的 digest、hash 和 bytes 是占位，`importable` 为 false，`sample` 为 true。它不能导入，也不能正式发布。`v1.schema.json` 只检查字段形状。形状通过之后，仍要做本文的摘要、HTML、CSP 和 SSRF 检查。 运行时校验器读取随 `services/qbot-chat` 一起发布的副本 `services/qbot-chat/docs/card-package/v1.schema.json`，该文件必须与本文目录下的 `v1.schema.json` 保持字节一致。不要把校验路径指到服务目录之外，否则只同步 `services/qbot-chat` 的部署会漏掉 schema。
 
 ## 版本和未知字段
 

@@ -18,7 +18,12 @@ type SchemaDoc = {
 let compiled: ValidateFunction | null = null;
 
 /**
- * Compile docs/card-package/v1.schema.json for real imports.
+ * Compile the card-package schema shipped with this service
+ * (`docs/card-package/v1.schema.json` under services/qbot-chat).
+ * The published contract also lives at repo-root docs/card-package/v1.schema.json;
+ * a test requires the two copies to stay byte-identical.
+ * The path stays inside the service tree so a deploy that rsyncs only
+ * services/qbot-chat still has the file.
  * Example-only markers (exampleOnly, importable, note) are removed so v1.example.json is never accepted.
  */
 export function loadImportValidator(schemaPath = defaultSchemaPath()): ValidateFunction {
@@ -40,7 +45,7 @@ export function loadImportValidator(schemaPath = defaultSchemaPath()): ValidateF
 }
 
 export function defaultSchemaPath(): string {
-  return join(dirname(fileURLToPath(import.meta.url)), "../../../../docs/card-package/v1.schema.json");
+  return join(dirname(fileURLToPath(import.meta.url)), "../../docs/card-package/v1.schema.json");
 }
 
 /**

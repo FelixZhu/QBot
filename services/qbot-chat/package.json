@@ -14,7 +14,7 @@
     "seed": "node --experimental-strip-types src/seed-cards.ts",
     "seed-keys": "node --experimental-strip-types src/seed-keys.ts",
     "upload-seed": "node --experimental-strip-types src/upload-seed.ts",
-    "test": "node --experimental-strip-types --test test/context.test.ts test/dsh-profile.test.ts test/upstream-error.test.ts test/http-utils.test.ts test/bundle.test.ts test/paths.test.ts test/open-access.test.ts test/card-import.test.ts test/feed.test.ts test/server.test.ts test/scan-secrets.ts"
+    "test": "node --experimental-strip-types --test test/context.test.ts test/dsh-profile.test.ts test/upstream-error.test.ts test/http-utils.test.ts test/bundle.test.ts test/paths.test.ts test/open-access.test.ts test/schema-packaging.test.ts test/card-import.test.ts test/feed.test.ts test/server.test.ts test/scan-secrets.ts"
   },
   "dependencies": {
     "@deepseek-ai/dsh": "0.2.2-rc.5",
