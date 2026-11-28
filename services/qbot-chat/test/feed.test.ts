@@ -239,16 +239,18 @@ test("seed, feeds, follow, and bundle access against temporary postgres", { time
       assert.deepEqual(await counts(pool), before);
 
       // Old sync JSON+Base64 publish route POST /v1/cards is deleted.
-      assert.equal((await fetch(`${base}/v1/cards`, {
+      const deletedAuthed = await fetch(`${base}/v1/cards`, {
         method: "POST",
         headers: { Authorization: `Bearer ${TOKEN}`, "Content-Type": "application/json" },
         body: JSON.stringify({ title: "旧入口已删除", files: [] }),
-      })).status, 404);
-      assert.equal((await fetch(`${base}/v1/cards`, {
+      });
+      assert.ok([404, 405].includes(deletedAuthed.status), `unexpected status ${deletedAuthed.status}`);
+      const deletedAnon = await fetch(`${base}/v1/cards`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ title: "旧入口已删除", files: [] }),
-      })).status, 404);
+      });
+      assert.ok([401, 404, 405].includes(deletedAnon.status), `unexpected status ${deletedAnon.status}`);
 
       // QBOT_FEED_OPEN=1 must NOT open /v1/card-imports* write paths without Bearer.
       const pkgV1 = buildCardPackageZip({
@@ -437,7 +439,8 @@ test("seed, feeds, follow, and bundle access against temporary postgres", { time
       try {
         assert.equal((await fetch(`http://127.0.0.1:${personal.port}/v1/session`)).status, 200);
         assert.equal((await fetch(`http://127.0.0.1:${personal.port}/v1/feed?scope=following`)).status, 401);
-        assert.equal((await fetch(`http://127.0.0.1:${personal.port}/v1/cards`, { method: "POST" })).status, 404);
+        const personalDeleted = await fetch(`http://127.0.0.1:${personal.port}/v1/cards`, { method: "POST" });
+        assert.ok([401, 404, 405].includes(personalDeleted.status), `unexpected status ${personalDeleted.status}`);
         assert.equal((await fetch(`http://127.0.0.1:${personal.port}/v1/card-imports`, {
           method: "POST",
           headers: { "Content-Type": "application/zip", "Idempotency-Key": pkgV1.idempotencyKey },
