@@ -15,6 +15,5 @@ export const LIMITS = {
   tokenMax: 256,
   feedPage: 20,
   capabilitySeconds: 600,
-  artifactBytes: 1_500_000,
-  publishBodyBytes: 6 * 1024 * 1024,
+  artifactBytes: 8 * 1024 * 1024,
 } as const;

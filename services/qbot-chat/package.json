@@ -14,18 +14,24 @@
     "seed": "node --experimental-strip-types src/seed-cards.ts",
     "seed-keys": "node --experimental-strip-types src/seed-keys.ts",
     "upload-seed": "node --experimental-strip-types src/upload-seed.ts",
-    "test": "node --experimental-strip-types --test test/context.test.ts test/dsh-profile.test.ts test/upstream-error.test.ts test/http-utils.test.ts test/bundle.test.ts test/paths.test.ts test/open-access.test.ts test/feed.test.ts test/server.test.ts test/scan-secrets.ts"
+    "test": "node --experimental-strip-types --test test/context.test.ts test/dsh-profile.test.ts test/upstream-error.test.ts test/http-utils.test.ts test/bundle.test.ts test/paths.test.ts test/open-access.test.ts test/card-import.test.ts test/feed.test.ts test/server.test.ts test/scan-secrets.ts"
   },
   "dependencies": {
     "@deepseek-ai/dsh": "0.2.2-rc.5",
     "@deepseek-ai/dsh-llm-pi-ai": "0.2.2-rc.5",
     "@deepseek-ai/dsh-sdk-client": "0.2.2-rc.5",
+    "ajv": "^8.20.0",
+    "ajv-formats": "^3.0.1",
     "assistant-stream": "^0.3.58",
-    "pg": "^8.16.3"
+    "canonicalize": "^2.1.0",
+    "parse5": "^7.3.0",
+    "pg": "^8.16.3",
+    "yauzl": "^2.10.0"
   },
   "devDependencies": {
     "@types/node": "^22.19.1",
     "@types/pg": "^8.15.6",
+    "@types/yauzl": "^2.10.3",
     "typescript": "~5.9.3"
   }
 }

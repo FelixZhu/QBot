@@ -8,16 +8,19 @@ const TYPES: Record<string, string> = {
   webp: "image/webp",
   jpg: "image/jpeg",
   jpeg: "image/jpeg",
+  gif: "image/gif",
+  woff2: "font/woff2",
+  json: "application/json",
   js: "text/javascript; charset=utf-8",
 };
 
-/** CSP for a card document. The page cannot call the app, the network, or a parent frame. */
+/** CSP for a card document. The page cannot call the app, the network, scripts, or a parent frame. */
 export const ARTIFACT_CSP = [
   "default-src 'none'",
   "style-src 'self'",
   "img-src 'self' data:",
   "font-src 'none'",
-  "script-src 'self'",
+  "script-src 'none'",
   "connect-src 'none'",
   "media-src 'none'",
   "object-src 'none'",

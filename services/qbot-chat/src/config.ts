@@ -34,13 +34,14 @@ export type Config = {
   /** Explicit private-deploy switch. Unset stays on bearer auth. */
   personalOpen: boolean;
   /**
-   * Separate from personalOpen. Unset keeps feed, follow, and card routes on the bearer.
-   * Exactly `1` lets the single configured owner read cards, publish public cards on a
-   * public bot, and follow or unfollow a public bot. Deleting cards still requires the
-   * bearer. It does not open chat, and chat's flag does not open these routes.
+   * Separate from personalOpen. Unset keeps feed, follow, and card read routes on the bearer.
+   * Exactly `1` lets the single configured owner read public cards on a public bot and follow
+   * or unfollow a public bot. Card import, publish, rollback, and card delete always require
+   * the bearer. It does not open chat, and chat's flag does not open these routes.
    */
   feedOpen: boolean;
   objectRoot: string | null;
+  importDir: string;
   oss: OssConfig | null;
   /** Explicit anonymous read of the already-public card objects. Off unless exactly 1. */
   publicOss: PublicOssConfig | null;
@@ -78,6 +79,12 @@ export function loadConfig(env: NodeJS.ProcessEnv): Config {
   } else if (fixtureUpstreamUrl) {
     throw new Error("QBOT_FIXTURE_UPSTREAM_URL is set without QBOT_FIXTURE_UPSTREAM=1");
   }
+  const rawImportDir = (env.QBOT_IMPORT_DIR ?? "").trim();
+  if (rawImportDir && (!path.isAbsolute(rawImportDir) || rawImportDir.includes("\0"))) {
+    throw new Error("QBOT_IMPORT_DIR must be an absolute path");
+  }
+  const importDir = rawImportDir
+    || (objects.objectRoot ? path.join(objects.objectRoot, ".card-imports") : path.join(process.cwd(), "var", "card-imports"));
   return {
     databaseUrl,
     migrateUrl: (env.DATABASE_MIGRATE_URL ?? "").trim() || null,
@@ -92,6 +99,7 @@ export function loadConfig(env: NodeJS.ProcessEnv): Config {
     personalOpen,
     feedOpen,
     objectRoot: objects.objectRoot,
+    importDir,
     oss: objects.oss,
     publicOss: objects.publicOss,
   };
